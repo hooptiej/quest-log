@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Self-hosted project/idea tracker with checkboxes and a mission log",
   "type": "module",
-  "main": "server.js",
+  "main": "app/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node app/server.js"
   },
   "license": "MIT",
   "dependencies": {
