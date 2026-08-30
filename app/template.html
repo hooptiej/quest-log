@@ -80,6 +80,21 @@
 
   .wrap { max-width: 760px; margin: 0 auto; padding: 2.25rem 1.25rem 4rem; }
 
+  /* ---------- main + sidebar layout ---------- */
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.75rem;
+    align-items: start;
+  }
+
+  @media (min-width: 900px) {
+    .wrap { max-width: 1040px; }
+    .layout { grid-template-columns: minmax(0, 1fr) 280px; }
+    .layout-sidebar { position: sticky; top: 1.5rem; }
+  }
+
   /* ---------- header / terminal boot ---------- */
 
   .boot {
@@ -113,6 +128,8 @@
     border-radius: 3px;
   }
   .theme-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .name-input { width: 6.5rem; }
+  .name-input::placeholder { color: var(--muted); opacity: 0.6; }
 
   header.masthead {
     position: relative;
@@ -125,9 +142,11 @@
     top: 0.5rem;
     right: 0;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
   }
+  .switcher-row { display: flex; align-items: center; gap: 0.5rem; }
   .theme-switcher label {
     font-family: var(--font-mono);
     font-size: 0.68rem;
@@ -297,6 +316,22 @@
   .tree-node .tree-children { margin-top: 0.6rem; padding-left: 1rem; border-left: 1px dashed var(--border); }
 
   .tree-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+  .tree-title-group { display: flex; align-items: baseline; gap: 0.4rem; }
+  .tree-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--panel-accent, var(--accent));
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.3;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .tree-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tree-toggle-spacer { display: inline-block; width: 0.7rem; flex-shrink: 0; }
+  .tree-children.collapsed { display: none; }
   .tree-title { font-weight: 600; font-size: 0.94rem; color: var(--text); }
   .tree-node.is-done .tree-title { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent2); text-decoration-thickness: 1.5px; }
   .tree-meta { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
@@ -523,31 +558,27 @@
   }
   @keyframes blink { 50% { opacity: 0; } }
 
-  /* ---------- session log ---------- */
+  /* ---------- session log (compact sidebar widget) ---------- */
 
-  .log-panel { --panel-accent: #a8a8a8; }
-  .log-entry-date {
+  .log-panel-mini { --panel-accent: #a8a8a8; padding: 1.1rem 1.2rem 1.2rem; }
+  .log-panel-mini h2 { font-size: 0.75rem; margin-bottom: 0.75rem; }
+  .log-mini-list { margin: 0; padding: 0; list-style: none; }
+  .log-mini-list li {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
-    color: var(--accent);
-    margin: 1.1rem 0 0.45rem;
-  }
-  .log-entry-date:first-child { margin-top: 0; }
-  .log-list { margin: 0; padding: 0; list-style: none; }
-  .log-list li {
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
+    font-size: 0.72rem;
     color: var(--muted);
-    padding: 0.2rem 0 0.2rem 1.1rem;
-    position: relative;
-    line-height: 1.5;
+    padding: 0.35rem 0;
+    line-height: 1.45;
+    border-bottom: 1px dashed var(--border);
   }
-  .log-list li::before {
-    content: ">";
-    position: absolute;
-    left: 0;
-    color: var(--accent-dim);
+  .log-mini-list li:last-child { border-bottom: none; }
+  .log-mini-date {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    opacity: 0.8;
+    margin-bottom: 0.1rem;
   }
 
   footer.sig {
@@ -573,28 +604,34 @@
   }
 
   @media (max-width: 560px) {
-    .theme-switcher { position: static; justify-content: center; margin-bottom: 0.75rem; }
+    .theme-switcher { position: static; align-items: center; margin-bottom: 0.75rem; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="boot">
-    <div class="boot-line"><span>WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
+    <div class="boot-line"><span id="boot-org-line">WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
     <div class="boot-line"><span>TERMINAL: MU/TH/UR-6000</span><span id="boot-time" class="ok">STANDING BY</span></div>
   </div>
 
   <header class="masthead">
     <div class="theme-switcher">
-      <label for="theme-select">Display Mode</label>
-      <select id="theme-select" class="theme-select" aria-label="Display theme">
-        <option value="muthur">MU/TH/UR-6000</option>
-        <option value="terminal">FIELD TERMINAL</option>
-      </select>
+      <div class="switcher-row">
+        <label for="theme-select">Display Mode</label>
+        <select id="theme-select" class="theme-select" aria-label="Display theme">
+          <option value="muthur">MU/TH/UR-6000</option>
+          <option value="terminal">FIELD TERMINAL</option>
+        </select>
+      </div>
+      <div class="switcher-row">
+        <label for="name-input">Designation</label>
+        <input id="name-input" class="theme-select name-input" type="text" maxlength="24" placeholder="unnamed" autocomplete="off" aria-label="Your designation">
+      </div>
     </div>
-    <div class="eyebrow">Interest: None</div>
+    <div class="eyebrow" id="eyebrow">Interest: None</div>
     <h1>MU/TH/UR Quest Log</h1>
-    <p class="subtitle">Priority One — Track All Missions</p>
+    <p class="subtitle"><span id="subtitle-prefix">Priority One</span> — Track All Missions</p>
   </header>
 
   <div class="status-panel">
@@ -606,48 +643,54 @@
     <div class="status-counts" id="status-counts"></div>
   </div>
 
-  <section class="panel panel-quests" id="quests-panel">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Quests <span class="count" id="count-quests"></span></h2>
-    <div id="quest-tree"></div>
-  </section>
+  <div class="layout">
+    <div class="layout-main">
+      <section class="panel panel-quests" id="quests-panel">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Quests <span class="count" id="count-quests"></span></h2>
+        <div id="quest-tree"></div>
+      </section>
 
-  <section class="panel panel-active">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Active Quests <span class="count" id="count-progress"></span></h2>
-    <div id="list-progress"></div>
-  </section>
+      <section class="panel panel-active">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Active Quests <span class="count" id="count-progress"></span></h2>
+        <div id="list-progress"></div>
+      </section>
 
-  <section class="panel panel-idea add-panel">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Idea Board <span class="count" id="count-idea"></span></h2>
-    <div id="list-idea"></div>
-    <form id="add-form" class="add-row" style="margin-top: 0.85rem;">
-      <span class="add-prompt">&gt;</span>
-      <input class="add-input" id="add-input" type="text" placeholder="log new idea..." autocomplete="off" maxlength="140">
-      <button class="add-btn" type="submit">Log It</button>
-    </form>
-  </section>
+      <section class="panel panel-idea add-panel">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Idea Board <span class="count" id="count-idea"></span></h2>
+        <div id="list-idea"></div>
+        <form id="add-form" class="add-row" style="margin-top: 0.85rem;">
+          <span class="add-prompt">&gt;</span>
+          <input class="add-input" id="add-input" type="text" placeholder="log new idea..." autocomplete="off" maxlength="140">
+          <button class="add-btn" type="submit">Log It</button>
+        </form>
+      </section>
 
-  <section class="panel panel-blocked">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Blocked <span class="count" id="count-blocked"></span></h2>
-    <div id="list-blocked"></div>
-  </section>
+      <section class="panel panel-blocked">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Blocked <span class="count" id="count-blocked"></span></h2>
+        <div id="list-blocked"></div>
+      </section>
 
-  <section class="panel panel-done">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Completed <span class="count" id="count-done"></span></h2>
-    <div id="list-done"></div>
-  </section>
+      <section class="panel panel-done">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Completed <span class="count" id="count-done"></span></h2>
+        <div id="list-done"></div>
+      </section>
 
-  <div class="save-indicator" id="save-indicator">saved</div>
+      <div class="save-indicator" id="save-indicator">saved</div>
+    </div>
 
-  <section class="panel log-panel">
-    <div class="corner-bl"></div><div class="corner-br"></div>
-    <h2>Mission Log</h2>
-    <div id="log-body"></div>
-  </section>
+    <aside class="layout-sidebar">
+      <section class="panel log-panel-mini">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <h2>Recent Activity</h2>
+        <ul class="log-mini-list" id="log-body-mini"></ul>
+      </section>
+    </aside>
+  </div>
 
   <footer class="sig">// end transmission — hooptiej homelab ops</footer>
 </div>

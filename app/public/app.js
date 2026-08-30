@@ -11,6 +11,44 @@
   // Mirrors state.js's LEVEL_UP -- what promote() steps a level up to.
   var LEVEL_UP = { task: "mission", mission: "quest" };
 
+  // Per-theme flavor text (#21): muthur is just one theme now, so its Alien
+  // wording shouldn't be hardcoded as the only wording. Each theme supplies
+  // an org line, a subtitle lead-in, and a designation template -- the
+  // designation is a function (not a fixed prefix string) since a future
+  // WoW entry (#9) needs the name and title in the other order ("{name},
+  // the Explorer" rather than "TITLE {name}").
+  var THEME_FLAVOR = {
+    muthur: {
+      orgLine: "WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION",
+      subtitlePrefix: "Priority One",
+      designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
+    },
+    terminal: {
+      orgLine: "VAULT-TEC OPERATIONS // WASTELAND DIVISION",
+      subtitlePrefix: "Vault-Tec Directive",
+      designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
+    }
+  };
+  var NAME_KEY = "questlog-name";
+
+  function applyFlavor() {
+    var theme = document.documentElement.dataset.theme || "muthur";
+    var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
+    var name = "";
+    try { name = (localStorage.getItem(NAME_KEY) || "").trim(); } catch (e) {}
+    var orgLineEl = document.getElementById("boot-org-line");
+    if (orgLineEl) orgLineEl.textContent = flavor.orgLine;
+    var subtitleEl = document.getElementById("subtitle-prefix");
+    if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
+    var eyebrowEl = document.getElementById("eyebrow");
+    if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
+  }
+
+  function truncate(s, max) {
+    if (s.length <= max) return s;
+    return s.slice(0, max).replace(/\s+\S*$/, "") + "…";
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -100,8 +138,11 @@
   // Read-only by design: a Quest/Mission with children only ever closes via
   // confirm_completion through Claude + the MCP tools (a conversation, not
   // a click) -- so this tree just displays current state, it doesn't offer
-  // controls to change it.
-  function treeNode(q, byParent) {
+  // controls to change it. `isRoot` controls the disclosure default (#21):
+  // top-level Quests start open, everything nested under one starts
+  // collapsed, so the tree shows what Quests/Missions exist without
+  // dumping every Task on the page at once.
+  function treeNode(q, byParent, isRoot) {
     var children = byParent[q.id] || [];
     var checked = q.status === "done";
     var hasChildren = children.length > 0;
@@ -111,10 +152,16 @@
     // with children would leave them one tier too deep (see promoteQuest in
     // state.js), so the button only shows once it's actually eligible.
     var canPromote = q.level !== "quest" && !hasChildren;
+    var expanded = !!isRoot;
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
-          '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
+          '<span class="tree-title-group">' +
+            (hasChildren
+              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>'
+              : '<span class="tree-toggle-spacer"></span>') +
+            '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
+          '</span>' +
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
             (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
@@ -123,7 +170,7 @@
           '</span>' +
         '</div>' +
         (q.notes ? '<div class="tree-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
-        (hasChildren ? '<div class="tree-children">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent, false); }).join("") + '</div>' : '') +
       '</div>'
     );
   }
@@ -146,7 +193,7 @@
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
+      ? roots.map(function (q) { return treeNode(q, byParent, true); }).join("")
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
@@ -195,14 +242,27 @@
     document.getElementById("count-blocked").textContent = "[" + groups.blocked.length + "]";
     document.getElementById("count-done").textContent = "[" + groups.done.length + "]";
 
-    var logBody = document.getElementById("log-body");
-    logBody.innerHTML = state.log.map(function (day) {
-      return '<div class="log-entry-date">' + day.date + '</div>' +
-        '<ul class="log-list">' + day.entries.map(function (e) { return "<li>" + escapeHtml(e) + "</li>"; }).join("") + '</ul>';
-    }).join("");
+    // Sidebar widget (#21): a handful of the most recent entries only, each
+    // truncated -- the full log stays in state.log either way, this just
+    // stops surfacing all of it on the front page.
+    var logMini = document.getElementById("log-body-mini");
+    if (logMini) {
+      var flat = [];
+      state.log.forEach(function (day) {
+        for (var i = day.entries.length - 1; i >= 0; i--) flat.push({ date: day.date, text: day.entries[i] });
+      });
+      var recent = flat.slice(0, 6);
+      logMini.innerHTML = recent.length
+        ? recent.map(function (item) {
+            return '<li><span class="log-mini-date">' + escapeHtml(item.date) + '</span>' + escapeHtml(truncate(item.text, 90)) + '</li>';
+          }).join("")
+        : '<li class="empty-row">// no recent activity</li>';
+    }
 
     var bootTime = document.getElementById("boot-time");
     if (bootTime) bootTime.textContent = total + " MISSIONS TRACKED";
+
+    applyFlavor();
   }
 
   function todayISO() {
@@ -222,6 +282,16 @@
         document.documentElement.dataset.theme = theme;
       }
       try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+      applyFlavor();
+    });
+  }
+
+  var nameInput = document.getElementById("name-input");
+  if (nameInput) {
+    try { nameInput.value = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
+    nameInput.addEventListener("input", function () {
+      try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
+      applyFlavor();
     });
   }
 
@@ -269,6 +339,17 @@
   }
 
   document.addEventListener("click", function (ev) {
+    var treeToggleBtn = ev.target.closest('[data-action="toggle-tree"]');
+    if (treeToggleBtn) {
+      var node = treeToggleBtn.closest(".tree-node");
+      var kids = node && node.querySelector(":scope > .tree-children");
+      if (kids) {
+        var collapsed = kids.classList.toggle("collapsed");
+        treeToggleBtn.textContent = collapsed ? "▸" : "▾";
+        treeToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+      }
+      return;
+    }
     var toggleBtn = ev.target.closest('[data-action="toggle-done"]');
     if (toggleBtn) {
       var id = toggleBtn.getAttribute("data-id");
