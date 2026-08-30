@@ -78,3 +78,26 @@ option, and the user can always promote it to a tracked idea later if it turns o
 If the quest-log tools aren't available (the MCP server isn't connected in this session),
 don't block on it or make a big deal of it — just mention once that quest-log isn't reachable
 right now, and continue the actual task. Don't repeatedly retry or nag about it.
+
+## Known limitation: stale MCP session after a quest-log redeploy
+
+`quest-log`'s MCP sessions are in-memory only (open bug:
+[hooptiej/quest-log-mcp#2](https://github.com/hooptiej/quest-log-mcp/issues/2)). If the
+quest-log container gets redeployed or restarted mid-session, every `mcp__quest-log__*` call
+in *this already-open* session will start failing with an error like `no valid session and
+not an initialize request` — this is different from the tools simply not being connected at
+session start, and it doesn't mean the service is down.
+
+- **First choice:** don't fight it — mention it once and note that a fresh Claude Code session
+  will get a clean MCP handshake. Continue the actual task in the meantime.
+- **If a write genuinely can't wait**, quest-log's own REST API works as a direct fallback and
+  bypasses the MCP session entirely:
+  - Read: `GET http://questlog.local/api/state` (or `http://10.0.1.250/api/state`) — no auth
+    needed.
+  - Write: `POST` to the same URL with header `X-Write-Token: <token>` and the full
+    `{quests, log, _version}` body (send back the `_version` you just read, or the write gets
+    rejected with 409). The token lives server-side; the only place to get it without SSH
+    access to the TrueNAS box is `window.__WRITE_TOKEN__` on the loaded page itself (open
+    `http://questlog.local/` in a browser tool and read that global).
+  - This fallback writes go through the same validation/locking as normal MCP writes — it's
+    the same state.json, just a different door in.
