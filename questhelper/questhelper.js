@@ -14,6 +14,9 @@ import {
   resolveOne,
   resolveParent,
   confirmCompletion,
+  promoteQuest,
+  recruitQuest,
+  transferQuest,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
@@ -122,6 +125,57 @@ function createServer() {
     async ({ idOrTitle }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = confirmCompletion(state, idOrTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "promote",
+    "Level a Task up to a Mission, or a Mission up to a Quest, in place (it becomes a sibling of its former parent under the same grandparent, or top-level if promoted all the way to Quest). Fails if the item has children -- promote or transfer them first.",
+    { idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title") },
+    async ({ idOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = promoteQuest(state, idOrTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "recruit",
+    "Bring an existing top-level Quest in as a Mission under another Quest, or an existing top-level Mission in as a Task under another Mission. Only works on something both parentless and childless -- use transfer instead if it already has a parent, and promote/reparent its children first if it has any.",
+    {
+      idOrTitle: z.string().describe("The top-level Quest or Mission to recruit"),
+      newParentIdOrTitle: z.string().describe("The Quest (if recruiting a Quest) or Mission (if recruiting a Mission) to recruit it under"),
+    },
+    async ({ idOrTitle, newParentIdOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = recruitQuest(state, idOrTitle, newParentIdOrTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "transfer",
+    "Move a Mission to a different Quest, or a Task to a different Mission -- same level, new parent. A Task may only transfer to a Mission under its current Quest; cross-Quest Task moves aren't allowed.",
+    {
+      idOrTitle: z.string().describe("The Mission or Task to move"),
+      newParentIdOrTitle: z.string().describe("The new parent -- a Quest (for a Mission) or a Mission (for a Task)"),
+    },
+    async ({ idOrTitle, newParentIdOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = transferQuest(state, idOrTitle, newParentIdOrTitle);
         if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
         return outcome;
       });

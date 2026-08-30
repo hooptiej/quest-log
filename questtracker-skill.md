@@ -67,6 +67,14 @@ The `quest-log` MCP server exposes:
   `list_quests`/`get_full_state`); also works on a plain childless leaf, same as `set_quest_status`
 - `add_log_entry(entry, date?)` — append a one-line note to the day's mission log (for things
   worth noting that don't warrant their own tracked quest — a fix, a decision, a milestone)
+- `promote(idOrTitle)` — level a Task up to a Mission, or a Mission up to a Quest, in place.
+  Fails if the item has children (promote/transfer them first) or is already a Quest
+- `recruit(idOrTitle, newParentIdOrTitle)` — bring an existing top-level (parentless) Quest in
+  as a Mission under another Quest, or a top-level Mission in as a Task under another Mission.
+  Fails if it already has a parent (use `transfer`) or still has children
+- `transfer(idOrTitle, newParentIdOrTitle)` — move a Mission to a different Quest, or a Task to
+  a different Mission (same level, new parent). A Task can only transfer to a Mission under its
+  *current* Quest — no cross-Quest Task moves
 - `get_full_state()` — the complete raw state, if you need to see everything at once
 - `get_artifact_status()` — whether the mirrored claude.ai Artifact (see below) is due for a
   republish, plus the full state to build it from
@@ -94,10 +102,36 @@ call `confirm_completion` on your own judgment alone, and don't nag the user abo
 rather leave something open.
 
 The web UI's quest tree is deliberately read-only — no buttons to change status there — since
-this confirmation is meant to happen through the conversation, not a click. The one thing the
-UI does let someone do directly is capture a quick note against an existing Quest/Mission via
-its "+ note" button; that shows up as a new child item for you to triage and follow up on next
-time you're using these tools, the same as anything else worth tracking.
+this confirmation is meant to happen through the conversation, not a click. The UI does let
+someone act directly in two ways: a "+ note" button to capture a quick note as a new child item
+for you to triage later, and an "↑ promote" button (wherever `promote` would currently succeed —
+it's hidden on a Quest, and hidden on anything with children) that levels the item up in place
+the same way the `promote` tool does. `recruit` and `transfer` have no UI equivalent — they only
+happen through conversation with Claude.
+
+### Restructuring: promote / recruit / transfer
+
+Three ways to reshape the hierarchy after the fact (until these existed, an item's level and
+parent were fixed at creation):
+
+- **Promote** an item that's outgrown its tier — a Task that turned into its own multi-step
+  effort, a Mission that turned into something big enough to deserve Missions of its own.
+  Refuses if it has children (deal with them first) since there's nowhere valid for a promoted
+  Mission's Tasks to land under a Quest.
+- **Recruit** an existing standalone Quest or Mission into a bigger one, when you realize two
+  things you tracked separately actually belong together. Only works on something both
+  parentless and childless — it's meant for absorbing something simple, not restructuring a
+  whole subtree at once.
+- **Transfer** a Mission or Task that just belongs under a different parent — you filed it under
+  the wrong Quest, or a shared Task needs to move to the Mission that actually owns it now. A
+  Task can only transfer within its current Quest family (or anywhere, if it isn't under a Quest
+  at all yet) — cross-Quest Task moves aren't allowed.
+
+None of these are gated by user confirmation the way `confirm_completion` is — reshaping the
+tree isn't the same kind of one-way door as marking something done, so use judgment same as
+`add_idea`/`set_quest_status` rather than treating it as high-stakes. Do mention what you did
+("promoted the sword-crafting task up to its own mission") so it's not a silent structural
+change.
 
 ## How to act
 
