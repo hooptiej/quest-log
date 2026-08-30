@@ -52,7 +52,10 @@ export function slugify(title) {
   return `${base || "idea"}-${Date.now().toString(36)}`;
 }
 
-const VALID_STATUSES = new Set(["idea", "progress", "blocked", "done"]);
+// "blocked" used to be a status (#26); it's now an independent flag (see
+// setBlocked below) so a quest can be "in progress but blocked" without
+// losing its real status.
+const VALID_STATUSES = new Set(["idea", "progress", "done"]);
 const VALID_LEVELS = new Set(["quest", "mission", "task"]);
 // A level may only be parented by the tier directly above it; a quest is
 // always top-level. Keeping this as the single source of truth means
@@ -69,7 +72,10 @@ export function isValidQuest(q) {
     q.title.length > 0 &&
     VALID_STATUSES.has(q.status) &&
     VALID_LEVELS.has(q.level) &&
-    (q.parentId === null || q.parentId === undefined || typeof q.parentId === "string")
+    (q.parentId === null || q.parentId === undefined || typeof q.parentId === "string") &&
+    // Same convention as readyToClose: absence means false, never stored as false.
+    (q.blocked === undefined || q.blocked === true) &&
+    (q.blockedByDescendant === undefined || q.blockedByDescendant === true)
   );
 }
 
@@ -120,6 +126,13 @@ export function validateState(state) {
 // written to "done" here; that only ever happens in confirmCompletion. If a
 // child leaves "done" after its parent was confirmed done, the parent is
 // reverted automatically, since the confirmation no longer holds.
+//
+// The same two passes also flow "blocked" uphill (#26): blockedByDescendant
+// is set on a parent whenever any child is itself blocked or already
+// carries the flag from further down -- so a blocked Task marks its Mission,
+// which in turn marks its Quest. This is purely derived (never set by a
+// tool directly, only ever by this function), so it can't drift from the
+// real per-item `blocked` flags it's summarizing.
 export function recomputeRollups(state) {
   for (const level of ["mission", "quest"]) {
     for (const parent of state.quests) {
@@ -127,6 +140,7 @@ export function recomputeRollups(state) {
       const children = state.quests.filter((c) => c.parentId === parent.id);
       if (children.length === 0) {
         delete parent.readyToClose;
+        delete parent.blockedByDescendant;
         continue;
       }
       const allDone = children.every((c) => c.status === "done");
@@ -140,6 +154,8 @@ export function recomputeRollups(state) {
           delete parent._confirmedDone;
         }
       }
+      if (children.some((c) => c.blocked || c.blockedByDescendant)) parent.blockedByDescendant = true;
+      else delete parent.blockedByDescendant;
     }
   }
 }
@@ -163,7 +179,21 @@ export function confirmCompletion(state, idOrTitle) {
   quest.status = "done";
   quest._confirmedDone = true;
   delete quest.readyToClose;
+  delete quest.blocked; // done implies no longer blocked
   recomputeRollups(state);
+  return { quest };
+}
+
+// Sets or clears the independent "blocked" flag (#26) on any quest, at any
+// level -- a Task, an in-progress Mission, anything. Kept separate from
+// status entirely: blocking something doesn't change what it's actively
+// doing, it just flags that something's in the way.
+export function setBlocked(state, idOrTitle, blocked) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  if (blocked) quest.blocked = true;
+  else delete quest.blocked;
   return { quest };
 }
 

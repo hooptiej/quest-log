@@ -4,10 +4,8 @@
   var STATUS_META = {
     progress: { tag: "ACTIVE" },
     idea: { tag: "IDEA" },
-    blocked: { tag: "BLOCKED" },
     done: { tag: "DONE" }
   };
-  var CYCLE_ORDER = ["idea", "progress", "blocked"];
   // Mirrors state.js's LEVEL_UP -- what promote() steps a level up to.
   var LEVEL_UP = { task: "mission", mission: "quest" };
 
@@ -117,29 +115,47 @@
     return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸" : "▾") + '</button>';
   }
 
+  // Blocked (#26) is an independent flag, not a status -- own vs. inherited
+  // (blockedByDescendant, flowing uphill from a blocked child) get visibly
+  // different treatment so you can tell "this is blocked" from "something
+  // under this is blocked" at a glance.
+  function blockedClass(q) {
+    if (q.blocked) return " is-blocked";
+    if (q.blockedByDescendant) return " is-blocked-inherited";
+    return "";
+  }
+
+  function blockedBadge(q) {
+    if (q.blocked) return '<span class="blocked-badge">&#9888; BLOCKED</span>';
+    if (q.blockedByDescendant) return '<span class="blocked-badge blocked-badge-inherited">&#9888; blocked below</span>';
+    return "";
+  }
+
+  function blockedToggleButton(q) {
+    return '<button type="button" class="note-btn blocked-btn" data-action="toggle-blocked" data-id="' + escapeHtml(q.id) + '">' + (q.blocked ? "unblock" : "&#9888; block") + '</button>';
+  }
+
   function questRow(q) {
-    var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var checked = q.status === "done";
-    var showCycle = !checked;
     var childLevel = childLevelFor(q.level);
     // A flat row is only ever rendered for a childless item (isTreeItem
     // routes anything with children into the tree instead), so promotion is
     // always safe here -- the only gate is not already being a Quest.
     var canPromote = q.level !== "quest";
     return (
-      '<div class="quest' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
           (checked ? "[x]" : "[ ]") +
         '</button>' +
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
-          (checked ? '<span class="quest-tag">' + meta.tag + '</span>' : '') +
+          blockedBadge(q) +
           (q.notes ? notesToggleButton(checked, q.title) : '') +
+          blockedToggleButton(q) +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
         (q.notes ? '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
-        (showCycle ? '<button type="button" class="quest-cycle" data-action="cycle-status" data-id="' + escapeHtml(q.id) + '">' + meta.tag + '</button>' : '<span></span>') +
       '</div>'
     );
   }
@@ -173,7 +189,7 @@
     var canPromote = q.level !== "quest" && !hasChildren;
     var expanded = !!isRoot;
     return (
-      '<div class="tree-node' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
@@ -181,10 +197,12 @@
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
             (q.notes ? notesToggleButton(checked, q.title) : '') +
+            blockedBadge(q) +
           '</span>' +
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
             (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+            blockedToggleButton(q) +
             (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
@@ -222,7 +240,12 @@
     var parentIds = new Set();
     state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
 
-    var groups = { progress: [], idea: [], blocked: [], done: [] };
+    // Flat panels are down to just the Idea Board now (#30 cleanup): ACTIVE
+    // and COMPLETED never earned their keep once the hierarchy took over
+    // "what's active," and BLOCKED became a cross-cutting flag (#26) instead
+    // of a status. progress/done are still tracked here (for the Mission
+    // Progress bar below) even though only idea gets its own panel.
+    var groups = { progress: [], idea: [], done: [] };
     state.quests.forEach(function (q) {
       if (isTreeItem(q, parentIds)) return;
       if (!groups[q.status]) {
@@ -237,46 +260,44 @@
     var total = state.quests.length;
     var doneCount = groups.done.length;
     var pct = total ? Math.round((doneCount / total) * 100) : 0;
+    var blockedCount = state.quests.filter(function (q) { return !!q.blocked; }).length;
 
     document.getElementById("status-pct").textContent = pct + "%";
     document.getElementById("bar-fill").style.width = pct + "%";
     document.getElementById("status-counts").innerHTML =
       '<span class="c-active">ACTIVE <b>' + groups.progress.length + '</b></span>' +
       '<span class="c-idea">IDEAS <b>' + groups.idea.length + '</b></span>' +
-      '<span class="c-blocked">BLOCKED <b>' + groups.blocked.length + '</b></span>' +
+      '<span class="c-blocked">BLOCKED <b>' + blockedCount + '</b></span>' +
       '<span class="c-done">DONE <b>' + groups.done.length + '</b></span>';
 
-    function fill(id, list) {
-      var el = document.getElementById(id);
-      el.innerHTML = list.length
-        ? list.map(questRow).join("")
-        : '<div class="empty-row">// none</div>';
-    }
-    fill("list-progress", groups.progress);
-    fill("list-idea", groups.idea);
-    fill("list-blocked", groups.blocked);
-    fill("list-done", groups.done);
-
-    document.getElementById("count-progress").textContent = "[" + groups.progress.length + "]";
+    var ideaList = document.getElementById("list-idea");
+    ideaList.innerHTML = groups.idea.length
+      ? groups.idea.map(questRow).join("")
+      : '<div class="empty-row">// none</div>';
     document.getElementById("count-idea").textContent = "[" + groups.idea.length + "]";
-    document.getElementById("count-blocked").textContent = "[" + groups.blocked.length + "]";
-    document.getElementById("count-done").textContent = "[" + groups.done.length + "]";
 
     // Sidebar widget (#21): a handful of the most recent entries only, each
-    // truncated -- the full log stays in state.log either way, this just
-    // stops surfacing all of it on the front page.
+    // truncated -- plus an unroll control (#30) to see the untruncated full
+    // history on demand, since that used to be its own always-visible panel.
+    var flatLog = [];
+    state.log.forEach(function (day) {
+      for (var i = day.entries.length - 1; i >= 0; i--) flatLog.push({ date: day.date, text: day.entries[i] });
+    });
     var logMini = document.getElementById("log-body-mini");
     if (logMini) {
-      var flat = [];
-      state.log.forEach(function (day) {
-        for (var i = day.entries.length - 1; i >= 0; i--) flat.push({ date: day.date, text: day.entries[i] });
-      });
-      var recent = flat.slice(0, 6);
+      var recent = flatLog.slice(0, 6);
       logMini.innerHTML = recent.length
         ? recent.map(function (item) {
             return '<li><span class="log-mini-date">' + escapeHtml(item.date) + '</span>' + escapeHtml(truncate(item.text, 90)) + '</li>';
           }).join("")
         : '<li class="empty-row">// no recent activity</li>';
+    }
+    var logFull = document.getElementById("log-body-full");
+    if (logFull) {
+      logFull.innerHTML = state.log.map(function (day) {
+        return '<div class="log-full-date">' + escapeHtml(day.date) + '</div>' +
+          '<ul class="log-full-list">' + day.entries.map(function (e) { return "<li>" + escapeHtml(e) + "</li>"; }).join("") + '</ul>';
+      }).join("");
     }
 
     var bootTime = document.getElementById("boot-time");
@@ -288,6 +309,19 @@
   function todayISO() {
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // Completing a flat item no longer moves it to a Completed panel (#30) --
+  // it just drops off the Idea Board, with this taking its place as the
+  // record of what happened. Mirrors add_log_entry's day-bucketing server-side.
+  function pushLogEntry(text) {
+    var day = todayISO();
+    var logDay = STATE.log.find(function (d) { return d.date === day; });
+    if (!logDay) {
+      logDay = { date: day, entries: [] };
+      STATE.log.unshift(logDay);
+    }
+    logDay.entries.push(text);
   }
 
   var THEME_KEY = "questlog-theme";
@@ -387,11 +421,13 @@
       var q = STATE.quests.find(function (x) { return x.id === id; });
       if (!q) return;
       if (q.status === "done") {
-        q.status = q._prevStatus || "progress";
+        q.status = q._prevStatus || "idea";
       } else {
         q._prevStatus = q.status;
         q.status = "done";
         q.date = q.date || todayISO();
+        delete q.blocked;
+        pushLogEntry("✓ " + q.title + " completed");
       }
       persist();
       requestAnimationFrame(function () {
@@ -400,14 +436,24 @@
       });
       return;
     }
-    var cycleBtn = ev.target.closest('[data-action="cycle-status"]');
-    if (cycleBtn) {
-      var cid = cycleBtn.getAttribute("data-id");
-      var cq = STATE.quests.find(function (x) { return x.id === cid; });
-      if (!cq) return;
-      var idx = CYCLE_ORDER.indexOf(cq.status);
-      cq.status = CYCLE_ORDER[(idx + 1) % CYCLE_ORDER.length];
+    var blockedBtn = ev.target.closest('[data-action="toggle-blocked"]');
+    if (blockedBtn) {
+      var bid = blockedBtn.getAttribute("data-id");
+      var bq = STATE.quests.find(function (x) { return x.id === bid; });
+      if (!bq) return;
+      if (bq.blocked) delete bq.blocked;
+      else bq.blocked = true;
       persist();
+      return;
+    }
+    var logUnrollBtn = ev.target.closest('[data-action="toggle-log-full"]');
+    if (logUnrollBtn) {
+      var logFullEl = document.getElementById("log-body-full");
+      if (logFullEl) {
+        var logCollapsed = logFullEl.classList.toggle("collapsed");
+        logUnrollBtn.textContent = logCollapsed ? "Show full log ▾" : "Hide full log ▴";
+        logUnrollBtn.setAttribute("aria-expanded", String(!logCollapsed));
+      }
       return;
     }
     var promoteBtn = ev.target.closest('[data-action="promote"]');
