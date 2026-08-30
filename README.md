@@ -4,6 +4,8 @@ Self-hosted project/idea tracker — checkboxes, status pills (idea / active / b
 and a running mission log. Built as a themed personal tool, not a generic app.
 
 State lives in `data/state.json` on disk (volume-mounted in Docker so it survives rebuilds).
+**This file is gitignored and never committed** — the actual project/idea content stays local
+to wherever this is deployed and never lands in this (public) repo; only the app code does.
 The client fetches nothing on load — the server embeds the current state directly into the
 page — and every checkbox toggle, status cycle, or new idea posts the full updated state back
 to `POST /api/state`, which overwrites the file. No database, no auth — this is meant to run
@@ -12,12 +14,14 @@ on a trusted local network.
 ## Running locally
 
 ```bash
+cp data/state.example.json data/state.json  # first time only
 npm install
 npm start
 ```
 
-Requires `data/state.json` to already exist (a starting one is committed in this repo) — the
-server refuses to start without it rather than silently creating an empty one.
+The server refuses to start if `data/state.json` doesn't exist, rather than silently creating
+an empty one — `data/state.example.json` (committed, generic, no real content) is the starting
+shape to copy from.
 
 ## Running with Docker
 

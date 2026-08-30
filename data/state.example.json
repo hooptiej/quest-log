@@ -1,0 +1,18 @@
+{
+  "quests": [
+    {
+      "id": "example-idea",
+      "title": "This is an example idea",
+      "status": "idea",
+      "notes": "Delete this and add your own — this file is just a starting shape for data/state.json, which is gitignored and never committed."
+    }
+  ],
+  "log": [
+    {
+      "date": "2026-01-01",
+      "entries": [
+        "Example mission log entry."
+      ]
+    }
+  ]
+}
