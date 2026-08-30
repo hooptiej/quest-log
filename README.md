@@ -8,8 +8,26 @@ State lives in `data/state.json` on disk (volume-mounted in Docker so it survive
 to wherever this is deployed and never lands in this (public) repo; only the app code does.
 The client fetches nothing on load — the server embeds the current state directly into the
 page — and every checkbox toggle, status cycle, or new idea posts the full updated state back
-to `POST /api/state`, which overwrites the file. No database, no auth — this is meant to run
-on a trusted local network.
+to `POST /api/state`. No database, no auth — this is meant to run on a trusted local network.
+
+Writes are serialized through an in-process lock (`state.js`) so concurrent writers (multiple
+browser tabs, MCP tool calls) can't interleave and corrupt a save. Each save also carries a
+`_version` counter: if the state on disk has moved on since the client last loaded it,
+`POST /api/state` returns `409` instead of silently overwriting the newer data. `POST /api/state`
+also rejects a payload containing a quest with an invalid/missing `status` or a duplicate `id`
+(`400`), since a bad quest object used to crash the page for every visitor.
+
+## MCP
+
+An MCP server (formerly the separate `quest-log-mcp` repo, merged in 2026-08-30) is mounted on
+the same Express app at `POST/GET/DELETE /mcp`, sharing the exact same state module and lock as
+the web UI — no more separate process or HTTP round-trip between the two. Tools: `list_quests`,
+`add_idea`, `set_quest_status`, `update_quest_notes`, `add_log_entry`, `get_full_state`. Point an
+MCP client at `http://<host>:4242/mcp` (or `https://` once a cert is configured, see below).
+
+Note: MCP sessions are still held in memory (`mcp.js`), so a restart of this server still drops
+any already-connected client's session — merging removed one of the two processes that used to
+cause that, but didn't eliminate it. Tracked as [quest-log-mcp#2](https://github.com/hooptiej/quest-log-mcp/issues/2).
 
 ## Running locally
 
