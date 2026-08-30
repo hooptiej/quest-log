@@ -55,9 +55,16 @@ made in passing usually belongs in a log entry (see below), not a new quest.
 
 The `quest-log` MCP server exposes:
 
-- `list_quests(status?)` — read the current list, optionally filtered to one status
-- `add_idea(title, notes?, status?)` — add something new (defaults to `idea` status)
-- `set_quest_status(idOrTitle, status)` — move an existing item between idea/progress/blocked/done
+- `list_quests(status?, level?, tree?)` — read the current list, optionally filtered to one
+  status and/or level (`quest`/`mission`/`task`), or as a nested tree instead of flat
+- `add_idea(title, notes?, status?, level?, parentIdOrTitle?)` — add something new (defaults to
+  `idea` status, `mission` level, no parent). Pass `level` + `parentIdOrTitle` to add a Mission
+  under a Quest, or a Task under a Mission
+- `set_quest_status(idOrTitle, status)` — move an existing item between idea/progress/blocked/done.
+  Rejects a direct move to `done` for anything with children — see `confirm_completion` below
+- `confirm_completion(idOrTitle)` — the only way to close a Mission or Quest that has children.
+  Succeeds once every child under it is done (check `readyToClose` on the item, from
+  `list_quests`/`get_full_state`); also works on a plain childless leaf, same as `set_quest_status`
 - `add_log_entry(entry, date?)` — append a one-line note to the day's mission log (for things
   worth noting that don't warrant their own tracked quest — a fix, a decision, a milestone)
 - `get_full_state()` — the complete raw state, if you need to see everything at once
@@ -66,8 +73,31 @@ The `quest-log` MCP server exposes:
 - `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its
   change counter
 
-`idOrTitle` on `set_quest_status` matches by exact id, exact title, or a substring of the
+`idOrTitle` (and `parentIdOrTitle`) match by exact id, exact title, or a substring of the
 title — so `"scrypted-mcp"` or `"HomeKit pairing"` both work without needing the literal id.
+
+## Quest → Mission → Task hierarchy
+
+Every quest has a `level` (`quest`/`mission`/`task`) and a `parentId`. Most items are still
+plain ungrouped Missions with no parent — that's the flat list this always was, and nothing
+about it needs to change. Use the hierarchy when a project genuinely has that shape: a Quest
+(the overall goal) containing Missions (major steps), each optionally broken into Tasks.
+
+**Never call `set_quest_status(..., "done")` on something with children — it will fail on
+purpose.** A Mission/Quest only becomes eligible to close once every child under it is done
+(the server flags this as `readyToClose: true` automatically). Reaching that flag is not
+itself permission to close it: **surface it to the user in conversation and get an explicit
+yes** — "the sword mission looks done, all its tasks are checked off — anything else before I
+close it out?" — before calling `confirm_completion`. This mirrors how a person would actually
+wrap up a project: the last checkbox doesn't auto-close it, someone still looks it over. Don't
+call `confirm_completion` on your own judgment alone, and don't nag the user about it if they'd
+rather leave something open.
+
+The web UI's quest tree is deliberately read-only — no buttons to change status there — since
+this confirmation is meant to happen through the conversation, not a click. The one thing the
+UI does let someone do directly is capture a quick note against an existing Quest/Mission via
+its "+ note" button; that shows up as a new child item for you to triage and follow up on next
+time you're using these tools, the same as anything else worth tracking.
 
 ## How to act
 

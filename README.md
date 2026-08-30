@@ -25,14 +25,40 @@ browser tabs, MCP tool calls) can't interleave and corrupt a save. Each save als
 also rejects a payload containing a quest with an invalid/missing `status` or a duplicate `id`
 (`400`), since a bad quest object used to crash the page for every visitor.
 
+## Quest → Mission → Task hierarchy
+
+Every quest has a `level` (`quest`, `mission`, or `task`) and a `parentId`. A Mission's parent
+must be a Quest; a Task's parent must be a Mission; a Quest has no parent. Most items are still
+plain ungrouped Missions (`parentId: null`) — that's the flat list this app always was, unchanged.
+The hierarchy is opt-in for projects that genuinely have that shape.
+
+**Closing a Mission or Quest that has children is gated, not automatic.** When every child under
+a parent is `done`, `state.js`'s `recomputeRollups` (run after every mutation, from both the
+browser's `POST /api/state` and every QuestHelper tool call) sets `readyToClose: true` on it —
+but never writes `status: "done"` itself. The only way to actually close it is the MCP tool
+`confirm_completion`, which QuestTracker is instructed to call only after explicitly checking
+with the user that there's nothing left to add — the last checkbox doesn't auto-close a project,
+someone still looks it over. Reopening a child (its status leaves `done`) clears the parent's
+`readyToClose` and, if the parent had been confirmed done, reverts it automatically.
+`set_quest_status(..., "done")` and a raw `POST /api/state` both reject setting `done` directly
+on anything with children, so this can't be bypassed from either write path.
+
+The web UI's Quests panel renders the tree read-only (status pills, a "Ready to Close" badge —
+no buttons to change state) since that confirmation is meant to happen in conversation. The one
+interactive piece is a "+ note" button on each Quest/Mission, for jotting a quick child item
+(e.g. a Task under a Mission) for Claude to triage later.
+
+A one-off migration (`scripts/migrate-hierarchy.mjs`) adds `level: "mission", parentId: null`
+to any pre-hierarchy quest that doesn't have a `level` yet — safe to run more than once.
+
 ## MCP (QuestHelper)
 
 QuestHelper — the MCP server, living in `/questhelper` (formerly the separate `quest-log-mcp`
 repo, merged in 2026-08-30, since renamed) — is mounted on the same Express app at
 `POST/GET/DELETE /mcp`, sharing the exact same state module and lock as the web UI — no separate
 process or HTTP round-trip between the two. Tools: `list_quests`, `add_idea`, `set_quest_status`,
-`update_quest_notes`, `add_log_entry`, `get_full_state`. Point an MCP client at
-`http://<host>:4242/mcp` (or `https://` once a cert is configured, see below).
+`confirm_completion`, `update_quest_notes`, `add_log_entry`, `get_full_state`. Point an MCP
+client at `http://<host>:4242/mcp` (or `https://` once a cert is configured, see below).
 
 Note: MCP sessions are still held in memory (`questhelper/questhelper.js`), so a restart of this
 server still drops any already-connected client's session — merging removed one of the two

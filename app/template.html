@@ -282,6 +282,40 @@
     background: var(--panel-accent, var(--accent));
   }
   .panel-done { --panel-accent: #b57edc; }
+  .panel-quests { --panel-accent: var(--accent2); }
+
+  /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
+
+  .tree-node {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.7rem 0.85rem;
+    margin-top: 0.7rem;
+    background: var(--surface-2);
+  }
+  .tree-node:first-child { margin-top: 0; }
+  .tree-node .tree-children { margin-top: 0.6rem; padding-left: 1rem; border-left: 1px dashed var(--border); }
+
+  .tree-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+  .tree-title { font-weight: 600; font-size: 0.94rem; color: var(--text); }
+  .tree-node.is-done .tree-title { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent2); text-decoration-thickness: 1.5px; }
+  .tree-meta { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
+  .tree-notes { color: var(--muted); font-size: 0.84rem; margin-top: 0.3rem; }
+  .tree-notes a { color: var(--accent2); }
+  .tree-notes code { font-family: var(--font-mono); font-size: 0.85em; color: var(--text); background: var(--surface); padding: 0.05em 0.35em; border-radius: 3px; }
+
+  .tree-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+  .ready-badge {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
 
   .panel h2 {
     font-family: var(--font-head);
@@ -408,6 +442,21 @@
   }
   .quest-cycle:hover { border-color: var(--panel-accent, var(--accent)); color: var(--panel-accent, var(--accent)); }
   .quest-cycle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .note-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .note-btn:hover { border-color: var(--panel-accent, var(--accent)); color: var(--panel-accent, var(--accent)); }
+  .note-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ---------- add quest ---------- */
 
@@ -556,6 +605,12 @@
     <div class="bar-track"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
     <div class="status-counts" id="status-counts"></div>
   </div>
+
+  <section class="panel panel-quests" id="quests-panel" hidden>
+    <div class="corner-bl"></div><div class="corner-br"></div>
+    <h2>Quests <span class="count" id="count-quests"></span></h2>
+    <div id="quest-tree"></div>
+  </section>
 
   <section class="panel panel-active">
     <div class="corner-bl"></div><div class="corner-br"></div>
