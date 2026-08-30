@@ -124,6 +124,21 @@
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
+  var THEME_KEY = "questlog-theme";
+  var themeSelect = document.getElementById("theme-select");
+  if (themeSelect) {
+    themeSelect.value = document.documentElement.dataset.theme || "muthur";
+    themeSelect.addEventListener("change", function () {
+      var theme = themeSelect.value;
+      if (theme === "muthur") {
+        delete document.documentElement.dataset.theme;
+      } else {
+        document.documentElement.dataset.theme = theme;
+      }
+      try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    });
+  }
+
   var STATE = window.__QUEST_STATE__ || { quests: [], log: [] };
   var saveIndicator = document.getElementById("save-indicator");
   var saveTimer = null;

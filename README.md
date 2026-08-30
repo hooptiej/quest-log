@@ -140,6 +140,18 @@ to talk to the host's own mDNS responder.
 `app/public/app.js` holds all client-side rendering and interaction logic. `app/server.js` just
 serves the template with the current state spliced in and handles the `/api/state` save endpoint.
 
+## Themes
+
+The DISPLAY MODE dropdown in the boot panel switches the whole UI between visual themes,
+persisted client-side via `localStorage` (no server round-trip). Themes are CSS variable sets
+keyed off `data-theme` on `<html>` — the default (`muthur`, no attribute needed) is the
+original dark green/purple terminal look; `terminal` ("Field Terminal") is a cleaner
+phosphor-green/amber CRT look (VT323 + IBM Plex Mono). Adding another theme means adding one
+more `[data-theme="..."]` block in `app/template.html` that redefines the `--bg`/`--surface`/
+`--accent`/`--font-*` variables — the rest of the page's CSS reads only those variables, so a
+new theme rarely needs component-level overrides. See [#9](https://github.com/hooptiej/quest-log/issues/9)
+for the WoW and Fallout presets still on the backlog.
+
 ## QuestTracker
 
 `questtracker-skill.md` is the Claude Code skill (installed locally as `~/.claude/skills/quest-tracker/SKILL.md`)
