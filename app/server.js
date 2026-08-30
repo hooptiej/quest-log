@@ -94,13 +94,15 @@ if (!existsSync(DATA_PATH)) {
   process.exit(1);
 }
 
+const LISTEN_HOST = process.env.LISTEN_HOST ?? "0.0.0.0";
+
 if (!DISABLE_TLS && existsSync(CERT_PATH) && existsSync(KEY_PATH)) {
   const options = { cert: readFileSync(CERT_PATH), key: readFileSync(KEY_PATH) };
-  createHttpsServer(options, app).listen(PORT, () => {
-    console.log(`quest-log listening on :${PORT} (https, self-signed)`);
+  createHttpsServer(options, app).listen(PORT, LISTEN_HOST, () => {
+    console.log(`quest-log listening on ${LISTEN_HOST}:${PORT} (https, self-signed)`);
   });
 } else {
-  app.listen(PORT, () => {
-    console.log(`quest-log listening on :${PORT} (http - no cert found at ${CERT_PATH})`);
+  app.listen(PORT, LISTEN_HOST, () => {
+    console.log(`quest-log listening on ${LISTEN_HOST}:${PORT} (http - no cert found at ${CERT_PATH})`);
   });
 }
