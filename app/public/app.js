@@ -20,11 +20,15 @@
   var THEME_FLAVOR = {
     muthur: {
       orgLine: "WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION",
+      terminalName: "MU/TH/UR-6000",
+      titlePrefix: "MU/TH/UR",
       subtitlePrefix: "Priority One",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
       orgLine: "VAULT-TEC OPERATIONS // WASTELAND DIVISION",
+      terminalName: "ROBCO TERMLINK",
+      titlePrefix: "ROBCO",
       subtitlePrefix: "Vault-Tec Directive",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
     }
@@ -38,6 +42,10 @@
     try { name = (localStorage.getItem(NAME_KEY) || "").trim(); } catch (e) {}
     var orgLineEl = document.getElementById("boot-org-line");
     if (orgLineEl) orgLineEl.textContent = flavor.orgLine;
+    var terminalNameEl = document.getElementById("terminal-name");
+    if (terminalNameEl) terminalNameEl.textContent = flavor.terminalName;
+    var titlePrefixEl = document.getElementById("title-prefix");
+    if (titlePrefixEl) titlePrefixEl.textContent = flavor.titlePrefix;
     var subtitleEl = document.getElementById("subtitle-prefix");
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var eyebrowEl = document.getElementById("eyebrow");
