@@ -2,3 +2,4 @@ node_modules/
 *.log
 data/state.json
 certs/
+data/write-token

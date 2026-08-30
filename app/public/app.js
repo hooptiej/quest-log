@@ -15,8 +15,45 @@
     });
   }
 
+  // Notes are stored as trusted-author HTML (links/code) rather than plain
+  // text, but render through here rather than raw innerHTML so nothing
+  // outside that allowlist -- <script>, event-handler attrs, javascript:
+  // hrefs -- ever executes, whatever produced the notes value.
+  var NOTES_ALLOWED_ATTRS = { A: ["href", "target"] };
+  function sanitizeNotes(html) {
+    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
+    var root = doc.body.firstChild;
+
+    function clean(node) {
+      Array.prototype.slice.call(node.childNodes).forEach(function (child) {
+        if (child.nodeType === 1) {
+          var tag = child.tagName;
+          if (tag !== "A" && tag !== "CODE") {
+            node.replaceChild(document.createTextNode(child.textContent), child);
+            return;
+          }
+          var keep = NOTES_ALLOWED_ATTRS[tag] || [];
+          Array.prototype.slice.call(child.attributes).forEach(function (attr) {
+            if (keep.indexOf(attr.name) === -1) child.removeAttribute(attr.name);
+          });
+          if (tag === "A") {
+            var href = (child.getAttribute("href") || "").trim();
+            if (!/^(https?:|mailto:|\/)/i.test(href)) child.removeAttribute("href");
+            child.setAttribute("rel", "noopener noreferrer");
+          }
+          clean(child);
+        } else if (child.nodeType !== 3) {
+          node.removeChild(child);
+        }
+      });
+    }
+
+    clean(root);
+    return root.innerHTML;
+  }
+
   function questRow(q) {
-    var meta = STATUS_META[q.status];
+    var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var checked = q.status === "done";
     var showCycle = !checked;
     return (
@@ -28,7 +65,7 @@
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           (checked ? '<span class="quest-tag">' + meta.tag + '</span>' : '') +
         '</div>' +
-        (q.notes ? '<div class="quest-notes">' + q.notes + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
+        (q.notes ? '<div class="quest-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
         (showCycle ? '<button type="button" class="quest-cycle" data-action="cycle-status" data-id="' + escapeHtml(q.id) + '">' + meta.tag + '</button>' : '<span></span>') +
       '</div>'
     );
@@ -36,7 +73,13 @@
 
   function render(state) {
     var groups = { progress: [], idea: [], blocked: [], done: [] };
-    state.quests.forEach(function (q) { groups[q.status].push(q); });
+    state.quests.forEach(function (q) {
+      if (!groups[q.status]) {
+        console.warn("quest with unrecognized status, skipping:", q.id, q.status);
+        return;
+      }
+      groups[q.status].push(q);
+    });
 
     var total = state.quests.length;
     var doneCount = groups.done.length;
@@ -101,7 +144,7 @@
     showSaveState("saving...", false);
     fetch("/api/state", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Write-Token": window.__WRITE_TOKEN__ || "" },
       body: JSON.stringify(STATE)
     })
       .then(function (res) {
