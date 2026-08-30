@@ -115,8 +115,25 @@
   .theme-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   header.masthead {
+    position: relative;
     text-align: center;
     padding: 0.5rem 0 2rem;
+  }
+
+  .theme-switcher {
+    position: absolute;
+    top: 0.5rem;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .theme-switcher label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-transform: uppercase;
   }
 
   .eyebrow {
@@ -505,6 +522,10 @@
     .quest-cycle { grid-row: auto; grid-column: 2 / 3; justify-self: start; margin-top: 0.35rem; }
     .quest-notes { grid-column: 2 / 3; }
   }
+
+  @media (max-width: 560px) {
+    .theme-switcher { position: static; justify-content: center; margin-bottom: 0.75rem; }
+  }
 </style>
 </head>
 <body>
@@ -512,16 +533,16 @@
   <div class="boot">
     <div class="boot-line"><span>WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
     <div class="boot-line"><span>TERMINAL: MU/TH/UR-6000</span><span id="boot-time" class="ok">STANDING BY</span></div>
-    <div class="boot-line">
-      <span>DISPLAY MODE</span>
+  </div>
+
+  <header class="masthead">
+    <div class="theme-switcher">
+      <label for="theme-select">Display Mode</label>
       <select id="theme-select" class="theme-select" aria-label="Display theme">
         <option value="muthur">MU/TH/UR-6000</option>
         <option value="terminal">FIELD TERMINAL</option>
       </select>
     </div>
-  </div>
-
-  <header class="masthead">
     <div class="eyebrow">Interest: None</div>
     <h1>MU/TH/UR Quest Log</h1>
     <p class="subtitle">Priority One — Track All Missions</p>
