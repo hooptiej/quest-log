@@ -9,25 +9,7 @@ This repo is the QuestLog family:
 - **`/state.js`** — shared state module (read/write lock) both of the above talk to
 - **`questtracker-skill.md`** — QuestTracker, the Claude Code skill that keeps this quest log in sync with conversations
 
-```mermaid
-flowchart LR
-    Browser(["Browser"]) -->|"HTTP<br/>GET / · /api/state"| QuestLog
-    Claude(["Claude Code session"]) -->|"watches conversation"| QuestTracker
-    QuestTracker -->|"MCP tool calls · /mcp"| QuestHelper
-
-    subgraph proc["quest-log repo — one Node process — :4242"]
-        QuestLog["QuestLog<br/>Express web app + UI"]
-        QuestHelper["QuestHelper<br/>MCP server"]
-    end
-
-    QuestLog -->|"readState / mutateState"| State[("state.js +<br/>state.json")]
-    QuestHelper -->|"readState / mutateState"| State
-
-    QuestTracker(["QuestTracker<br/>Claude Code skill"])
-```
-
-A styled version matching the app's own MU/TH/UR terminal look is published here:
-[The QuestLog Family](https://claude.ai/code/artifact/1d2f54b6-3683-4463-bb1b-e2a9355d651e).
+![The QuestLog Family — process/data-flow diagram and the Quest → Mission → Task hierarchy with its confirm-gated rollup](docs/questlog-family.png)
 
 State lives in `data/state.json` on disk (volume-mounted in Docker so it survives rebuilds).
 **This file is gitignored and never committed** — the actual project/idea content stays local
