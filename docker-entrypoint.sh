@@ -1,12 +1,15 @@
 #!/bin/sh
 set -e
 
+DISABLE_TLS="${DISABLE_TLS:-}"
 CERT_PATH="${CERT_PATH:-/app/certs/cert.pem}"
 KEY_PATH="${KEY_PATH:-/app/certs/key.pem}"
 CERT_SAN_DNS="${CERT_SAN_DNS:-questlog.local}"
 CERT_SAN_IP="${CERT_SAN_IP:-}"
 
-if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+if [ "$DISABLE_TLS" = "1" ]; then
+  echo "DISABLE_TLS=1, skipping cert generation."
+elif [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
   echo "No cert found at $CERT_PATH, generating a self-signed one..."
   mkdir -p "$(dirname "$CERT_PATH")"
 

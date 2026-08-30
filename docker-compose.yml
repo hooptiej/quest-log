@@ -3,15 +3,22 @@ services:
     build: .
     container_name: quest-log
     restart: unless-stopped
-    ports:
-      - "4242:4242"
+    networks:
+      questlog-lan:
+        ipv4_address: 10.0.1.161
     volumes:
       - ./data:/app/data
       - ./certs:/app/certs
     environment:
-      - PORT=4242
+      - PORT=80
+      - DISABLE_TLS=1
       - DATA_PATH=/app/data/state.json
       - CERT_PATH=/app/certs/cert.pem
       - KEY_PATH=/app/certs/key.pem
       - CERT_SAN_DNS=questlog.local
-      - CERT_SAN_IP=10.0.1.78
+      - CERT_SAN_IP=10.0.1.161
+
+networks:
+  questlog-lan:
+    external: true
+    name: questlog-lan

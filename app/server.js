@@ -13,6 +13,7 @@ const ROOT_DIR = join(__dirname, "..");
 const DATA_PATH = process.env.DATA_PATH ?? join(ROOT_DIR, "data", "state.json");
 const TEMPLATE_PATH = join(__dirname, "template.html");
 const PORT = Number(process.env.PORT ?? 4242);
+const DISABLE_TLS = process.env.DISABLE_TLS === "1";
 const CERT_PATH = process.env.CERT_PATH ?? join(ROOT_DIR, "certs", "cert.pem");
 const KEY_PATH = process.env.KEY_PATH ?? join(ROOT_DIR, "certs", "key.pem");
 
@@ -93,7 +94,7 @@ if (!existsSync(DATA_PATH)) {
   process.exit(1);
 }
 
-if (existsSync(CERT_PATH) && existsSync(KEY_PATH)) {
+if (!DISABLE_TLS && existsSync(CERT_PATH) && existsSync(KEY_PATH)) {
   const options = { cert: readFileSync(CERT_PATH), key: readFileSync(KEY_PATH) };
   createHttpsServer(options, app).listen(PORT, () => {
     console.log(`quest-log listening on :${PORT} (https, self-signed)`);

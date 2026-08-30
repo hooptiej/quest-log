@@ -99,19 +99,30 @@ docker compose up -d --build
 ```
 
 `docker-compose.yml` mounts `./data` into the container so state persists across rebuilds.
-Exposed on port 4242 by default (see `docker-compose.yml` / `PORT` env var to change it).
+By default the container joins an external `ipvlan` network (`questlog-lan`) and gets its own
+static LAN IP (see the `networks:` block), rather than being port-mapped on the host — so it's
+reachable directly at `http://<its-ip>/mcp`, no port number needed. Set `PORT` (default `80`
+in this mode, `4242` if you fall back to host port-mapping) and `DISABLE_TLS=1` to skip the
+cert dance entirely for a LAN-only deployment (see HTTPS section below).
+
+```bash
+docker network create -d ipvlan --subnet=<lan-subnet> --gateway=<lan-gateway> \
+  -o parent=<host-nic> -o ipvlan_mode=l2 questlog-lan
+```
 
 ## HTTPS
 
+Set `DISABLE_TLS=1` to skip certs entirely and serve plain HTTP — reasonable for a LAN-only
+deployment with its own dedicated IP, since there's no shared host/port to spoof. Otherwise,
 `docker-entrypoint.sh` generates a self-signed cert into `./certs` (also volume-mounted) on
 first boot if one isn't already there, then starts the server — no manual setup needed for a
 fresh deployment. `server.js` serves over HTTPS automatically whenever `certs/cert.pem` and
-`certs/key.pem` exist, falling back to plain HTTP otherwise (e.g. for local dev without a
-cert). Configure what the cert covers via `CERT_SAN_DNS` (default `questlog.local`) and
-`CERT_SAN_IP` (unset by default) env vars — set `CERT_SAN_IP` to whatever address this is
-actually reachable at. Since it's self-signed, browsers still show a one-time "not trusted"
-warning to click through; a self-signed cert avoids a hard connection failure on `https://`,
-not that warning.
+`certs/key.pem` exist (and `DISABLE_TLS` isn't set), falling back to plain HTTP otherwise (e.g.
+for local dev without a cert). Configure what the cert covers via `CERT_SAN_DNS` (default
+`questlog.local`) and `CERT_SAN_IP` (unset by default) env vars — set `CERT_SAN_IP` to whatever
+address this is actually reachable at. Since it's self-signed, browsers still show a one-time
+"not trusted" warning to click through; a self-signed cert avoids a hard connection failure on
+`https://`, not that warning.
 
 `./certs` is gitignored — the private key never leaves the machine it's generated on.
 
