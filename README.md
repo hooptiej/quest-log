@@ -29,6 +29,28 @@ Note: MCP sessions are still held in memory (`mcp.js`), so a restart of this ser
 any already-connected client's session — merging removed one of the two processes that used to
 cause that, but didn't eliminate it. Tracked as [quest-log-mcp#2](https://github.com/hooptiej/quest-log-mcp/issues/2).
 
+### Connecting over HTTPS (trusting the self-signed cert)
+
+Since the server's HTTPS cert is self-signed (see below), an MCP client talking to `https://` will
+reject the connection outright (`DEPTH_ZERO_SELF_SIGNED_CERT`) rather than showing a clickable
+warning like a browser does. On each new machine/client, trust it once:
+
+```bash
+# pull the server's current cert
+openssl s_client -connect <host>:4242 -servername <CERT_SAN_DNS> </dev/null 2>/dev/null \
+  | openssl x509 -outform PEM > quest-log.pem
+
+# point Node at it (works for any Node-based MCP client, including Claude Code)
+# Windows (persists across sessions):
+#   [System.Environment]::SetEnvironmentVariable('NODE_EXTRA_CA_CERTS', 'C:\path\to\quest-log.pem', 'User')
+# macOS/Linux (add to shell profile):
+#   export NODE_EXTRA_CA_CERTS=/path/to/quest-log.pem
+```
+
+Takes effect on the next new process — a client that's already running needs a restart to pick it
+up. If the container's cert ever gets regenerated (new volume, cert files deleted), re-run the
+`openssl s_client` step to grab the new one.
+
 ## Running locally
 
 ```bash
