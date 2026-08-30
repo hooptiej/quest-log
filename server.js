@@ -33,6 +33,14 @@ app.get("/", async (_req, res, next) => {
   }
 });
 
+app.get("/api/state", async (_req, res, next) => {
+  try {
+    res.json(await readState());
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post("/api/state", async (req, res, next) => {
   try {
     const state = req.body;
