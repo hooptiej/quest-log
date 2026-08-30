@@ -6,7 +6,14 @@
 <title>MU/TH/UR Quest Log</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  // Applied before first paint to avoid a flash of the wrong theme.
+  try {
+    var savedTheme = localStorage.getItem("questlog-theme");
+    if (savedTheme && savedTheme !== "muthur") document.documentElement.dataset.theme = savedTheme;
+  } catch (e) {}
+</script>
 
 <style>
   :root {
@@ -26,19 +33,45 @@
     --font-head: 'Orbitron', -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     --font-mono: 'Share Tech Mono', 'IBM Plex Mono', ui-monospace, Consolas, monospace;
     --font-body: 'IBM Plex Sans', -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+
+    --body-bg-image:
+      radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 5%, transparent), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.35) 100%);
   }
+
+  /* ---------- theme: Field Terminal (#9) ---------- */
+  [data-theme="terminal"] {
+    --bg: #080c09;
+    --surface: #10160f;
+    --surface-2: #17201a;
+    --border: #23372a;
+    --text: #bdf6c9;
+    --muted: #6d9678;
+    --accent: #58e07a;
+    --accent-dim: #2f6b45;
+    --accent2: #ffb703;
+    --alarm: #ff6b57;
+    --idea: #7fb08a;
+
+    --font-display: 'VT323', 'Courier New', monospace;
+    --font-head: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+    --font-mono: 'IBM Plex Mono', 'Share Tech Mono', ui-monospace, Consolas, monospace;
+    --font-body: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+
+    --body-bg-image:
+      repeating-linear-gradient(0deg, color-mix(in srgb, var(--text) 2.5%, transparent) 0px, color-mix(in srgb, var(--text) 2.5%, transparent) 1px, transparent 1px, transparent 3px);
+  }
+  [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
 
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
     background: var(--bg);
-    background-image:
-      radial-gradient(ellipse at top, rgba(124,252,0,0.05), transparent 55%),
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.35) 100%);
-    background-attachment: fixed, fixed, fixed, fixed;
+    background-image: var(--body-bg-image);
+    background-attachment: fixed;
     color: var(--text);
     font-family: var(--font-body);
     line-height: 1.55;
@@ -69,9 +102,38 @@
   .boot-line + .boot-line { margin-top: 0.15rem; }
   .boot-line .ok { color: var(--accent); }
 
+  .theme-select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+  .theme-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
   header.masthead {
+    position: relative;
     text-align: center;
     padding: 0.5rem 0 2rem;
+  }
+
+  .theme-switcher {
+    position: absolute;
+    top: 0.5rem;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .theme-switcher label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-transform: uppercase;
   }
 
   .eyebrow {
@@ -90,7 +152,7 @@
     letter-spacing: 0.04em;
     color: var(--text);
     margin: 0.5rem 0 0.15rem;
-    text-shadow: 0 0 22px rgba(124,252,0,0.25);
+    text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 25%, transparent);
     text-wrap: balance;
   }
 
@@ -146,7 +208,7 @@
   .bar-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--accent-dim), var(--accent));
-    box-shadow: 0 0 10px rgba(124,252,0,0.5);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
     transition: width 0.5s ease;
   }
 
@@ -198,13 +260,13 @@
   .panel .corner-bl { bottom: 8px; left: 8px; }
   .panel .corner-br { bottom: 8px; right: 8px; }
 
-  .panel-active { --panel-accent: #7CFC00; }
-  .panel-idea { --panel-accent: #7a8290; }
+  .panel-active { --panel-accent: var(--accent); }
+  .panel-idea { --panel-accent: var(--idea); }
   .panel-blocked {
-    --panel-accent: #ff5c3d;
+    --panel-accent: var(--alarm);
     border-top-color: transparent;
     background-image:
-      repeating-linear-gradient(135deg, #ff5c3d 0 10px, #1c1c1c 10px 20px);
+      repeating-linear-gradient(135deg, var(--alarm) 0 10px, var(--bg) 10px 20px);
     background-size: 100% 5px;
     background-position: top left;
     background-repeat: repeat-x;
@@ -460,6 +522,10 @@
     .quest-cycle { grid-row: auto; grid-column: 2 / 3; justify-self: start; margin-top: 0.35rem; }
     .quest-notes { grid-column: 2 / 3; }
   }
+
+  @media (max-width: 560px) {
+    .theme-switcher { position: static; justify-content: center; margin-bottom: 0.75rem; }
+  }
 </style>
 </head>
 <body>
@@ -470,6 +536,13 @@
   </div>
 
   <header class="masthead">
+    <div class="theme-switcher">
+      <label for="theme-select">Display Mode</label>
+      <select id="theme-select" class="theme-select" aria-label="Display theme">
+        <option value="muthur">MU/TH/UR-6000</option>
+        <option value="terminal">FIELD TERMINAL</option>
+      </select>
+    </div>
     <div class="eyebrow">Interest: None</div>
     <h1>MU/TH/UR Quest Log</h1>
     <p class="subtitle">Priority One — Track All Missions</p>
