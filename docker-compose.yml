@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     networks:
       questlog-lan:
-        ipv4_address: 10.0.1.161
+        ipv4_address: 10.0.1.250
     volumes:
       - ./data:/app/data
       - ./certs:/app/certs
@@ -16,7 +16,7 @@ services:
       - CERT_PATH=/app/certs/cert.pem
       - KEY_PATH=/app/certs/key.pem
       - CERT_SAN_DNS=questlog.local
-      - CERT_SAN_IP=10.0.1.161
+      - CERT_SAN_IP=10.0.1.250
 
 networks:
   questlog-lan:
