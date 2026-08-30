@@ -17,9 +17,21 @@ import {
   promoteQuest,
   recruitQuest,
   transferQuest,
+  getMaintenance,
+  setMaintenance,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
+
+// Prepended to a read tool's response when maintenance is flagged, so a
+// session sees the heads-up on whatever it happens to call next rather than
+// needing to know to check a specific tool.
+function withMaintenanceBanner(state, content) {
+  const m = getMaintenance(state);
+  if (!m.active) return content;
+  const note = m.note ? `: ${m.note}` : "";
+  return [{ type: "text", text: `⚠️ quest-log maintenance flagged since ${m.since}${note}` }, ...content];
+}
 
 function createServer() {
   const server = new McpServer({ name: "questhelper", version: "1.0.0" });
@@ -37,7 +49,7 @@ function createServer() {
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
-      if (!tree) return { content: [{ type: "text", text: JSON.stringify(quests, null, 2) }] };
+      if (!tree) return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }]) };
 
       const byParent = new Map();
       for (const q of quests) {
@@ -47,7 +59,7 @@ function createServer() {
       }
       const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
       const roots = (byParent.get(null) ?? []).map(attachChildren);
-      return { content: [{ type: "text", text: JSON.stringify(roots, null, 2) }] };
+      return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }]) };
     },
   );
 
@@ -228,8 +240,23 @@ function createServer() {
 
   server.tool("get_full_state", "Get the quest log's complete raw state (all quests and the full mission log).", {}, async () => {
     const state = await readState();
-    return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
+    return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(state, null, 2) }]) };
   });
+
+  server.tool(
+    "set_maintenance",
+    "Flag (or clear) an in-progress/upcoming redeploy so any already-open session gets a heads-up on its next call instead of just hitting a raw stale-session error. Call this before restarting the quest-log container, and call it again with active:false once the restart is confirmed healthy.",
+    {
+      active: z.boolean().describe("true to flag maintenance starting now, false to clear it"),
+      note: z.string().optional().describe('Free-text note shown alongside the flag, e.g. "redeploying, back in ~5 min"'),
+    },
+    async ({ active, note }) => {
+      const { result } = await mutateState(async (state) => {
+        return setMaintenance(state, { active, note });
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
 
   server.tool(
     "get_artifact_status",
@@ -239,7 +266,7 @@ function createServer() {
       const state = await readState();
       const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
       return {
-        content: [
+        content: withMaintenanceBanner(state, [
           {
             type: "text",
             text: JSON.stringify(
@@ -254,7 +281,7 @@ function createServer() {
               2,
             ),
           },
-        ],
+        ]),
       };
     },
   );

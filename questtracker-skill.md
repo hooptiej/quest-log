@@ -80,6 +80,8 @@ The `quest-log` MCP server exposes:
   republish, plus the full state to build it from
 - `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its
   change counter
+- `set_maintenance(active, note?)` — flag or clear an in-progress/upcoming redeploy — see
+  below
 
 `idOrTitle` (and `parentIdOrTitle`) match by exact id, exact title, or a substring of the
 title — so `"scrypted-mcp"` or `"HomeKit pairing"` both work without needing the literal id.
@@ -154,10 +156,19 @@ right now, and continue the actual task. Don't repeatedly retry or nag about it.
 quest-log container gets redeployed or restarted mid-session, every `mcp__quest-log__*` call
 in *this already-open* session will start failing with an error like `no valid session and
 not an initialize request` — this is different from the tools simply not being connected at
-session start, and it doesn't mean the service is down.
+session start, and it doesn't mean the service is down. `set_maintenance` doesn't fix this
+(sessions still can't survive the restart), but it turns the surprise into an expected event:
 
-- **First choice:** don't fight it — mention it once and note that a fresh Claude Code session
-  will get a clean MCP handshake. Continue the actual task in the meantime.
+- **If you're the one about to redeploy quest-log**, call
+  `set_maintenance(active: true, note: "...")` *before* taking the container down. Any other
+  session with quest-log tools open will see a `⚠️ quest-log maintenance flagged...` banner
+  prepended to its next `list_quests` / `get_full_state` / `get_artifact_status` call, so it
+  can warn the user proactively instead of just erroring blind. Call
+  `set_maintenance(active: false)` once the new container is confirmed healthy — don't leave
+  it flagged.
+- **If you hit the stale-session error yourself** (with no banner having warned you first) —
+  don't fight it — mention it once and note that a fresh Claude Code session will get a clean
+  MCP handshake. Continue the actual task in the meantime.
 - **If a write genuinely can't wait**, quest-log's own REST API works as a direct fallback and
   bypasses the MCP session entirely:
   - Read: `GET http://questlog.local/api/state` (or `http://10.0.1.250/api/state`) — no auth
