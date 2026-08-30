@@ -5,15 +5,16 @@ import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState } from "./state.js";
-import { attachMcp } from "./mcp.js";
+import { readState, mutateState, validateState } from "../state.js";
+import { attachMcp } from "../questhelper/questhelper.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_PATH = process.env.DATA_PATH ?? join(__dirname, "data", "state.json");
+const ROOT_DIR = join(__dirname, "..");
+const DATA_PATH = process.env.DATA_PATH ?? join(ROOT_DIR, "data", "state.json");
 const TEMPLATE_PATH = join(__dirname, "template.html");
 const PORT = Number(process.env.PORT ?? 4242);
-const CERT_PATH = process.env.CERT_PATH ?? join(__dirname, "certs", "cert.pem");
-const KEY_PATH = process.env.KEY_PATH ?? join(__dirname, "certs", "key.pem");
+const CERT_PATH = process.env.CERT_PATH ?? join(ROOT_DIR, "certs", "cert.pem");
+const KEY_PATH = process.env.KEY_PATH ?? join(ROOT_DIR, "certs", "key.pem");
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));

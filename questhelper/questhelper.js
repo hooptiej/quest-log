@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { readState, mutateState, todayISO, slugify, findQuestCandidates, describeQuest } from "./state.js";
+import { readState, mutateState, todayISO, slugify, findQuestCandidates, describeQuest } from "../state.js";
 
 function ambiguousError(idOrTitle, matches) {
   return `Ambiguous match for "${idOrTitle}": ${matches.map(describeQuest).join(", ")}. Use the exact id instead.`;
@@ -17,7 +17,7 @@ function resolveOne(state, idOrTitle) {
 }
 
 function createServer() {
-  const server = new McpServer({ name: "quest-log-mcp", version: "1.0.0" });
+  const server = new McpServer({ name: "questhelper", version: "1.0.0" });
 
   server.tool(
     "list_quests",

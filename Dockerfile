@@ -4,10 +4,11 @@ ENV NODE_ENV=production
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json ./
 RUN npm install --omit=dev
-COPY server.js state.js mcp.js template.html docker-entrypoint.sh ./
-COPY public ./public
+COPY state.js docker-entrypoint.sh ./
+COPY app ./app
+COPY questhelper ./questhelper
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 4242
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["node", "app/server.js"]
