@@ -8,6 +8,8 @@
     done: { tag: "DONE" }
   };
   var CYCLE_ORDER = ["idea", "progress", "blocked"];
+  // Mirrors state.js's LEVEL_UP -- what promote() steps a level up to.
+  var LEVEL_UP = { task: "mission", mission: "quest" };
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -64,6 +66,10 @@
     var checked = q.status === "done";
     var showCycle = !checked;
     var childLevel = childLevelFor(q.level);
+    // A flat row is only ever rendered for a childless item (isTreeItem
+    // routes anything with children into the tree instead), so promotion is
+    // always safe here -- the only gate is not already being a Quest.
+    var canPromote = q.level !== "quest";
     return (
       '<div class="quest' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
         '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
@@ -72,6 +78,7 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           (checked ? '<span class="quest-tag">' + meta.tag + '</span>' : '') +
+          (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
         (q.notes ? '<div class="quest-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
@@ -100,6 +107,10 @@
     var hasChildren = children.length > 0;
     var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var childLevel = childLevelFor(q.level);
+    // Unlike the flat row, a tree node can have children -- promoting one
+    // with children would leave them one tier too deep (see promoteQuest in
+    // state.js), so the button only shows once it's actually eligible.
+    var canPromote = q.level !== "quest" && !hasChildren;
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
@@ -107,6 +118,7 @@
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
             (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+            (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
         '</div>' +
@@ -129,12 +141,13 @@
     var roots = state.quests.filter(function (q) {
       return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
     });
-    if (roots.length === 0) {
-      panel.hidden = true;
-      return;
-    }
+    // Always visible now (the hierarchy view is meant to be the primary
+    // one), with an empty state when there's no Quest yet rather than
+    // hiding the whole panel.
     panel.hidden = false;
-    document.getElementById("quest-tree").innerHTML = roots.map(function (q) { return treeNode(q, byParent); }).join("");
+    document.getElementById("quest-tree").innerHTML = roots.length
+      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
+      : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
 
@@ -282,6 +295,18 @@
       if (!cq) return;
       var idx = CYCLE_ORDER.indexOf(cq.status);
       cq.status = CYCLE_ORDER[(idx + 1) % CYCLE_ORDER.length];
+      persist();
+      return;
+    }
+    var promoteBtn = ev.target.closest('[data-action="promote"]');
+    if (promoteBtn) {
+      var pid = promoteBtn.getAttribute("data-id");
+      var pq = STATE.quests.find(function (x) { return x.id === pid; });
+      if (!pq || !LEVEL_UP[pq.level]) return;
+      var oldParent = pq.parentId ? STATE.quests.find(function (x) { return x.id === pq.parentId; }) : null;
+      var newLevel = LEVEL_UP[pq.level];
+      pq.level = newLevel;
+      pq.parentId = newLevel === "quest" ? null : (oldParent ? (oldParent.parentId || null) : null);
       persist();
       return;
     }

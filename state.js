@@ -241,3 +241,98 @@ export function setMaintenance(state, { active, note }) {
   state._maintenance = active ? { active: true, note: note ?? "", since: new Date().toISOString() } : { active: false, note: "", since: null };
   return state._maintenance;
 }
+
+// The level directly above/below each tier, for promote (up) and recruit
+// (down). There's no entry for the ends (promoting a quest, recruiting a
+// task) -- callers check for that themselves and reject with a clearer
+// message than a missing-key lookup would give.
+const LEVEL_UP = { task: "mission", mission: "quest" };
+const LEVEL_DOWN = { quest: "mission", mission: "task" };
+
+// Levels a Task up to a Mission, or a Mission up to a Quest, "in place": it
+// becomes a sibling of its former parent (same grandparent), except at the
+// Quest ceiling, where there's no grandparent tier to land under so it goes
+// top-level. Refuses if the item has children -- promoting a Mission with
+// Tasks under it would leave those Tasks pointed at a Quest, which nothing
+// in this schema allows (a task's parent must be a mission) -- so the
+// children need to be dealt with (promoted or reparented) first.
+export function promoteQuest(state, idOrTitle) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  const newLevel = LEVEL_UP[quest.level];
+  if (!newLevel) return { error: `${describeQuest(quest)} is already a Quest -- nothing to promote it to` };
+  const hasChildren = state.quests.some((c) => c.parentId === quest.id);
+  if (hasChildren) {
+    return { error: `${describeQuest(quest)} still has children -- promote or transfer them first, then promote this` };
+  }
+  const oldParent = quest.parentId ? state.quests.find((q) => q.id === quest.parentId) : null;
+  quest.level = newLevel;
+  quest.parentId = newLevel === "quest" ? null : oldParent?.parentId ?? null;
+  return { quest };
+}
+
+// Brings an existing top-level (parentless) Quest in as a Mission under
+// another Quest, or an existing top-level Mission in as a Task under another
+// Mission -- i.e. the level-losing counterpart to promote. Only works on
+// something both parentless (already has a parent -- that's Transfer's job)
+// and childless: recruiting a Quest that has Missions under it, or a Mission
+// that has Tasks under it, would leave those children one tier too deep for
+// this schema's fixed 3-tier depth (nothing can be parented by a Task).
+export function recruitQuest(state, idOrTitle, newParentIdOrTitle) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  if (quest.parentId) {
+    return { error: `${describeQuest(quest)} already has a parent -- use transfer to move it, not recruit` };
+  }
+  const newLevel = LEVEL_DOWN[quest.level];
+  if (!newLevel) return { error: `${describeQuest(quest)} is already a Task -- nothing to recruit it as` };
+  if (!newParentIdOrTitle) return { error: "recruit needs a newParentIdOrTitle to recruit into" };
+  const hasChildren = state.quests.some((c) => c.parentId === quest.id);
+  if (hasChildren) {
+    return { error: `${describeQuest(quest)} still has children -- they'd have nowhere valid to go as a ${newLevel}'s children -- reparent or remove them first` };
+  }
+  const parentResolution = resolveParent(state, newParentIdOrTitle, newLevel);
+  if (parentResolution.error) return parentResolution;
+  if (parentResolution.parentId === quest.id) return { error: `${describeQuest(quest)} can't be its own parent` };
+  quest.level = newLevel;
+  quest.parentId = parentResolution.parentId;
+  return { quest };
+}
+
+// Moves a Mission to a different Quest, or a Task to a different Mission --
+// same level, new parent. A Quest can't be transferred (nothing above it to
+// move it under; recruit an existing Quest into another one instead). A
+// Task is locked to its current Quest family: it may only transfer to a
+// Mission that's under the same Quest it's under now (or anywhere, if it
+// isn't currently under any Quest at all -- there's no family to violate).
+export function transferQuest(state, idOrTitle, newParentIdOrTitle) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  if (quest.level === "quest") {
+    return { error: `${describeQuest(quest)} is a Quest -- transfer only moves Missions/Tasks (recruit an existing Quest into another one instead)` };
+  }
+  if (!newParentIdOrTitle) return { error: "transfer needs a newParentIdOrTitle to move to" };
+  // No explicit self-parent check needed here (unlike recruit): transfer
+  // never changes level, and no level is its own required parent tier
+  // (PARENT_LEVEL has no fixed point), so a self-reference always fails the
+  // tier check inside resolveParent below before it could matter.
+  const parentResolution = resolveParent(state, newParentIdOrTitle, quest.level);
+  if (parentResolution.error) return parentResolution;
+
+  if (quest.level === "task" && quest.parentId) {
+    const currentMission = state.quests.find((q) => q.id === quest.parentId);
+    const currentQuestId = currentMission?.parentId ?? null;
+    if (currentQuestId) {
+      const targetMission = state.quests.find((q) => q.id === parentResolution.parentId);
+      if (targetMission?.parentId !== currentQuestId) {
+        return { error: `${describeQuest(quest)} can only transfer to a Mission under its current Quest -- cross-Quest Task moves aren't allowed` };
+      }
+    }
+  }
+
+  quest.parentId = parentResolution.parentId;
+  return { quest };
+}
