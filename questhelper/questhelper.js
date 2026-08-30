@@ -3,7 +3,16 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { readState, mutateState, todayISO, slugify, findQuestCandidates, describeQuest } from "../state.js";
+import {
+  readState,
+  mutateState,
+  todayISO,
+  slugify,
+  findQuestCandidates,
+  describeQuest,
+  bumpArtifactChangeCounter,
+  artifactNeedsUpdate,
+} from "../state.js";
 
 function ambiguousError(idOrTitle, matches) {
   return `Ambiguous match for "${idOrTitle}": ${matches.map(describeQuest).join(", ")}. Use the exact id instead.`;
@@ -43,6 +52,7 @@ function createServer() {
         const q = { id: slugify(title), title, status: status ?? "idea", notes: notes ?? "" };
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);
+        bumpArtifactChangeCounter(state, { mainQuest: true });
         return q;
       });
       return { content: [{ type: "text", text: JSON.stringify(quest, null, 2) }] };
@@ -66,6 +76,7 @@ function createServer() {
           quest.date = quest.date ?? todayISO();
         }
         quest.status = status;
+        bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -85,6 +96,7 @@ function createServer() {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
         resolved.quest.notes = notes;
+        bumpArtifactChangeCounter(state, { mainQuest: false });
         return resolved;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -108,6 +120,7 @@ function createServer() {
           state.log.unshift(logDay);
         }
         logDay.entries.push(entry);
+        bumpArtifactChangeCounter(state, { mainQuest: false });
       });
       return { content: [{ type: "text", text: `Logged under ${day}: ${entry}` }] };
     },
@@ -117,6 +130,46 @@ function createServer() {
     const state = await readState();
     return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
   });
+
+  server.tool(
+    "get_artifact_status",
+    "Check whether the mirrored claude.ai Artifact of this quest log is due for a republish, and get the current full state to build it from. Call this at the start of every session that uses quest-log, and again after any write that might have flipped needsUpdate.",
+    {},
+    async () => {
+      const state = await readState();
+      const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                needsUpdate: artifactNeedsUpdate(state),
+                url: a.url,
+                mainQuestChanged: a.mainQuestChanged,
+                changesSince: a.changesSince,
+                state,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    "record_artifact_update",
+    "Call this right after publishing or updating the mirrored claude.ai Artifact, to reset the change counter. Always pass the artifact's URL (same one every time -- this is a single shared artifact, not one per session).",
+    { url: z.string().describe("The claude.ai artifact URL") },
+    async ({ url }) => {
+      await mutateState(async (state) => {
+        state._artifact = { url, changesSince: 0, mainQuestChanged: false };
+      });
+      return { content: [{ type: "text", text: `Recorded artifact sync at ${url}` }] };
+    },
+  );
 
   return server;
 }

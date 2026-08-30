@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState } from "../state.js";
+import { readState, mutateState, validateState, bumpArtifactChangeCounter } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +89,10 @@ app.post("/api/state", async (req, res, next) => {
         }
         state.quests = incoming.quests;
         state.log = incoming.log;
+        // Wholesale write from the browser UI -- it only ever toggles/cycles
+        // status or adds a new quest (no log-only edits exposed there), so
+        // treat every successful browser save as a mainquest-level change.
+        bumpArtifactChangeCounter(state, { mainQuest: true });
       }));
     } catch (err) {
       if (err instanceof ConflictError) {

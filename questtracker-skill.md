@@ -61,6 +61,10 @@ The `quest-log` MCP server exposes:
 - `add_log_entry(entry, date?)` — append a one-line note to the day's mission log (for things
   worth noting that don't warrant their own tracked quest — a fix, a decision, a milestone)
 - `get_full_state()` — the complete raw state, if you need to see everything at once
+- `get_artifact_status()` — whether the mirrored claude.ai Artifact (see below) is due for a
+  republish, plus the full state to build it from
+- `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its
+  change counter
 
 `idOrTitle` on `set_quest_status` matches by exact id, exact title, or a substring of the
 title — so `"scrypted-mcp"` or `"HomeKit pairing"` both work without needing the literal id.
@@ -101,3 +105,34 @@ session start, and it doesn't mean the service is down.
     `http://questlog.local/` in a browser tool and read that global).
   - This fallback writes go through the same validation/locking as normal MCP writes — it's
     the same state.json, just a different door in.
+
+## Keeping the mirrored Artifact in sync
+
+hooptiej also keeps a claude.ai Artifact ("MU/TH/UR Quest Log") as a read-only visual mirror
+of this quest log, so it's viewable without hitting the LAN server. This mirror does **not**
+try to stay live-identical — Artifacts can't fetch from the LAN (strict CSP, no external
+requests except Google Fonts), so it's necessarily a periodic snapshot, not a live view. The
+server tracks drift itself via `_artifact` in its state, so you don't have to judge staleness
+by eye:
+
+- **At the start of any session that uses quest-log tools**, call `get_artifact_status()`
+  once and sync unconditionally — create the Artifact if `url` is `null`, otherwise republish
+  it (same file path / same `url` passed to `Artifact`, so it updates in place rather than
+  forking a new one) — regardless of whether `needsUpdate` says it's due. This is the
+  session-open snapshot.
+- **After any quest-log write during the session**, check the `needsUpdate` field from that
+  same tool's response (or call it again if you didn't just call it). If `true` — a mainquest
+  changed (any status change or new quest, via any write path) or 10+ smaller changes
+  (notes edits, log entries) have piled up since the last sync — republish and call
+  `record_artifact_update(url)` immediately after. Don't defer this or batch it up further;
+  the threshold logic already handles batching.
+- **Building the mirror:** reuse `state.js`'s rendering shape (status counts, the four quest
+  panels, the mission log) and the same MU/TH/UR terminal CSS from `app/template.html` — this
+  should look like the real page, not a reformatted summary. Don't embed `window.__WRITE_TOKEN__`
+  or any live `fetch("/api/state")` calls in the published Artifact — it's read-only, the token
+  is a secret, and the fetch would just fail silently under the Artifact CSP anyway. A small
+  "read-only mirror, edit at questlog.local" banner at the top is enough to set expectations.
+- **One shared Artifact, not one per session.** The `url` lives in server state precisely so
+  every session (any machine) updates the same Artifact instead of each spawning its own —
+  always pass the `url` from `get_artifact_status()` back into the `Artifact` tool's `url`
+  parameter when republishing, never omit it once one exists.

@@ -98,3 +98,22 @@ export function findQuestCandidates(state, idOrTitle) {
 export function describeQuest(q) {
   return `${q.id} ("${q.title}")`;
 }
+
+const ARTIFACT_CHANGE_THRESHOLD = 10;
+
+// Tracks how far the mirrored claude.ai Artifact has drifted from server
+// state, so any Claude session can tell (via get_artifact_status) whether
+// it's due for a republish -- either a mainquest-level change (status/new
+// quest) happened, or enough smaller changes (notes edits, log entries)
+// have piled up. Call this from inside a mutateState mutator, once per
+// logical change, right after making the change.
+export function bumpArtifactChangeCounter(state, { mainQuest = false } = {}) {
+  state._artifact = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
+  state._artifact.changesSince += 1;
+  if (mainQuest) state._artifact.mainQuestChanged = true;
+}
+
+export function artifactNeedsUpdate(state) {
+  const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
+  return a.url === null || a.mainQuestChanged || a.changesSince >= ARTIFACT_CHANGE_THRESHOLD;
+}
