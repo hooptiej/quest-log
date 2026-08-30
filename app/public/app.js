@@ -52,10 +52,18 @@
     return root.innerHTML;
   }
 
+  // A quest/mission can take a child note; a task (already a leaf) can't.
+  function childLevelFor(level) {
+    if (level === "quest") return "mission";
+    if (level === "mission") return "task";
+    return null;
+  }
+
   function questRow(q) {
     var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var checked = q.status === "done";
     var showCycle = !checked;
+    var childLevel = childLevelFor(q.level);
     return (
       '<div class="quest' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
         '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
@@ -64,6 +72,7 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           (checked ? '<span class="quest-tag">' + meta.tag + '</span>' : '') +
+          (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
         (q.notes ? '<div class="quest-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
         (showCycle ? '<button type="button" class="quest-cycle" data-action="cycle-status" data-id="' + escapeHtml(q.id) + '">' + meta.tag + '</button>' : '<span></span>') +
@@ -71,15 +80,79 @@
     );
   }
 
+  // Items that belong to a Quest hierarchy -- a Quest itself, anything with
+  // a parentId, or anything that itself has children (an ungrouped Mission
+  // with Tasks under it) -- render in the quest tree instead of the flat
+  // status panels, since the flat panels' toggle-done button assumes a
+  // childless leaf. An "ungrouped" mission/task with no parent and no
+  // children is today's flat item and keeps rendering exactly as before.
+  function isTreeItem(q, parentIds) {
+    return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
+  }
+
+  // Read-only by design: a Quest/Mission with children only ever closes via
+  // confirm_completion through Claude + the MCP tools (a conversation, not
+  // a click) -- so this tree just displays current state, it doesn't offer
+  // controls to change it.
+  function treeNode(q, byParent) {
+    var children = byParent[q.id] || [];
+    var checked = q.status === "done";
+    var hasChildren = children.length > 0;
+    var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
+    var childLevel = childLevelFor(q.level);
+    return (
+      '<div class="tree-node' + (checked ? " is-done" : "") + '" data-id="' + escapeHtml(q.id) + '">' +
+        '<div class="tree-row">' +
+          '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
+          '<span class="tree-actions">' +
+            '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
+            (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+            (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
+          '</span>' +
+        '</div>' +
+        (q.notes ? '<div class="tree-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  function renderQuestTree(state, parentIds) {
+    var panel = document.getElementById("quests-panel");
+    var byParent = {};
+    state.quests.forEach(function (q) {
+      if (!q.parentId) return;
+      (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
+    });
+    // Roots are real Quests, plus any parentless item that itself has
+    // children (an ungrouped Mission with Tasks under it) -- otherwise it
+    // would be excluded from the flat panels but never shown anywhere.
+    var roots = state.quests.filter(function (q) {
+      return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
+    });
+    if (roots.length === 0) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    document.getElementById("quest-tree").innerHTML = roots.map(function (q) { return treeNode(q, byParent); }).join("");
+    document.getElementById("count-quests").textContent = "[" + roots.length + "]";
+  }
+
   function render(state) {
+    var parentIds = new Set();
+    state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
+
     var groups = { progress: [], idea: [], blocked: [], done: [] };
     state.quests.forEach(function (q) {
+      if (isTreeItem(q, parentIds)) return;
       if (!groups[q.status]) {
         console.warn("quest with unrecognized status, skipping:", q.id, q.status);
         return;
       }
       groups[q.status].push(q);
     });
+
+    renderQuestTree(state, parentIds);
 
     var total = state.quests.length;
     var doneCount = groups.done.length;
@@ -197,6 +270,25 @@
       persist();
       return;
     }
+    var noteBtn = ev.target.closest('[data-action="add-note"]');
+    if (noteBtn) {
+      var parentId = noteBtn.getAttribute("data-id");
+      var level = noteBtn.getAttribute("data-level");
+      var text = window.prompt("Quick note (Claude will sort it out later):");
+      if (!text) return;
+      text = text.trim();
+      if (!text) return;
+      STATE.quests.push({
+        id: level + "-" + Date.now().toString(36),
+        title: text,
+        status: "idea",
+        notes: "",
+        level: level,
+        parentId: parentId
+      });
+      persist();
+      return;
+    }
   });
 
   var addForm = document.getElementById("add-form");
@@ -210,7 +302,9 @@
         id: "idea-" + Date.now().toString(36),
         title: title,
         status: "idea",
-        notes: ""
+        notes: "",
+        level: "mission",
+        parentId: null
       });
       input.value = "";
       persist();

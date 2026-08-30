@@ -4,7 +4,33 @@
       "id": "example-idea",
       "title": "This is an example idea",
       "status": "idea",
+      "level": "mission",
+      "parentId": null,
       "notes": "Delete this and add your own — this file is just a starting shape for data/state.json, which is gitignored and never committed."
+    },
+    {
+      "id": "example-quest",
+      "title": "This is an example Quest",
+      "status": "progress",
+      "level": "quest",
+      "parentId": null,
+      "notes": "A Quest is the top-level goal. It only becomes done via confirm_completion, once every Mission below it is done and confirmed too."
+    },
+    {
+      "id": "example-mission",
+      "title": "This is an example Mission under that Quest",
+      "status": "progress",
+      "level": "mission",
+      "parentId": "example-quest",
+      "notes": "A Mission belongs to a Quest via parentId. Its own status still cycles idea/progress/blocked freely until every Task under it is done."
+    },
+    {
+      "id": "example-task",
+      "title": "This is an example Task under that Mission",
+      "status": "idea",
+      "level": "task",
+      "parentId": "example-mission",
+      "notes": "Tasks are leaves -- no children of their own."
     }
   ],
   "log": [

@@ -8,34 +8,43 @@ import {
   mutateState,
   todayISO,
   slugify,
-  findQuestCandidates,
   describeQuest,
   bumpArtifactChangeCounter,
   artifactNeedsUpdate,
+  resolveOne,
+  resolveParent,
+  confirmCompletion,
 } from "../state.js";
 
-function ambiguousError(idOrTitle, matches) {
-  return `Ambiguous match for "${idOrTitle}": ${matches.map(describeQuest).join(", ")}. Use the exact id instead.`;
-}
-
-function resolveOne(state, idOrTitle) {
-  const matches = findQuestCandidates(state, idOrTitle);
-  if (matches.length === 0) return { error: `No quest found matching "${idOrTitle}"` };
-  if (matches.length > 1) return { error: ambiguousError(idOrTitle, matches) };
-  return { quest: matches[0] };
-}
+const LEVELS = ["quest", "mission", "task"];
 
 function createServer() {
   const server = new McpServer({ name: "questhelper", version: "1.0.0" });
 
   server.tool(
     "list_quests",
-    "List quests from the quest log, optionally filtered by status (idea, progress, blocked, done).",
-    { status: z.enum(["idea", "progress", "blocked", "done"]).optional().describe("Filter to just this status") },
-    async ({ status }) => {
+    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task).",
+    {
+      status: z.enum(["idea", "progress", "blocked", "done"]).optional().describe("Filter to just this status"),
+      level: z.enum(LEVELS).optional().describe("Filter to just this level"),
+      tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
+    },
+    async ({ status, level, tree }) => {
       const state = await readState();
-      const quests = status ? state.quests.filter((q) => q.status === status) : state.quests;
-      return { content: [{ type: "text", text: JSON.stringify(quests, null, 2) }] };
+      let quests = state.quests;
+      if (status) quests = quests.filter((q) => q.status === status);
+      if (level) quests = quests.filter((q) => q.level === level);
+      if (!tree) return { content: [{ type: "text", text: JSON.stringify(quests, null, 2) }] };
+
+      const byParent = new Map();
+      for (const q of quests) {
+        const key = q.parentId ?? null;
+        if (!byParent.has(key)) byParent.set(key, []);
+        byParent.get(key).push(q);
+      }
+      const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
+      const roots = (byParent.get(null) ?? []).map(attachChildren);
+      return { content: [{ type: "text", text: JSON.stringify(roots, null, 2) }] };
     },
   );
 
@@ -46,22 +55,38 @@ function createServer() {
       title: z.string().describe("Short title for the idea"),
       notes: z.string().optional().describe("Optional description/context"),
       status: z.enum(["idea", "progress", "blocked", "done"]).optional().describe("Defaults to 'idea'"),
+      level: z.enum(LEVELS).optional().describe("Defaults to 'mission' (today's flat items are all missions)"),
+      parentIdOrTitle: z
+        .string()
+        .optional()
+        .describe("Parent's id, exact title, or a title substring -- a mission's parent must be a quest, a task's must be a mission"),
     },
-    async ({ title, notes, status }) => {
-      const { result: quest } = await mutateState(async (state) => {
-        const q = { id: slugify(title), title, status: status ?? "idea", notes: notes ?? "" };
+    async ({ title, notes, status, level, parentIdOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const questLevel = level ?? "mission";
+        const parentResolution = resolveParent(state, parentIdOrTitle, questLevel);
+        if (parentResolution.error) return parentResolution;
+        const q = {
+          id: slugify(title),
+          title,
+          status: status ?? "idea",
+          notes: notes ?? "",
+          level: questLevel,
+          parentId: parentResolution.parentId,
+        };
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);
         bumpArtifactChangeCounter(state, { mainQuest: true });
-        return q;
+        return { quest: q };
       });
-      return { content: [{ type: "text", text: JSON.stringify(quest, null, 2) }] };
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
     },
   );
 
   server.tool(
     "set_quest_status",
-    "Update an existing quest's status by id or (partial, case-insensitive) title match.",
+    "Update an existing quest's status by id or (partial, case-insensitive) title match. A mission/quest that has children can't be set to 'done' this way -- use confirm_completion once it's readyToClose.",
     {
       idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
       status: z.enum(["idea", "progress", "blocked", "done"]),
@@ -71,13 +96,34 @@ function createServer() {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
         const quest = resolved.quest;
-        if (status === "done" && quest.status !== "done") {
-          quest._prevStatus = quest.status;
-          quest.date = quest.date ?? todayISO();
+        if (status === "done") {
+          const hasChildren = state.quests.some((c) => c.parentId === quest.id);
+          if (hasChildren) {
+            return { error: `${describeQuest(quest)} has children -- use confirm_completion instead of setting "done" directly` };
+          }
+          if (quest.status !== "done") {
+            quest._prevStatus = quest.status;
+            quest.date = quest.date ?? todayISO();
+          }
         }
         quest.status = status;
         bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "confirm_completion",
+    "Close out a mission/quest that's readyToClose (all its children are done), or a plain leaf item with no children. This is the only way to mark a parent 'done' -- call it only once both Claude and the user agree there's nothing left to add.",
+    { idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title") },
+    async ({ idOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = confirmCompletion(state, idOrTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
