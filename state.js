@@ -227,3 +227,17 @@ export function artifactNeedsUpdate(state) {
   const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
   return a.url === null || a.mainQuestChanged || a.changesSince >= ARTIFACT_CHANGE_THRESHOLD;
 }
+
+// Lets a human flag an upcoming/in-progress redeploy before it happens, so an
+// already-open MCP session can warn the user ahead of time instead of just
+// hitting the opaque "no valid session" error once the container actually
+// restarts (sessions are in-memory and don't survive a restart regardless --
+// this flag doesn't prevent that, it just makes the read tools mention it).
+export function getMaintenance(state) {
+  return state._maintenance ?? { active: false, note: "", since: null };
+}
+
+export function setMaintenance(state, { active, note }) {
+  state._maintenance = active ? { active: true, note: note ?? "", since: new Date().toISOString() } : { active: false, note: "", since: null };
+  return state._maintenance;
+}
