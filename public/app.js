@@ -105,12 +105,22 @@
       body: JSON.stringify(STATE)
     })
       .then(function (res) {
+        if (res.status === 409) {
+          showSaveState("conflict - someone else changed this, reload the page", true);
+          throw new Error("conflict");
+        }
         if (!res.ok) throw new Error("save failed (" + res.status + ")");
+        return res.json();
+      })
+      .then(function (body) {
+        STATE._version = body.version;
         showSaveState("saved", false);
       })
       .catch(function (err) {
-        console.error(err);
-        showSaveState("save failed - retry or check server", true);
+        if (err.message !== "conflict") {
+          console.error(err);
+          showSaveState("save failed - retry or check server", true);
+        }
       });
   }
 
