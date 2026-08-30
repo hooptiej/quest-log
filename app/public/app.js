@@ -107,6 +107,16 @@
     return null;
   }
 
+  // Notes-disclosure rollup (#30): every item gets a triangle that hides
+  // just its own notes text -- title, status tag/badge, and any children
+  // always stay visible regardless of this toggle. Independent of the
+  // structural children-toggle in treeNode (#21), which this never touches.
+  // Collapsed by default once something's done, since that's when notes
+  // tend to be a long completed-work writeup nobody needs to see by default.
+  function notesToggleButton(collapsed, title) {
+    return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸" : "▾") + '</button>';
+  }
+
   function questRow(q) {
     var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var checked = q.status === "done";
@@ -124,10 +134,11 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           (checked ? '<span class="quest-tag">' + meta.tag + '</span>' : '') +
+          (q.notes ? notesToggleButton(checked, q.title) : '') +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
-        (q.notes ? '<div class="quest-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
+        (q.notes ? '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
         (showCycle ? '<button type="button" class="quest-cycle" data-action="cycle-status" data-id="' + escapeHtml(q.id) + '">' + meta.tag + '</button>' : '<span></span>') +
       '</div>'
     );
@@ -169,6 +180,7 @@
               ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
+            (q.notes ? notesToggleButton(checked, q.title) : '') +
           '</span>' +
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
@@ -177,7 +189,7 @@
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
         '</div>' +
-        (q.notes ? '<div class="tree-notes">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
+        (q.notes ? '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
         (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent, false); }).join("") + '</div>' : '') +
       '</div>'
     );
@@ -347,6 +359,17 @@
   }
 
   document.addEventListener("click", function (ev) {
+    var notesToggleBtn = ev.target.closest('[data-action="toggle-notes"]');
+    if (notesToggleBtn) {
+      var notesContainer = notesToggleBtn.closest(".tree-node, .quest");
+      var notesEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes, :scope > .quest-notes");
+      if (notesEl) {
+        var notesCollapsed = notesEl.classList.toggle("collapsed");
+        notesToggleBtn.textContent = notesCollapsed ? "▸" : "▾";
+        notesToggleBtn.setAttribute("aria-expanded", String(!notesCollapsed));
+      }
+      return;
+    }
     var treeToggleBtn = ev.target.closest('[data-action="toggle-tree"]');
     if (treeToggleBtn) {
       var node = treeToggleBtn.closest(".tree-node");
