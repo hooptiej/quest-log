@@ -1,7 +1,8 @@
 import "dotenv/config";
 import express from "express";
+import { createServer as createHttpsServer } from "node:https";
 import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -9,6 +10,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_PATH = process.env.DATA_PATH ?? join(__dirname, "data", "state.json");
 const TEMPLATE_PATH = join(__dirname, "template.html");
 const PORT = Number(process.env.PORT ?? 4242);
+const CERT_PATH = process.env.CERT_PATH ?? join(__dirname, "certs", "cert.pem");
+const KEY_PATH = process.env.KEY_PATH ?? join(__dirname, "certs", "key.pem");
 
 async function readState() {
   const raw = await readFile(DATA_PATH, "utf8");
@@ -66,6 +69,13 @@ if (!existsSync(DATA_PATH)) {
   process.exit(1);
 }
 
-app.listen(PORT, () => {
-  console.log(`quest-log listening on :${PORT}`);
-});
+if (existsSync(CERT_PATH) && existsSync(KEY_PATH)) {
+  const options = { cert: readFileSync(CERT_PATH), key: readFileSync(KEY_PATH) };
+  createHttpsServer(options, app).listen(PORT, () => {
+    console.log(`quest-log listening on :${PORT} (https, self-signed)`);
+  });
+} else {
+  app.listen(PORT, () => {
+    console.log(`quest-log listening on :${PORT} (http - no cert found at ${CERT_PATH})`);
+  });
+}

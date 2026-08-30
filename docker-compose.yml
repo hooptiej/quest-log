@@ -7,6 +7,11 @@ services:
       - "4242:4242"
     volumes:
       - ./data:/app/data
+      - ./certs:/app/certs
     environment:
       - PORT=4242
       - DATA_PATH=/app/data/state.json
+      - CERT_PATH=/app/certs/cert.pem
+      - KEY_PATH=/app/certs/key.pem
+      - CERT_SAN_DNS=questlog.local
+      - CERT_SAN_IP=10.0.1.78

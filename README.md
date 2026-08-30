@@ -32,6 +32,28 @@ docker compose up -d --build
 `docker-compose.yml` mounts `./data` into the container so state persists across rebuilds.
 Exposed on port 4242 by default (see `docker-compose.yml` / `PORT` env var to change it).
 
+## HTTPS
+
+`docker-entrypoint.sh` generates a self-signed cert into `./certs` (also volume-mounted) on
+first boot if one isn't already there, then starts the server — no manual setup needed for a
+fresh deployment. `server.js` serves over HTTPS automatically whenever `certs/cert.pem` and
+`certs/key.pem` exist, falling back to plain HTTP otherwise (e.g. for local dev without a
+cert). Configure what the cert covers via `CERT_SAN_DNS` (default `questlog.local`) and
+`CERT_SAN_IP` (unset by default) env vars — set `CERT_SAN_IP` to whatever address this is
+actually reachable at. Since it's self-signed, browsers still show a one-time "not trusted"
+warning to click through; a self-signed cert avoids a hard connection failure on `https://`,
+not that warning.
+
+`./certs` is gitignored — the private key never leaves the machine it's generated on.
+
+## mDNS
+
+If you want a `.local` hostname instead of a raw IP (matching `CERT_SAN_DNS` above so the
+cert's name actually matches what's in the address bar), that's a host-level concern outside
+this app — e.g. a systemd unit running `avahi-publish -a -R questlog.local <ip>` on the
+Linux host serving this. Not something Docker or this repo can do on their own since it needs
+to talk to the host's own mDNS responder.
+
 ## Editing the design
 
 `template.html` holds the styles and the static page shell (head, panels, form). `public/app.js`
