@@ -366,3 +366,98 @@ export function transferQuest(state, idOrTitle, newParentIdOrTitle) {
   quest.parentId = parentResolution.parentId;
   return { quest };
 }
+
+// Removes a quest/mission/task outright. Refuses if it has children unless
+// cascade is set, since silently orphaning children would leave them
+// pointed at a parentId that no longer exists (validateState would then
+// reject the very next read). With cascade, the whole subtree goes together
+// and every removed id is reported so the caller can say what was lost.
+export function deleteQuest(state, idOrTitle, { cascade = false } = {}) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+
+  const collectDescendants = (parentId) => {
+    const direct = state.quests.filter((c) => c.parentId === parentId);
+    return direct.flatMap((c) => [c, ...collectDescendants(c.id)]);
+  };
+  const descendants = collectDescendants(quest.id);
+
+  if (descendants.length > 0 && !cascade) {
+    return {
+      error: `${describeQuest(quest)} has ${descendants.length} child${descendants.length === 1 ? "" : "ren"} -- pass cascade:true to delete them too, or reparent/delete them first`,
+    };
+  }
+
+  const removedIds = new Set([quest.id, ...descendants.map((d) => d.id)]);
+  state.quests = state.quests.filter((q) => !removedIds.has(q.id));
+  return { quest, deleted: [...removedIds] };
+}
+
+// Fixed tier order (index 0..2) used by moveQuest to compute level shifts --
+// LEVEL_UP/LEVEL_DOWN above are only defined pairwise and don't give an easy
+// way to shift a whole subtree by N tiers at once.
+const LEVEL_ORDER = ["quest", "mission", "task"];
+
+// Moves an item -- and its whole subtree, whatever shape it is -- to become
+// a child of a new parent, regardless of the item's current level, parent,
+// or children. This is the general "just move it here" tool that
+// promote/recruit/transfer don't cover between them: recruit needs the item
+// both childless and parentless, transfer keeps the same level, and promote
+// never reparents. The new level for the moved root is derived from the new
+// parent's level (one tier down), and every descendant shifts by the same
+// number of tiers to preserve the subtree's shape. Omitting
+// newParentIdOrTitle moves the item to top-level, as a Quest.
+// Only rejected when the shift would push some descendant past the fixed
+// 3-tier floor/ceiling (nothing can be a Quest's parent, nothing can be a
+// Task's child) -- that failure names the offending descendant so the
+// caller knows what to deal with first.
+export function moveQuest(state, idOrTitle, newParentIdOrTitle) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+
+  let newParent = null;
+  if (newParentIdOrTitle) {
+    const parentResolved = resolveOne(state, newParentIdOrTitle);
+    if (parentResolved.error) return parentResolved;
+    newParent = parentResolved.quest;
+    if (newParent.id === quest.id) return { error: `${describeQuest(quest)} can't be its own parent` };
+    if (newParent.level === "task") {
+      return { error: `${describeQuest(newParent)} is a Task -- Tasks can't have children, so nothing can move under it` };
+    }
+  }
+
+  const collectDescendants = (parentId) => {
+    const direct = state.quests.filter((c) => c.parentId === parentId);
+    return direct.flatMap((c) => [c, ...collectDescendants(c.id)]);
+  };
+  const descendants = collectDescendants(quest.id);
+
+  if (newParent && descendants.some((d) => d.id === newParent.id)) {
+    return { error: `${describeQuest(newParent)} is inside ${describeQuest(quest)}'s own subtree -- can't move something under its own descendant` };
+  }
+
+  const newRootLevel = newParent ? LEVEL_DOWN[newParent.level] : "quest";
+  const delta = LEVEL_ORDER.indexOf(newRootLevel) - LEVEL_ORDER.indexOf(quest.level);
+
+  const maxDescendantDepth = (id) => {
+    const kids = state.quests.filter((c) => c.parentId === id);
+    if (kids.length === 0) return 0;
+    return 1 + Math.max(...kids.map((k) => maxDescendantDepth(k.id)));
+  };
+  const subtreeDepth = maxDescendantDepth(quest.id);
+  if (LEVEL_ORDER.indexOf(newRootLevel) + subtreeDepth > LEVEL_ORDER.length - 1) {
+    return {
+      error: `moving ${describeQuest(quest)} ${newParent ? `under ${describeQuest(newParent)}` : "to top-level"} would push its deepest descendant past Task -- promote or reparent that part of the subtree first`,
+    };
+  }
+
+  quest.level = newRootLevel;
+  quest.parentId = newParent ? newParent.id : null;
+  for (const d of descendants) {
+    d.level = LEVEL_ORDER[LEVEL_ORDER.indexOf(d.level) + delta];
+  }
+
+  return { quest, moved: [quest.id, ...descendants.map((d) => d.id)] };
+}
