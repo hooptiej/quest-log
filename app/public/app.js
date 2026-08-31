@@ -17,7 +17,7 @@
   // the Explorer" rather than "TITLE {name}").
   var THEME_FLAVOR = {
     muthur: {
-      orgLine: "WEYLAND-YUTANI CORP // HOMELAB DIVISION",
+      orgLine: "WEYTANI-YULAND CORP // HOMELAB DIVISION",
       terminalName: "MU/TH/UR-6000",
       titlePrefix: "MU/TH/UR",
       titleSuffix: "Mission Log",
@@ -383,17 +383,18 @@
   }
 
   // Designation is set once on first visit, then locked (#33): once a name
-  // has been saved, the field goes read-only in the browser so it can't be
-  // casually retyped -- from here it's meant to be changed via an MCP
-  // command instead (not built yet, see #33).
+  // has been saved, the whole field hides itself rather than just going
+  // read-only, since a locked-but-visible input invites retyping attempts
+  // that quietly do nothing -- from here it's meant to be changed via an
+  // MCP command instead (not built yet, see #33).
   var nameInput = document.getElementById("name-input");
   if (nameInput) {
     var savedName = "";
     try { savedName = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
     nameInput.value = savedName;
     if (savedName.trim()) {
-      nameInput.readOnly = true;
-      nameInput.title = "Designation locked after first entry — change via the quest-log MCP (see #33)";
+      var nameRow = nameInput.closest(".switcher-row");
+      if (nameRow) nameRow.style.display = "none";
     } else {
       nameInput.addEventListener("input", function () {
         try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
