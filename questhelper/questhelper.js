@@ -17,6 +17,8 @@ import {
   promoteQuest,
   recruitQuest,
   transferQuest,
+  deleteQuest,
+  moveQuest,
   getMaintenance,
   setMaintenance,
   setBlocked,
@@ -215,6 +217,45 @@ function createServer() {
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "delete_quest",
+    "Permanently delete a quest/mission/task by id or (partial, case-insensitive) title match. Refuses if it has children unless cascade is set, since orphaned children would break the log -- pass cascade:true to remove the whole subtree at once.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      cascade: z.boolean().optional().describe("If true, also delete every descendant. Defaults to false (refuse when children exist)."),
+    },
+    async ({ idOrTitle, cascade }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = deleteQuest(state, idOrTitle, { cascade });
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "move",
+    "Move an item -- and its whole subtree, whatever shape it is -- to become a child of a new parent, regardless of its current level, parent, or children. The general-purpose fix promote/recruit/transfer don't cover between them: recruit needs the item childless+parentless, transfer keeps the same level, promote never reparents. The moved item's new level is derived automatically from the new parent's level (one tier down); every descendant shifts by the same number of tiers to keep the subtree's shape. Omit newParentIdOrTitle to move it to top-level as a Quest. Only fails if the shift would push some descendant past Task -- promote/reparent that part first.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title -- the subtree root to move"),
+      newParentIdOrTitle: z
+        .string()
+        .optional()
+        .describe("New parent's id, exact title, or a title substring. Omit to move the item to top-level as a Quest."),
+    },
+    async ({ idOrTitle, newParentIdOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = moveQuest(state, idOrTitle, newParentIdOrTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );
 

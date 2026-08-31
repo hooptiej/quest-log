@@ -75,6 +75,14 @@ The `quest-log` MCP server exposes:
 - `transfer(idOrTitle, newParentIdOrTitle)` — move a Mission to a different Quest, or a Task to
   a different Mission (same level, new parent). A Task can only transfer to a Mission under its
   *current* Quest — no cross-Quest Task moves
+- `move(idOrTitle, newParentIdOrTitle?)` — move an item and its whole subtree to become a child
+  of a new parent, regardless of its current level, parent, or children. The new level is derived
+  automatically from the new parent's (one tier down) and every descendant shifts with it. Omit
+  `newParentIdOrTitle` to move it to top-level as a Quest. Only fails if a descendant would land
+  past Task
+- `delete_quest(idOrTitle, cascade?)` — permanently remove an item. Refuses if it has children
+  unless `cascade: true`, which removes the whole subtree in one call and reports every id
+  removed. There's no undo — confirm with the user before deleting anything with real history
 - `get_full_state()` — the complete raw state, if you need to see everything at once
 - `get_artifact_status()` — whether the mirrored claude.ai Artifact (see below) is due for a
   republish, plus the full state to build it from
@@ -108,12 +116,12 @@ this confirmation is meant to happen through the conversation, not a click. The 
 someone act directly in two ways: a "+ note" button to capture a quick note as a new child item
 for you to triage later, and an "↑ promote" button (wherever `promote` would currently succeed —
 it's hidden on a Quest, and hidden on anything with children) that levels the item up in place
-the same way the `promote` tool does. `recruit` and `transfer` have no UI equivalent — they only
-happen through conversation with Claude.
+the same way the `promote` tool does. `recruit`, `transfer`, `move`, and `delete_quest`
+have no UI equivalent — they only happen through conversation with Claude.
 
-### Restructuring: promote / recruit / transfer
+### Restructuring: promote / recruit / transfer / move
 
-Three ways to reshape the hierarchy after the fact (until these existed, an item's level and
+Four ways to reshape the hierarchy after the fact (until these existed, an item's level and
 parent were fixed at creation):
 
 - **Promote** an item that's outgrown its tier — a Task that turned into its own multi-step
@@ -128,6 +136,13 @@ parent were fixed at creation):
   the wrong Quest, or a shared Task needs to move to the Mission that actually owns it now. A
   Task can only transfer within its current Quest family (or anywhere, if it isn't under a Quest
   at all yet) — cross-Quest Task moves aren't allowed.
+- **Move** is the catch-all for everything promote/recruit/transfer refuse — reparent an item
+  (and its whole subtree) under any new parent, regardless of current level, parent, or children,
+  across Quest families. The level shift is derived automatically and applied to every descendant
+  to preserve the subtree's shape; it only refuses if that shift would push some descendant past
+  Task. Reach for this when something was mis-filed from the start (a Task that should've been
+  its own Mission under a completely different Quest, or a whole sub-tree that needs to move as
+  a unit), not as a routine substitute for the narrower tools above.
 
 None of these are gated by user confirmation the way `confirm_completion` is — reshaping the
 tree isn't the same kind of one-way door as marking something done, so use judgment same as
