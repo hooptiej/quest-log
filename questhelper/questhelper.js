@@ -38,6 +38,29 @@ function withMaintenanceBanner(state, content) {
   return [{ type: "text", text: `⚠️ quest-log maintenance flagged since ${m.since}${note}` }, ...content];
 }
 
+// Runs a single-item op shaped like recruitQuest/transferQuest --
+// (state, idOrTitle, newParentIdOrTitle) => { quest } | { error } -- across
+// one id or a whole array of ids against the same new parent, inside one
+// mutateState call (#24's bulk nice-to-have): a single save/version bump for
+// the whole batch instead of one per item, and each id is attempted
+// independently so one failure doesn't stop the rest from landing. A single
+// (non-array) idOrTitle keeps the original single-result response shape for
+// backward compatibility; an array gets a per-item array response instead.
+async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
+  const ids = Array.isArray(idOrTitleOrList) ? idOrTitleOrList : [idOrTitleOrList];
+  const { result } = await mutateState(async (state) => {
+    const outcomes = ids.map((id) => ({ idOrTitle: id, ...op(state, id, newParentIdOrTitle) }));
+    if (outcomes.some((o) => !o.error)) bumpArtifactChangeCounter(state, { mainQuest: true });
+    return outcomes;
+  });
+  if (!Array.isArray(idOrTitleOrList)) {
+    const [only] = result;
+    if (only.error) return { content: [{ type: "text", text: only.error }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(only.quest, null, 2) }] };
+  }
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+}
+
 function createServer() {
   const server = new McpServer({ name: "questhelper", version: "1.0.0" });
 
@@ -188,38 +211,24 @@ function createServer() {
 
   server.tool(
     "recruit",
-    "Bring an existing top-level Quest in as a Mission under another Quest, or an existing top-level Mission in as a Task under another Mission. Only works on something both parentless and childless -- use transfer instead if it already has a parent, and promote/reparent its children first if it has any.",
+    "Bring an existing top-level Quest in as a Mission under another Quest, or an existing top-level Mission in as a Task under another Mission. Only works on something both parentless and childless -- use transfer instead if it already has a parent, and promote/reparent its children first if it has any. Pass an array to recruit several items under the same newParentIdOrTitle in one call (#24) -- each is attempted independently in a single save, so one failure doesn't block the rest; the response is a per-item array instead of a single result.",
     {
-      idOrTitle: z.string().describe("The top-level Quest or Mission to recruit"),
+      idOrTitle: z
+        .union([z.string(), z.array(z.string())])
+        .describe("The top-level Quest or Mission to recruit -- or an array of several to recruit under the same newParentIdOrTitle at once"),
       newParentIdOrTitle: z.string().describe("The Quest (if recruiting a Quest) or Mission (if recruiting a Mission) to recruit it under"),
     },
-    async ({ idOrTitle, newParentIdOrTitle }) => {
-      const { result } = await mutateState(async (state) => {
-        const outcome = recruitQuest(state, idOrTitle, newParentIdOrTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
-        return outcome;
-      });
-      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
-      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
-    },
+    async ({ idOrTitle, newParentIdOrTitle }) => runBatch(recruitQuest, idOrTitle, newParentIdOrTitle),
   );
 
   server.tool(
     "transfer",
-    "Move a Mission to a different Quest, or a Task to a different Mission -- same level, new parent. A Task may only transfer to a Mission under its current Quest; cross-Quest Task moves aren't allowed.",
+    "Move a Mission to a different Quest, or a Task to a different Mission -- same level, new parent. A Task may only transfer to a Mission under its current Quest; cross-Quest Task moves aren't allowed. Pass an array to move several items to the same newParentIdOrTitle in one call (#24) -- each is attempted independently in a single save, so one failure doesn't block the rest; the response is a per-item array instead of a single result.",
     {
-      idOrTitle: z.string().describe("The Mission or Task to move"),
+      idOrTitle: z.union([z.string(), z.array(z.string())]).describe("The Mission or Task to move -- or an array of several to move to the same newParentIdOrTitle at once"),
       newParentIdOrTitle: z.string().describe("The new parent -- a Quest (for a Mission) or a Mission (for a Task)"),
     },
-    async ({ idOrTitle, newParentIdOrTitle }) => {
-      const { result } = await mutateState(async (state) => {
-        const outcome = transferQuest(state, idOrTitle, newParentIdOrTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
-        return outcome;
-      });
-      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
-      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
-    },
+    async ({ idOrTitle, newParentIdOrTitle }) => runBatch(transferQuest, idOrTitle, newParentIdOrTitle),
   );
 
   server.tool(
