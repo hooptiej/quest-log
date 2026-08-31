@@ -343,6 +343,20 @@ export function attachMcp(app) {
         if (transport.sessionId) delete transports[transport.sessionId];
       };
       await createServer().connect(transport);
+    } else if (sessionId) {
+      // Session id doesn't match anything we hold in memory -- almost always
+      // because the process restarted (redeploy/crash) and lost the map, not
+      // because the client sent a bogus id. Per the streamable-HTTP transport
+      // spec, an unrecognized session id gets 404, not 400: a compliant
+      // client treats 404 as "reinitialize", so this turns a permanently
+      // wedged session into a transparent reconnect instead of every
+      // subsequent call failing with the same opaque error forever.
+      res.status(404).json({
+        jsonrpc: "2.0",
+        error: { code: -32001, message: "Session not found" },
+        id: null,
+      });
+      return;
     } else {
       res.status(400).json({
         jsonrpc: "2.0",
@@ -359,7 +373,7 @@ export function attachMcp(app) {
     const sessionId = req.headers["mcp-session-id"];
     const transport = sessionId ? transports[sessionId] : undefined;
     if (!transport) {
-      res.status(400).send("Unknown or missing session");
+      res.status(404).send("Session not found");
       return;
     }
     await transport.handleRequest(req, res);
