@@ -145,6 +145,16 @@ about it. If you're unsure whether something is significant enough to track, err
 logging it as a `add_log_entry` note rather than a full quest — that's the lower-commitment
 option, and the user can always promote it to a tracked idea later if it turns out to matter.
 
+**Sync the instant the triggering event happens, in the same turn — not batched, not deferred
+until asked.** A PR merge, a deploy you just verified live, a bug you just confirmed fixed: the
+quest-log update belongs immediately after that action, not saved up for a "let's update the
+quest log" request at the end. Concretely: the moment a status change makes a Mission/Quest's
+`readyToClose` flag turn true, surface it to the user right then ("the sword mission looks done,
+all its tasks are checked off — anything else before I close it out?") in that same turn,
+rather than leaving it flagged for a later "close out completed items" ask. Getting explicit
+confirmation before `confirm_completion` (see above) is still required — the instruction here
+is about *when* you check and surface it, not about skipping that confirmation step.
+
 If the quest-log tools aren't available (the MCP server isn't connected in this session),
 don't block on it or make a big deal of it — just mention once that quest-log isn't reachable
 right now, and continue the actual task. Don't repeatedly retry or nag about it.
