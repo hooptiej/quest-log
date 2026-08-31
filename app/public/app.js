@@ -185,11 +185,10 @@
   // Read-only by design: a Quest/Mission with children only ever closes via
   // confirm_completion through Claude + the MCP tools (a conversation, not
   // a click) -- so this tree just displays current state, it doesn't offer
-  // controls to change it. `isRoot` controls the disclosure default (#21):
-  // top-level Quests start open, everything nested under one starts
-  // collapsed, so the tree shows what Quests/Missions exist without
-  // dumping every Task on the page at once.
-  function treeNode(q, byParent, isRoot) {
+  // controls to change it. Every node starts collapsed regardless of level,
+  // so the tree shows what Quests/Missions exist without dumping the whole
+  // hierarchy on the page at once.
+  function treeNode(q, byParent) {
     var children = byParent[q.id] || [];
     var checked = q.status === "done";
     var hasChildren = children.length > 0;
@@ -199,7 +198,7 @@
     // with children would leave them one tier too deep (see promoteQuest in
     // state.js), so the button only shows once it's actually eligible.
     var canPromote = q.level !== "quest" && !hasChildren;
-    var expanded = !!isRoot;
+    var expanded = false;
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
@@ -220,7 +219,7 @@
           '</span>' +
         '</div>' +
         (q.notes ? '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
-        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent, false); }).join("") + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
       '</div>'
     );
   }
@@ -243,7 +242,7 @@
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent, true); }).join("")
+      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
