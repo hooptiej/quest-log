@@ -397,12 +397,44 @@
   .tree-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .tree-toggle-spacer { display: inline-block; width: 0.7rem; flex-shrink: 0; }
   .tree-children.collapsed { display: none; }
+
+  /* Child-count badge (#37): shown next to .tree-toggle only while its
+     children are collapsed, so a rolled-up node still says what's inside
+     ("4 missions", "3 tasks, 2 done") instead of giving no hint at all. */
+  .child-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0.75;
+  }
+  .child-count.collapsed { display: none; }
   .tree-title { font-weight: 600; font-size: 0.94rem; color: var(--text); }
   .tree-node.is-done .tree-title { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent2); text-decoration-thickness: 1.5px; }
   .tree-meta { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
   .tree-notes { color: var(--muted); font-size: 0.84rem; margin-top: 0.3rem; }
   .tree-notes a { color: var(--accent2); }
   .tree-notes.collapsed, .quest-notes.collapsed { display: none; }
+
+  /* Teaser/synopsis (#37): a short plain-text preview shown only while the
+     full notes are collapsed, so collapsing something doesn't just leave a
+     blank gap where the notes used to be. */
+  .tree-notes-teaser {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-style: italic;
+    opacity: 0.75;
+    margin-top: 0.3rem;
+  }
+  .quest-notes-teaser {
+    grid-column: 2;
+    grid-row: 2;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-style: italic;
+    opacity: 0.75;
+    margin-top: 0.15rem;
+  }
+  .tree-notes-teaser.collapsed, .quest-notes-teaser.collapsed { display: none; }
 
   /* Notes-disclosure rollup (#30): a separate triangle from .tree-toggle --
      this one only ever hides/shows the notes text next to it, never the
@@ -709,7 +741,7 @@
 <body>
 <div class="wrap">
   <div class="boot">
-    <div class="boot-line"><span id="boot-org-line">WEYLAND-YUTANI CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
+    <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
     <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
   </div>
 
