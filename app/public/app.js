@@ -129,8 +129,9 @@
   // just its own notes text -- title, status tag/badge, and any children
   // always stay visible regardless of this toggle. Independent of the
   // structural children-toggle in treeNode (#21), which this never touches.
-  // Collapsed by default once something's done, since that's when notes
-  // tend to be a long completed-work writeup nobody needs to see by default.
+  // Collapsed by default regardless of status (#37): a long note clutters
+  // the log whether the item is done or still active, so every item starts
+  // collapsed with a teaser instead of only ones already marked done.
   function notesToggleButton(collapsed, title) {
     return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸" : "▾") + '</button>';
   }
@@ -177,14 +178,14 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           blockedBadge(q) +
-          (q.notes ? notesToggleButton(checked, q.title) : '') +
+          (q.notes ? notesToggleButton(true, q.title) : '') +
           blockedToggleButton(q) +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
         (q.notes
-          ? '<div class="quest-notes-teaser' + (checked ? "" : " collapsed") + '">' + notesTeaser(q.notes) + '</div>' +
-            '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
+          ? '<div class="quest-notes-teaser">' + notesTeaser(q.notes) + '</div>' +
+            '<div class="quest-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
           : '<div class="quest-notes"></div>') +
       '</div>'
     );
@@ -235,7 +236,7 @@
                 '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
-            (q.notes ? notesToggleButton(checked, q.title) : '') +
+            (q.notes ? notesToggleButton(true, q.title) : '') +
             blockedBadge(q) +
           '</span>' +
           '<span class="tree-actions">' +
@@ -247,8 +248,8 @@
           '</span>' +
         '</div>' +
         (q.notes
-          ? '<div class="tree-notes-teaser' + (checked ? "" : " collapsed") + '">' + notesTeaser(q.notes) + '</div>' +
-            '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
+          ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + '</div>' +
+            '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
           : '') +
         (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
       '</div>'
