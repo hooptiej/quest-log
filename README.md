@@ -118,6 +118,30 @@ docker network create -d ipvlan --subnet=<lan-subnet> --gateway=<lan-gateway> \
   -o parent=<host-nic> -o ipvlan_mode=l2 questlog-lan
 ```
 
+### Running elsewhere (demo / work server / Docker Desktop)
+
+The `questlog-lan` network above is specific to how this is wired on its home TrueNAS box —
+`docker compose up` will fail outright on a different host (`network questlog-lan declared as
+external, but could not be found`) since nothing there has created that network. For spinning
+this up anywhere else on short notice — a laptop, a work server, plain Docker Desktop — skip
+compose and just port-map it:
+
+```bash
+git clone https://github.com/hooptiej/quest-log.git
+cd quest-log
+cp data/state.example.json data/state.json  # or drop in a real state.json for a populated demo
+docker build -t quest-log .
+docker run -d --name quest-log -p 8080:80 \
+  -e PORT=80 -e DISABLE_TLS=1 -e DATA_PATH=/app/data/state.json \
+  -v "$(pwd)/data:/app/data" \
+  quest-log
+```
+
+Then it's at `http://localhost:8080`. This is the same pattern used to verify PRs on an
+isolated scratch container before merging (separate port, separate `-v` data mount, real
+`docker build` from the checkout) — nothing TrueNAS-specific about the app itself, only the
+checked-in compose file's networking assumes that one deployment.
+
 ## HTTPS
 
 Set `DISABLE_TLS=1` to skip certs entirely and serve plain HTTP — reasonable for a LAN-only
