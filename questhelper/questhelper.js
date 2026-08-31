@@ -19,6 +19,7 @@ import {
   transferQuest,
   getMaintenance,
   setMaintenance,
+  setBlocked,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
@@ -40,15 +41,17 @@ function createServer() {
     "list_quests",
     "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task).",
     {
-      status: z.enum(["idea", "progress", "blocked", "done"]).optional().describe("Filter to just this status"),
+      status: z.enum(["idea", "progress", "done"]).optional().describe("Filter to just this status"),
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
+      blocked: z.boolean().optional().describe("Filter to only blocked (true) or only unblocked (false) quests"),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
     },
-    async ({ status, level, tree }) => {
+    async ({ status, level, blocked, tree }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
+      if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
       if (!tree) return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }]) };
 
       const byParent = new Map();
@@ -69,7 +72,7 @@ function createServer() {
     {
       title: z.string().describe("Short title for the idea"),
       notes: z.string().optional().describe("Optional description/context"),
-      status: z.enum(["idea", "progress", "blocked", "done"]).optional().describe("Defaults to 'idea'"),
+      status: z.enum(["idea", "progress", "done"]).optional().describe("Defaults to 'idea'"),
       level: z.enum(LEVELS).optional().describe("Defaults to 'mission' (today's flat items are all missions)"),
       parentIdOrTitle: z
         .string()
@@ -104,7 +107,7 @@ function createServer() {
     "Update an existing quest's status by id or (partial, case-insensitive) title match. A mission/quest that has children can't be set to 'done' this way -- use confirm_completion once it's readyToClose.",
     {
       idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
-      status: z.enum(["idea", "progress", "blocked", "done"]),
+      status: z.enum(["idea", "progress", "done"]),
     },
     async ({ idOrTitle, status }) => {
       const { result } = await mutateState(async (state) => {
@@ -120,10 +123,29 @@ function createServer() {
             quest._prevStatus = quest.status;
             quest.date = quest.date ?? todayISO();
           }
+          delete quest.blocked; // done implies no longer blocked
         }
         quest.status = status;
         bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_blocked",
+    "Set or clear the independent 'blocked' flag (#26) on a quest at any level, without touching its actual status -- something can be 'in progress but blocked'. Blocked flows uphill for display: a blocked Task marks its Mission and Quest too (see blockedByDescendant in get_full_state/list_quests), but only the item you call this on actually stores the flag.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      blocked: z.boolean().describe("true to flag it blocked, false to clear it"),
+    },
+    async ({ idOrTitle, blocked }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = setBlocked(state, idOrTitle, blocked);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
+        return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };

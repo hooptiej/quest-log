@@ -279,29 +279,45 @@
   .panel .corner-bl { bottom: 8px; left: 8px; }
   .panel .corner-br { bottom: 8px; right: 8px; }
 
-  .panel-active { --panel-accent: var(--accent); }
   .panel-idea { --panel-accent: var(--idea); }
-  .panel-blocked {
-    --panel-accent: var(--alarm);
-    border-top-color: transparent;
-    background-image:
-      repeating-linear-gradient(135deg, var(--alarm) 0 10px, var(--bg) 10px 20px);
-    background-size: 100% 5px;
+  .panel-quests { --panel-accent: var(--accent2); }
+
+  /* ---------- blocked flag flair (#26) ----------
+     Was a whole panel treatment (hazard-striped background) when "blocked"
+     was a status with its own section; now it's a per-item accent since
+     blocked is an independent flag any quest/mission/task can carry. Own
+     blocked gets the full hazard stripe + solid accent bar; inherited
+     (blockedByDescendant, flowing uphill from a blocked child) gets a
+     thinner, unstriped bar so the two read as different severities. */
+  .quest.is-blocked, .tree-node.is-blocked {
+    border-left: 3px solid var(--alarm);
+    background-image: repeating-linear-gradient(135deg, var(--alarm) 0 8px, transparent 8px 16px);
+    background-size: 100% 4px;
     background-position: top left;
     background-repeat: repeat-x;
     background-origin: border-box;
   }
-  .panel-blocked {
-    padding-top: 1.9rem;
+  .quest.is-blocked-inherited, .tree-node.is-blocked-inherited {
+    border-left: 3px solid color-mix(in srgb, var(--alarm) 55%, transparent);
   }
-  .panel-blocked > *:not(.corner-bl):not(.corner-br) {
-    position: relative;
+  .blocked-badge {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    border: 1px solid var(--alarm);
+    color: var(--alarm);
+    background: color-mix(in srgb, var(--alarm) 14%, transparent);
+    text-transform: uppercase;
+    white-space: nowrap;
   }
-  .panel-blocked::before, .panel-blocked::after, .panel-blocked .corner-bl, .panel-blocked .corner-br {
-    background: var(--panel-accent, var(--accent));
+  .blocked-badge-inherited {
+    color: color-mix(in srgb, var(--alarm) 75%, var(--muted));
+    border-color: color-mix(in srgb, var(--alarm) 55%, transparent);
+    background: color-mix(in srgb, var(--alarm) 7%, transparent);
   }
-  .panel-done { --panel-accent: #b57edc; }
-  .panel-quests { --panel-accent: var(--accent2); }
+  .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
@@ -337,6 +353,26 @@
   .tree-meta { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
   .tree-notes { color: var(--muted); font-size: 0.84rem; margin-top: 0.3rem; }
   .tree-notes a { color: var(--accent2); }
+  .tree-notes.collapsed, .quest-notes.collapsed { display: none; }
+
+  /* Notes-disclosure rollup (#30): a separate triangle from .tree-toggle --
+     this one only ever hides/shows the notes text next to it, never the
+     structural children, so the two controls can't step on each other. */
+  .notes-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+  .notes-toggle:hover { opacity: 1; color: var(--panel-accent, var(--accent)); }
+  .notes-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .tree-notes code { font-family: var(--font-mono); font-size: 0.85em; color: var(--text); background: var(--surface); padding: 0.05em 0.35em; border-radius: 3px; }
 
   .tree-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
@@ -385,12 +421,13 @@
 
   .quest {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: 0.15rem 0.85rem;
     align-items: start;
     padding: 0.7rem 0;
     border-bottom: 1px solid var(--border);
   }
+  .quest.is-blocked, .quest.is-blocked-inherited { padding-left: 0.6rem; }
   .quest:last-child { border-bottom: none; }
 
   .quest-check {
@@ -457,26 +494,6 @@
   }
   .quest-notes a { color: var(--accent2); }
   .quest-notes code { font-family: var(--font-mono); font-size: 0.85em; color: var(--text); background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 3px; }
-
-  .quest-cycle {
-    grid-column: 3;
-    grid-row: 1 / 3;
-    align-self: start;
-    justify-self: start;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-    padding: 0.25rem 0.55rem;
-    border-radius: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .quest-cycle:hover { border-color: var(--panel-accent, var(--accent)); color: var(--panel-accent, var(--accent)); }
-  .quest-cycle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .note-btn {
     background: none;
@@ -581,6 +598,44 @@
     margin-bottom: 0.1rem;
   }
 
+  /* Unroll (#30): the mini widget is deliberately truncated to 6 recent
+     entries -- this brings back the old always-on full-history view as an
+     on-demand expansion instead, so nothing's actually lost. */
+  .unroll-btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.35rem;
+    cursor: pointer;
+  }
+  .unroll-btn:hover { border-color: var(--panel-accent, var(--accent)); color: var(--panel-accent, var(--accent)); }
+  .unroll-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .log-full.collapsed { display: none; }
+  .log-full-date {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    opacity: 0.85;
+    margin: 0.9rem 0 0.35rem;
+  }
+  .log-full-date:first-child { margin-top: 0.85rem; }
+  .log-full-list { margin: 0 0 0.2rem; padding-left: 1.1rem; }
+  .log-full-list li {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 0.3rem;
+  }
+
   footer.sig {
     text-align: center;
     font-family: var(--font-mono);
@@ -595,12 +650,6 @@
     .cursor-blink { animation: none; opacity: 1; }
     .quest-check.just-toggled { animation: none; }
     .bar-fill { transition: none; }
-  }
-
-  @media (max-width: 480px) {
-    .quest { grid-template-columns: auto 1fr; }
-    .quest-cycle { grid-row: auto; grid-column: 2 / 3; justify-self: start; margin-top: 0.35rem; }
-    .quest-notes { grid-column: 2 / 3; }
   }
 
   @media (max-width: 560px) {
@@ -651,12 +700,6 @@
         <div id="quest-tree"></div>
       </section>
 
-      <section class="panel panel-active">
-        <div class="corner-bl"></div><div class="corner-br"></div>
-        <h2>Active Quests <span class="count" id="count-progress"></span></h2>
-        <div id="list-progress"></div>
-      </section>
-
       <section class="panel panel-idea add-panel">
         <div class="corner-bl"></div><div class="corner-br"></div>
         <h2>Idea Board <span class="count" id="count-idea"></span></h2>
@@ -668,18 +711,6 @@
         </form>
       </section>
 
-      <section class="panel panel-blocked">
-        <div class="corner-bl"></div><div class="corner-br"></div>
-        <h2>Blocked <span class="count" id="count-blocked"></span></h2>
-        <div id="list-blocked"></div>
-      </section>
-
-      <section class="panel panel-done">
-        <div class="corner-bl"></div><div class="corner-br"></div>
-        <h2>Completed <span class="count" id="count-done"></span></h2>
-        <div id="list-done"></div>
-      </section>
-
       <div class="save-indicator" id="save-indicator">saved</div>
     </div>
 
@@ -688,6 +719,8 @@
         <div class="corner-bl"></div><div class="corner-br"></div>
         <h2>Recent Activity</h2>
         <ul class="log-mini-list" id="log-body-mini"></ul>
+        <button type="button" class="unroll-btn" data-action="toggle-log-full" aria-expanded="false">Show full log &#9662;</button>
+        <div class="log-full collapsed" id="log-body-full"></div>
       </section>
     </aside>
   </div>
