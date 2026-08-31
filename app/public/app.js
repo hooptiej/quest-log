@@ -17,7 +17,7 @@
   // the Explorer" rather than "TITLE {name}").
   var THEME_FLAVOR = {
     muthur: {
-      orgLine: "WEYLAND-YUTANI CORP // HOMELAB DIVISION",
+      orgLine: "WEYTANI-YULAND CORP // HOMELAB DIVISION",
       terminalName: "MU/TH/UR-6000",
       titlePrefix: "MU/TH/UR",
       titleSuffix: "Mission Log",
@@ -110,6 +110,14 @@
     return root.innerHTML;
   }
 
+  // Plain-text rendering of notes (tags stripped, not just allowlisted) --
+  // only ever used to build the collapsed-state teaser below, never
+  // inserted as HTML, so no sanitizing allowlist is needed here.
+  function notesPlainText(html) {
+    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
   // A quest/mission can take a child note; a task (already a leaf) can't.
   function childLevelFor(level) {
     if (level === "quest") return "mission";
@@ -117,14 +125,26 @@
     return null;
   }
 
-  // Notes-disclosure rollup (#30): every item gets a triangle that hides
-  // just its own notes text -- title, status tag/badge, and any children
-  // always stay visible regardless of this toggle. Independent of the
-  // structural children-toggle in treeNode (#21), which this never touches.
-  // Collapsed by default once something's done, since that's when notes
-  // tend to be a long completed-work writeup nobody needs to see by default.
+  // Notes-disclosure rollup (#30): every item gets a toggle that hides just
+  // its own notes text -- title, status tag/badge, and any children always
+  // stay visible regardless of this toggle. Independent of the structural
+  // children-toggle in treeNode (#21), which this never touches. Collapsed
+  // by default regardless of status (#37): a long note clutters the log
+  // whether the item is done or still active, so every item starts
+  // collapsed with a teaser instead of only ones already marked done.
+  //
+  // Rendered as a labeled link under the teaser/notes text itself (not a
+  // bare triangle buried in the title row among half a dozen other
+  // controls) -- a first pass put it up there and it was too easy to miss.
   function notesToggleButton(collapsed, title) {
-    return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸" : "▾") + '</button>';
+    return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸ more" : "▾ less") + '</button>';
+  }
+
+  // Teaser/synopsis (#37): collapsed notes used to just vanish, leaving no
+  // hint of what's there. This renders alongside the full notes div with
+  // the opposite collapsed state, so exactly one of the two is visible.
+  function notesTeaser(notes) {
+    return escapeHtml(truncate(notesPlainText(notes), 120));
   }
 
   // Blocked (#26) is an independent flag, not a status -- own vs. inherited
@@ -162,12 +182,14 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           blockedBadge(q) +
-          (q.notes ? notesToggleButton(checked, q.title) : '') +
           blockedToggleButton(q) +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
-        (q.notes ? '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
+        (q.notes
+          ? '<div class="quest-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
+            '<div class="quest-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
+          : '<div class="quest-notes"></div>') +
       '</div>'
     );
   }
@@ -180,6 +202,15 @@
   // children is today's flat item and keeps rendering exactly as before.
   function isTreeItem(q, parentIds) {
     return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
+  }
+
+  // Child-count badge (#37): shown next to the structural toggle only while
+  // collapsed, so a rolled-up Quest/Mission still says what's inside it
+  // ("4 missions", "3 tasks, 2 done") instead of giving no hint at all.
+  function childCountLabel(q, children) {
+    var noun = q.level === "quest" ? "mission" : "task";
+    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
+    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
 
   // Read-only by design: a Quest/Mission with children only ever closes via
@@ -204,10 +235,10 @@
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
-              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>'
+              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>' +
+                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
-            (q.notes ? notesToggleButton(checked, q.title) : '') +
             blockedBadge(q) +
           '</span>' +
           '<span class="tree-actions">' +
@@ -218,7 +249,10 @@
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
         '</div>' +
-        (q.notes ? '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
+        (q.notes
+          ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
+            '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
+          : '') +
         (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
       '</div>'
     );
@@ -352,17 +386,18 @@
   }
 
   // Designation is set once on first visit, then locked (#33): once a name
-  // has been saved, the field goes read-only in the browser so it can't be
-  // casually retyped -- from here it's meant to be changed via an MCP
-  // command instead (not built yet, see #33).
+  // has been saved, the whole field hides itself rather than just going
+  // read-only, since a locked-but-visible input invites retyping attempts
+  // that quietly do nothing -- from here it's meant to be changed via an
+  // MCP command instead (not built yet, see #33).
   var nameInput = document.getElementById("name-input");
   if (nameInput) {
     var savedName = "";
     try { savedName = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
     nameInput.value = savedName;
     if (savedName.trim()) {
-      nameInput.readOnly = true;
-      nameInput.title = "Designation locked after first entry — change via the quest-log MCP (see #33)";
+      var nameRow = nameInput.closest(".switcher-row");
+      if (nameRow) nameRow.style.display = "none";
     } else {
       nameInput.addEventListener("input", function () {
         try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
@@ -417,12 +452,16 @@
   document.addEventListener("click", function (ev) {
     var notesToggleBtn = ev.target.closest('[data-action="toggle-notes"]');
     if (notesToggleBtn) {
+      // Two of these buttons exist per item now (#37) -- one trailing the
+      // teaser, one trailing the full text -- each with a static label
+      // matching its own fixed role, so only the collapsed classes need
+      // to flip; whichever button is visible already reads correctly.
       var notesContainer = notesToggleBtn.closest(".tree-node, .quest");
       var notesEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes, :scope > .quest-notes");
-      if (notesEl) {
+      var teaserEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes-teaser, :scope > .quest-notes-teaser");
+      if (notesEl && teaserEl) {
         var notesCollapsed = notesEl.classList.toggle("collapsed");
-        notesToggleBtn.textContent = notesCollapsed ? "▸" : "▾";
-        notesToggleBtn.setAttribute("aria-expanded", String(!notesCollapsed));
+        teaserEl.classList.toggle("collapsed", !notesCollapsed);
       }
       return;
     }
@@ -434,6 +473,8 @@
         var collapsed = kids.classList.toggle("collapsed");
         treeToggleBtn.textContent = collapsed ? "▸" : "▾";
         treeToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+        var countEl = treeToggleBtn.parentNode.querySelector(":scope > .child-count");
+        if (countEl) countEl.classList.toggle("collapsed", !collapsed);
       }
       return;
     }
