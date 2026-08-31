@@ -110,6 +110,14 @@
     return root.innerHTML;
   }
 
+  // Plain-text rendering of notes (tags stripped, not just allowlisted) --
+  // only ever used to build the collapsed-state teaser below, never
+  // inserted as HTML, so no sanitizing allowlist is needed here.
+  function notesPlainText(html) {
+    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
   // A quest/mission can take a child note; a task (already a leaf) can't.
   function childLevelFor(level) {
     if (level === "quest") return "mission";
@@ -125,6 +133,13 @@
   // tend to be a long completed-work writeup nobody needs to see by default.
   function notesToggleButton(collapsed, title) {
     return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸" : "▾") + '</button>';
+  }
+
+  // Teaser/synopsis (#37): collapsed notes used to just vanish, leaving no
+  // hint of what's there. This renders alongside the full notes div with
+  // the opposite collapsed state, so exactly one of the two is visible.
+  function notesTeaser(notes) {
+    return escapeHtml(truncate(notesPlainText(notes), 120));
   }
 
   // Blocked (#26) is an independent flag, not a status -- own vs. inherited
@@ -167,7 +182,10 @@
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
-        (q.notes ? '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '<div class="quest-notes"></div>') +
+        (q.notes
+          ? '<div class="quest-notes-teaser' + (checked ? "" : " collapsed") + '">' + notesTeaser(q.notes) + '</div>' +
+            '<div class="quest-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
+          : '<div class="quest-notes"></div>') +
       '</div>'
     );
   }
@@ -180,6 +198,15 @@
   // children is today's flat item and keeps rendering exactly as before.
   function isTreeItem(q, parentIds) {
     return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
+  }
+
+  // Child-count badge (#37): shown next to the structural toggle only while
+  // collapsed, so a rolled-up Quest/Mission still says what's inside it
+  // ("4 missions", "3 tasks, 2 done") instead of giving no hint at all.
+  function childCountLabel(q, children) {
+    var noun = q.level === "quest" ? "mission" : "task";
+    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
+    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
 
   // Read-only by design: a Quest/Mission with children only ever closes via
@@ -204,7 +231,8 @@
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
-              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>'
+              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>' +
+                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
             (q.notes ? notesToggleButton(checked, q.title) : '') +
@@ -218,7 +246,10 @@
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
         '</div>' +
-        (q.notes ? '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>' : '') +
+        (q.notes
+          ? '<div class="tree-notes-teaser' + (checked ? "" : " collapsed") + '">' + notesTeaser(q.notes) + '</div>' +
+            '<div class="tree-notes' + (checked ? " collapsed" : "") + '">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + '</div>'
+          : '') +
         (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
       '</div>'
     );
@@ -419,8 +450,10 @@
     if (notesToggleBtn) {
       var notesContainer = notesToggleBtn.closest(".tree-node, .quest");
       var notesEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes, :scope > .quest-notes");
+      var teaserEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes-teaser, :scope > .quest-notes-teaser");
       if (notesEl) {
         var notesCollapsed = notesEl.classList.toggle("collapsed");
+        if (teaserEl) teaserEl.classList.toggle("collapsed", !notesCollapsed);
         notesToggleBtn.textContent = notesCollapsed ? "▸" : "▾";
         notesToggleBtn.setAttribute("aria-expanded", String(!notesCollapsed));
       }
@@ -434,6 +467,8 @@
         var collapsed = kids.classList.toggle("collapsed");
         treeToggleBtn.textContent = collapsed ? "▸" : "▾";
         treeToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+        var countEl = treeToggleBtn.parentNode.querySelector(":scope > .child-count");
+        if (countEl) countEl.classList.toggle("collapsed", !collapsed);
       }
       return;
     }
