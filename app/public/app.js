@@ -17,18 +17,28 @@
   // the Explorer" rather than "TITLE {name}").
   var THEME_FLAVOR = {
     muthur: {
-      orgLine: "WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION",
+      orgLine: "WEYLAND-YUTANI CORP // HOMELAB DIVISION",
       terminalName: "MU/TH/UR-6000",
       titlePrefix: "MU/TH/UR",
+      titleSuffix: "Mission Log",
       subtitlePrefix: "Priority One",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
-      orgLine: "VAULT-TEC OPERATIONS // WASTELAND DIVISION",
+      orgLine: "UNDERVAULT OPERATIONS // WASTELAND DIVISION",
       terminalName: "ROBCO TERMLINK",
       titlePrefix: "ROBCO",
-      subtitlePrefix: "Vault-Tec Directive",
+      titleSuffix: "Survey Report",
+      subtitlePrefix: "Undervault Directive",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
+    },
+    wow: {
+      orgLine: "ADVENTURERS' GUILD // QUEST BOARD DIVISION",
+      terminalName: "GUILD QUEST BOARD",
+      titlePrefix: "Azeroth",
+      titleSuffix: "Quest Log",
+      subtitlePrefix: "Bound By Oath",
+      designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     }
   };
   var NAME_KEY = "questlog-name";
@@ -44,6 +54,8 @@
     if (terminalNameEl) terminalNameEl.textContent = flavor.terminalName;
     var titlePrefixEl = document.getElementById("title-prefix");
     if (titlePrefixEl) titlePrefixEl.textContent = flavor.titlePrefix;
+    var titleSuffixEl = document.getElementById("title-suffix");
+    if (titleSuffixEl) titleSuffixEl.textContent = flavor.titleSuffix;
     var subtitleEl = document.getElementById("subtitle-prefix");
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var eyebrowEl = document.getElementById("eyebrow");
@@ -340,13 +352,24 @@
     });
   }
 
+  // Designation is set once on first visit, then locked (#33): once a name
+  // has been saved, the field goes read-only in the browser so it can't be
+  // casually retyped -- from here it's meant to be changed via an MCP
+  // command instead (not built yet, see #33).
   var nameInput = document.getElementById("name-input");
   if (nameInput) {
-    try { nameInput.value = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
-    nameInput.addEventListener("input", function () {
-      try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
-      applyFlavor();
-    });
+    var savedName = "";
+    try { savedName = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
+    nameInput.value = savedName;
+    if (savedName.trim()) {
+      nameInput.readOnly = true;
+      nameInput.title = "Designation locked after first entry — change via the quest-log MCP (see #33)";
+    } else {
+      nameInput.addEventListener("input", function () {
+        try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
+        applyFlavor();
+      });
+    }
   }
 
   var STATE = window.__QUEST_STATE__ || { quests: [], log: [] };

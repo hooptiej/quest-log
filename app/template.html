@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MU/TH/UR Quest Log</title>
+<title>Questlog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <script>
   // Applied before first paint to avoid a flash of the wrong theme.
   try {
@@ -64,6 +64,55 @@
       repeating-linear-gradient(0deg, color-mix(in srgb, var(--text) 2.5%, transparent) 0px, color-mix(in srgb, var(--text) 2.5%, transparent) 1px, transparent 1px, transparent 3px);
   }
   [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
+
+  /* ---------- theme: Guild Charter / WoW (#9) ---------- */
+  [data-theme="wow"] {
+    --bg: #241407;
+    --surface: #3a2413;
+    --surface-2: #4a2f18;
+    --border: #8a6423;
+    --text: #f1dfb6;
+    --muted: #b99b6b;
+    --accent: #ffd100;
+    --accent-dim: #a3790f;
+    --accent2: #a6231f;
+    --alarm: #ff4d2e;
+    --idea: #4fa8d8;
+
+    /* Same display face as MU/TH/UR (that Cinzel Q) -- carried over on purpose. */
+    --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
+    --font-head: 'MedievalSharp', 'Cinzel', Georgia, serif;
+    --font-mono: 'MedievalSharp', 'Share Tech Mono', ui-monospace, Consolas, monospace;
+    --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
+
+    --body-bg-image:
+      radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 8%, transparent), transparent 55%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.045' numOctaves='4' seed='7' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0.4 0 0 0 0.15  0.28 0 0 0 0.08  0.08 0 0 0 0  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>"),
+      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 45%, rgba(0,0,0,0.45) 100%);
+  }
+  [data-theme="wow"] h1 {
+    letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #fff3c4, var(--accent) 55%, var(--accent-dim));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.6));
+  }
+  [data-theme="wow"] .boot,
+  [data-theme="wow"] .status-panel,
+  [data-theme="wow"] .panel {
+    border-width: 2px;
+    border-image: linear-gradient(135deg, var(--accent-dim), var(--accent) 45%, var(--accent-dim)) 1;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 14px rgba(0,0,0,0.55);
+  }
+  [data-theme="wow"] .panel::before,
+  [data-theme="wow"] .panel::after,
+  [data-theme="wow"] .panel .corner-bl,
+  [data-theme="wow"] .panel .corner-br {
+    background: radial-gradient(circle at 35% 30%, #fff3c4, transparent 55%), var(--panel-accent, var(--accent));
+    box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent), 0 1px 1px rgba(0,0,0,0.6);
+  }
+  [data-theme="wow"] .add-btn { color: #241407; }
 
   * { box-sizing: border-box; }
 
@@ -660,7 +709,7 @@
 <body>
 <div class="wrap">
   <div class="boot">
-    <div class="boot-line"><span id="boot-org-line">WEYLAND-HOOPTIEJ CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
+    <div class="boot-line"><span id="boot-org-line">WEYLAND-YUTANI CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
     <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
   </div>
 
@@ -671,6 +720,7 @@
         <select id="theme-select" class="theme-select" aria-label="Display theme">
           <option value="muthur">MU/TH/UR-6000</option>
           <option value="terminal">FIELD TERMINAL</option>
+          <option value="wow">GUILD CHARTER</option>
         </select>
       </div>
       <div class="switcher-row">
@@ -679,7 +729,7 @@
       </div>
     </div>
     <div class="eyebrow" id="eyebrow">Interest: None</div>
-    <h1><span id="title-prefix">MU/TH/UR</span> Quest Log</h1>
+    <h1><span id="title-prefix">MU/TH/UR</span> <span id="title-suffix">Mission Log</span></h1>
     <p class="subtitle"><span id="subtitle-prefix">Priority One</span> — Track All Missions</p>
   </header>
 
@@ -725,7 +775,7 @@
     </aside>
   </div>
 
-  <footer class="sig">// end transmission — hooptiej homelab ops</footer>
+  <footer class="sig">// end transmission — homelab ops</footer>
 </div>
 
 <script>window.__QUEST_STATE__ = __STATE_JSON__; window.__WRITE_TOKEN__ = __WRITE_TOKEN_VALUE__;</script>
