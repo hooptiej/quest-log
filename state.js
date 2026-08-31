@@ -184,6 +184,30 @@ export function confirmCompletion(state, idOrTitle) {
   return { quest };
 }
 
+// Retitles an existing quest/mission/task in place, independent of any level
+// change (#24) -- promote keeps a title verbatim when leveling something up,
+// so there was previously no way to fix a title that no longer reads as a
+// good umbrella name after a restructure without deleting and recreating it.
+export function renameQuest(state, idOrTitle, newTitle) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const title = (newTitle ?? "").trim();
+  if (!title) return { error: "newTitle can't be empty" };
+  resolved.quest.title = title;
+  return { quest: resolved.quest };
+}
+
+// Sets the quest log's Designation/name (#33). Used to live only in browser
+// localStorage, editable once via the header field before it locked itself
+// read-only -- moved server-side so an MCP tool can change it afterward
+// instead of the field needing to stay editable.
+export function setDesignation(state, name) {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return { error: "name can't be empty" };
+  state.designation = trimmed;
+  return { designation: trimmed };
+}
+
 // Sets or clears the independent "blocked" flag (#26) on any quest, at any
 // level -- a Task, an in-progress Mission, anything. Kept separate from
 // status entirely: blocking something doesn't change what it's actively

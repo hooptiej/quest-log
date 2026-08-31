@@ -42,12 +42,21 @@
     }
   };
   var NAME_KEY = "questlog-name";
+  // Source of truth for the Designation once it's been saved server-side
+  // (#33) -- read once at load from the server-rendered state rather than
+  // localStorage, so the set_designation MCP tool actually takes effect on
+  // reload instead of the old localStorage copy winning.
+  var SERVER_DESIGNATION = ((window.__QUEST_STATE__ && window.__QUEST_STATE__.designation) || "").trim();
+
+  function currentDesignationName() {
+    if (SERVER_DESIGNATION) return SERVER_DESIGNATION;
+    try { return (localStorage.getItem(NAME_KEY) || "").trim(); } catch (e) { return ""; }
+  }
 
   function applyFlavor() {
     var theme = document.documentElement.dataset.theme || "muthur";
     var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
-    var name = "";
-    try { name = (localStorage.getItem(NAME_KEY) || "").trim(); } catch (e) {}
+    var name = currentDesignationName();
     var orgLineEl = document.getElementById("boot-org-line");
     if (orgLineEl) orgLineEl.textContent = flavor.orgLine;
     var terminalNameEl = document.getElementById("terminal-name");
@@ -388,20 +397,27 @@
   // Designation is set once on first visit, then locked (#33): once a name
   // has been saved, the whole field hides itself rather than just going
   // read-only, since a locked-but-visible input invites retyping attempts
-  // that quietly do nothing -- from here it's meant to be changed via an
-  // MCP command instead (not built yet, see #33).
+  // that quietly do nothing. The first save persists to the server (via the
+  // normal /api/state save path) rather than staying localStorage-only, so
+  // it's readable from -- and changeable via -- the set_designation MCP
+  // tool afterward instead of the field needing to stay editable.
   var nameInput = document.getElementById("name-input");
   if (nameInput) {
-    var savedName = "";
-    try { savedName = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
+    var savedName = currentDesignationName();
     nameInput.value = savedName;
-    if (savedName.trim()) {
+    if (savedName) {
       var nameRow = nameInput.closest(".switcher-row");
       if (nameRow) nameRow.style.display = "none";
     } else {
       nameInput.addEventListener("input", function () {
         try { localStorage.setItem(NAME_KEY, nameInput.value); } catch (e) {}
         applyFlavor();
+      });
+      nameInput.addEventListener("change", function () {
+        var v = nameInput.value.trim();
+        if (!v) return;
+        STATE.designation = v;
+        persist();
       });
     }
   }

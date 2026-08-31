@@ -89,6 +89,13 @@ app.post("/api/state", async (req, res, next) => {
         }
         state.quests = incoming.quests;
         state.log = incoming.log;
+        // The one-time initial Designation entry (#33) rides along on this
+        // same wholesale save -- everything after that first save goes
+        // through the set_designation MCP tool instead, since the browser
+        // field locks itself read-only once a name exists.
+        if (typeof incoming.designation === "string" && incoming.designation.trim()) {
+          state.designation = incoming.designation.trim();
+        }
         // Wholesale write from the browser UI -- it only ever toggles/cycles
         // status or adds a new quest (no log-only edits exposed there), so
         // treat every successful browser save as a mainquest-level change.
