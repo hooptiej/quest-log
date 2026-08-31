@@ -152,13 +152,21 @@ serves the template with the current state spliced in and handles the `/api/stat
 
 The DISPLAY MODE dropdown in the boot panel switches the whole UI between visual themes,
 persisted client-side via `localStorage` (no server round-trip). Themes are CSS variable sets
-keyed off `data-theme` on `<html>` — the default (`muthur`, no attribute needed) is the
-original dark green/purple terminal look; `terminal` ("Field Terminal") is a cleaner
-phosphor-green/amber CRT look (VT323 + IBM Plex Mono). Adding another theme means adding one
-more `[data-theme="..."]` block in `app/template.html` that redefines the `--bg`/`--surface`/
-`--accent`/`--font-*` variables — the rest of the page's CSS reads only those variables, so a
-new theme rarely needs component-level overrides. See [#9](https://github.com/hooptiej/quest-log/issues/9)
-for the WoW and Fallout presets still on the backlog.
+keyed off `data-theme` on `<html>` — three ship today, all from [#9](https://github.com/hooptiej/quest-log/issues/9):
+
+- **MU/TH/UR-6000** (default, no attribute) — the original dark green/purple terminal look,
+  `Orbitron` display font. h1 reads "MU/TH/UR Mission Log".
+- **Field Terminal** (`data-theme="terminal"`) — a phosphor green/amber CRT look, `VT323` +
+  IBM Plex Mono. h1 reads "ROBCO Survey Report".
+- **Guild Charter** (`data-theme="wow"`) — a parchment/gold WoW-inspired look, `Cinzel` display
+  font (carried over from MU/TH/UR's original face) + MedievalSharp/IM Fell English. h1 reads
+  "Azeroth Quest Log".
+
+Each theme also carries its own flavor text (org line, terminal name, title, designation
+wording) via the `THEME_FLAVOR` table in `app/public/app.js`. Adding another theme means adding
+one more `[data-theme="..."]` block in `app/template.html` that redefines the
+`--bg`/`--surface`/`--accent`/`--font-*` variables plus a `THEME_FLAVOR` entry — the rest of the
+page's CSS reads only those variables, so a new theme rarely needs component-level overrides.
 
 ## QuestTracker
 
