@@ -71,15 +71,22 @@ The `quest-log` MCP server exposes:
   Fails if the item has children (promote/transfer them first) or is already a Quest
 - `recruit(idOrTitle, newParentIdOrTitle)` — bring an existing top-level (parentless) Quest in
   as a Mission under another Quest, or a top-level Mission in as a Task under another Mission.
-  Fails if it already has a parent (use `transfer`) or still has children
+  Fails if it already has a parent (use `transfer`) or still has children. `idOrTitle` also
+  accepts an array to recruit several items under the same `newParentIdOrTitle` in one call —
+  each is attempted independently in a single save, so one failure doesn't block the rest; an
+  array input gets a per-item array response back instead of a single result
 - `transfer(idOrTitle, newParentIdOrTitle)` — move a Mission to a different Quest, or a Task to
   a different Mission (same level, new parent). A Task can only transfer to a Mission under its
-  *current* Quest — no cross-Quest Task moves
+  *current* Quest — no cross-Quest Task moves. Same array/batch support as `recruit` above
 - `move(idOrTitle, newParentIdOrTitle?)` — move an item and its whole subtree to become a child
   of a new parent, regardless of its current level, parent, or children. The new level is derived
   automatically from the new parent's (one tier down) and every descendant shifts with it. Omit
   `newParentIdOrTitle` to move it to top-level as a Quest. Only fails if a descendant would land
   past Task
+- `rename_quest(idOrTitle, newTitle)` — retitle a quest/mission/task in place, independent of
+  any level change. `promote`/`recruit`/`move` all keep the title verbatim, so use this to fix a
+  title that no longer reads as a good name after a restructure (e.g. before promoting a Mission
+  into an umbrella Quest whose current title doesn't work as one)
 - `delete_quest(idOrTitle, cascade?)` — permanently remove an item. Refuses if it has children
   unless `cascade: true`, which removes the whole subtree in one call and reports every id
   removed. There's no undo — confirm with the user before deleting anything with real history
@@ -90,6 +97,9 @@ The `quest-log` MCP server exposes:
   change counter
 - `set_maintenance(active, note?)` — flag or clear an in-progress/upcoming redeploy — see
   below
+- `set_designation(name)` — set the header Designation/name shown in the web UI. The browser
+  field only allows a one-time initial entry and then hides itself, so use this tool for any
+  change after that first save
 
 `idOrTitle` (and `parentIdOrTitle`) match by exact id, exact title, or a substring of the
 title — so `"scrypted-mcp"` or `"HomeKit pairing"` both work without needing the literal id.
@@ -119,10 +129,10 @@ it's hidden on a Quest, and hidden on anything with children) that levels the it
 the same way the `promote` tool does. `recruit`, `transfer`, `move`, and `delete_quest`
 have no UI equivalent — they only happen through conversation with Claude.
 
-### Restructuring: promote / recruit / transfer / move
+### Restructuring: promote / recruit / transfer / move / rename_quest
 
-Four ways to reshape the hierarchy after the fact (until these existed, an item's level and
-parent were fixed at creation):
+Five ways to reshape the hierarchy after the fact (until these existed, an item's level, parent,
+and title were fixed at creation):
 
 - **Promote** an item that's outgrown its tier — a Task that turned into its own multi-step
   effort, a Mission that turned into something big enough to deserve Missions of its own.
@@ -143,6 +153,13 @@ parent were fixed at creation):
   Task. Reach for this when something was mis-filed from the start (a Task that should've been
   its own Mission under a completely different Quest, or a whole sub-tree that needs to move as
   a unit), not as a routine substitute for the narrower tools above.
+- **Rename** a quest/mission/task in place when its current title stopped fitting — most often
+  right before a `promote`, when a title that was fine as a Mission doesn't read as a good
+  umbrella Quest name.
+
+For a reorg touching several items into the same new parent at once, `recruit` and `transfer`
+both accept an array of ids instead of a single one — cuts down the round trips for a reshape
+that would otherwise be one call per item.
 
 None of these are gated by user confirmation the way `confirm_completion` is — reshaping the
 tree isn't the same kind of one-way door as marking something done, so use judgment same as
