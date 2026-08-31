@@ -19,6 +19,8 @@ import {
   transferQuest,
   deleteQuest,
   moveQuest,
+  renameQuest,
+  setDesignation,
   getMaintenance,
   setMaintenance,
   setBlocked,
@@ -256,6 +258,37 @@ function createServer() {
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "rename_quest",
+    "Retitle an existing quest/mission/task in place, independent of any level change (#24). promote/recruit/move keep a title verbatim when leveling or reparenting something -- use this to fix a title first, e.g. before promoting a mission into an umbrella quest whose current title doesn't read as one.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      newTitle: z.string().describe("New title text, replacing the existing title entirely"),
+    },
+    async ({ idOrTitle, newTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = renameQuest(state, idOrTitle, newTitle);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_designation",
+    "Set the quest log's Designation/name shown in the header (#33). The browser field only allows a one-time initial entry and then locks itself read-only -- use this tool to change it after that.",
+    { name: z.string().describe("New designation/name text") },
+    async ({ name }) => {
+      const { result } = await mutateState(async (state) => {
+        return setDesignation(state, name);
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: `Designation set to "${result.designation}"` }] };
     },
   );
 
