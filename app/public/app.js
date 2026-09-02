@@ -368,7 +368,7 @@
     }
 
     var bootTime = document.getElementById("boot-time");
-    if (bootTime) bootTime.textContent = total + " MISSIONS TRACKED";
+    if (bootTime) bootTime.textContent = state.quests.length + " MISSIONS TRACKED";
 
     applyFlavor();
   }
