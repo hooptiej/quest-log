@@ -134,6 +134,24 @@
     return null;
   }
 
+  // Recursively collects all descendants of a quest (children, grandchildren, etc.)
+  function getDescendants(questId, allQuests) {
+    var children = allQuests.filter(function (q) { return q.parentId === questId; });
+    var result = children.slice();
+    for (var i = 0; i < children.length; i++) {
+      result = result.concat(getDescendants(children[i].id, allQuests));
+    }
+    return result;
+  }
+
+  // Computes done/total count for a quest's subtree (itself + all descendants)
+  function questProgress(q, allQuests) {
+    var descendants = getDescendants(q.id, allQuests);
+    var total = descendants.length + 1; // +1 for the quest itself
+    var doneCount = (q.status === "done" ? 1 : 0) + descendants.filter(function (d) { return d.status === "done"; }).length;
+    return { done: doneCount, total: total, pct: total ? Math.round((doneCount / total) * 100) : 0 };
+  }
+
   // Notes-disclosure rollup (#30): every item gets a toggle that hides just
   // its own notes text -- title, status tag/badge, and any children always
   // stay visible regardless of this toggle. Independent of the structural
@@ -228,7 +246,7 @@
   // controls to change it. Every node starts collapsed regardless of level,
   // so the tree shows what Quests/Missions exist without dumping the whole
   // hierarchy on the page at once.
-  function treeNode(q, byParent) {
+  function treeNode(q, byParent, allQuests) {
     var children = byParent[q.id] || [];
     var checked = q.status === "done";
     var hasChildren = children.length > 0;
@@ -239,6 +257,9 @@
     // state.js), so the button only shows once it's actually eligible.
     var canPromote = q.level !== "quest" && !hasChildren;
     var expanded = false;
+    // Per-quest progress bar (#29): each top-level Quest shows its own
+    // completion status (its Missions/Tasks: done vs. total within that Quest only)
+    var progress = q.level === "quest" ? questProgress(q, allQuests) : null;
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
@@ -258,11 +279,14 @@
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
         '</div>' +
+        (progress
+          ? '<div class="quest-progress"><span class="progress-label">' + progress.done + '/' + progress.total + '</span><div class="bar-track"><div class="bar-fill" style="width:' + progress.pct + '%"></div></div></div>'
+          : '') +
         (q.notes
           ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
             '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
           : '') +
-        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") + '</div>' : '') +
       '</div>'
     );
   }
@@ -285,7 +309,7 @@
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
+      ? roots.map(function (q) { return treeNode(q, byParent, state.quests); }).join("")
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
@@ -310,19 +334,6 @@
     });
 
     renderQuestTree(state, parentIds);
-
-    var total = state.quests.length;
-    var doneCount = groups.done.length;
-    var pct = total ? Math.round((doneCount / total) * 100) : 0;
-    var blockedCount = state.quests.filter(function (q) { return !!q.blocked; }).length;
-
-    document.getElementById("status-pct").textContent = pct + "%";
-    document.getElementById("bar-fill").style.width = pct + "%";
-    document.getElementById("status-counts").innerHTML =
-      '<span class="c-active">ACTIVE <b>' + groups.progress.length + '</b></span>' +
-      '<span class="c-idea">IDEAS <b>' + groups.idea.length + '</b></span>' +
-      '<span class="c-blocked">BLOCKED <b>' + blockedCount + '</b></span>' +
-      '<span class="c-done">DONE <b>' + groups.done.length + '</b></span>';
 
     var ideaList = document.getElementById("list-idea");
     ideaList.innerHTML = groups.idea.length
