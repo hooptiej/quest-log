@@ -56,7 +56,7 @@ app.get("/", async (_req, res, next) => {
       .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN))
       .replace("__APP_VERSION_VALUE__", JSON.stringify(pkg.version))
       .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(QUEST_LOG_ENV))
-      .replace("__STATE_JSON__", JSON.stringify(state));
+      .replace("__STATE_JSON__", JSON.stringify(state).replace(/</g, '\\u003c'));
     res.type("html").send(html);
   } catch (err) {
     next(err);
