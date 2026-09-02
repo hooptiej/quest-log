@@ -191,6 +191,67 @@ If the quest-log tools aren't available (the MCP server isn't connected in this 
 don't block on it or make a big deal of it — just mention once that quest-log isn't reachable
 right now, and continue the actual task. Don't repeatedly retry or nag about it.
 
+## Automated checkpoint reminders (Claude Code hooks)
+
+The instructions above rely on Claude noticing the right moments on its own. As a backstop —
+not a replacement — this skill's home machine also has a set of Claude Code hooks
+(`~/.claude/settings.json`) that inject a reminder at the moments most likely to mean
+quest-log needs an update. These are **not portable via this repo** (hooks live in a
+machine-local config file, not git), so if quest-log is being used from a new machine, add
+this block manually to that machine's `~/.claude/settings.json` (merge into any existing
+`hooks`/`permissions` keys, don't overwrite them) to get the same backstop there:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "if": "Bash(git commit *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Git commit completed. Consider checking quest-log to log this checkpoint or milestone.\"}}'" },
+          { "type": "command", "if": "Bash(git push *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Git push completed. Consider checking quest-log if this merge or push should be logged as a milestone.\"}}'" },
+          { "type": "command", "if": "Bash(gh pr create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Pull request created. New PRs often represent completed features — consider updating quest-log with this work.\"}}'" },
+          { "type": "command", "if": "Bash(gh issue close *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue closed. This likely represents completed work — check quest-log to ensure this closure is logged.\"}}'" },
+          { "type": "command", "if": "Bash(gh issue create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue created. New issues often signal scope changes or discovered blockers — consider updating quest-log status or dependencies.\"}}'" },
+          { "type": "command", "if": "Bash(gh issue comment *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue comment posted. Design decisions and scope discussions often happen in comments — check if quest-log should reflect this.\"}}'" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "if": "Write(*CLAUDE.md)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"CLAUDE.md file written. This often documents critical context — consider updating quest-log if scope, blockers, or decisions changed.\"}}'" },
+          { "type": "command", "if": "Edit(*CLAUDE.md)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"CLAUDE.md file edited. This often reflects context updates — consider syncing changes to quest-log.\"}}'" },
+          { "type": "command", "if": "Write(*memory*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Memory file written (auto-memory capture). Consider whether this learned context should be synced to quest-log.\"}}'" },
+          { "type": "command", "if": "Edit(*memory*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Memory file edited. Consider syncing important context updates to quest-log for future reference.\"}}'" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: early check — review quest-log for items with status: idea that haven't been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).\"}}'" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Why these specific triggers** (worth keeping if this ever gets redesigned): an earlier, narrower
+version of this idea (only `git commit`/`git push`/`gh pr create`/`gh issue close`) was tested
+against a real session's actual tool-call history before being built, and would have missed most
+of that session's real quest-log-relevant moments — new issues being filed (`gh issue create`) and
+design/scope decisions happening in comments (`gh issue comment`) were the biggest gaps, plus
+anything non-git entirely (CLAUDE.md writes, memory writes) was invisible to a Bash-only hook.
+The `SessionStart` idea-board nudge exists for a different reason: a standing idea can sit unread
+for an entire session even with the write-triggered hooks firing correctly, because nothing about
+*writing* new state re-surfaces *old* unread state — that's a periodic-read gap, not a
+write-trigger gap.
+
+A hook can only inject a reminder via `additionalContext` — it's a shell command, it cannot call
+quest-log's MCP tools directly. The actual sync/check still has to come from Claude reacting to
+that reminder in a live turn.
+
 ## Known limitation: stale MCP session after a quest-log redeploy
 
 `quest-log`'s MCP sessions are in-memory only (open bug:
