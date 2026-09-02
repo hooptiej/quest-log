@@ -284,6 +284,21 @@ session start, and it doesn't mean the service is down. `set_maintenance` doesn'
   - This fallback writes go through the same validation/locking as normal MCP writes — it's
     the same state.json, just a different door in.
 
+## Release versioning
+
+quest-log tracks releases using `MAJOR.MINOR.PATCH` where PATCH is zero-padded to 2 digits:
+
+- **MAJOR** (e.g. 1 → 2): a full release — significant feature set or architectural change.
+- **MINOR** (`.x`, e.g. 1.0 → 1.1): a "major build" — a significant feature or change set.
+- **PATCH** (`.0X`, zero-padded, e.g. 1.0.00 → 1.0.01): an incremental fix or polish.
+
+The version is maintained in `package.json` as the canonical source and is exposed in:
+
+- The running app's UI footer: `v1.0.00` visible in the page.
+- The `/health` endpoint: `GET /health` returns `{"status": "ok", "version": "1.0.00"}`.
+
+When bumping: update `package.json`'s `version` field with the new version, then commit as normal.
+
 ## Keeping the mirrored Artifact in sync
 
 hooptiej also keeps a claude.ai Artifact ("MU/TH/UR Quest Log") as a read-only visual mirror

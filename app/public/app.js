@@ -69,6 +69,8 @@
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var eyebrowEl = document.getElementById("eyebrow");
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
+    var versionEl = document.getElementById("version-badge");
+    if (versionEl && window.__APP_VERSION__) versionEl.textContent = "v" + window.__APP_VERSION__;
   }
 
   function truncate(s, max) {

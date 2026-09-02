@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readState, mutateState, validateState, bumpArtifactChangeCounter } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
+import pkg from "../package.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, "..");
@@ -42,7 +43,8 @@ app.get("/", async (_req, res, next) => {
     const [template, state] = await Promise.all([readFile(TEMPLATE_PATH, "utf8"), readState()]);
     const html = template
       .replace("__STATE_JSON__", JSON.stringify(state))
-      .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN));
+      .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN))
+      .replace("__APP_VERSION__", JSON.stringify(pkg.version));
     res.type("html").send(html);
   } catch (err) {
     next(err);
@@ -115,7 +117,7 @@ app.post("/api/state", async (req, res, next) => {
 
 attachMcp(app);
 
-app.get("/health", (_req, res) => res.type("text/plain").send("ok"));
+app.get("/health", (_req, res) => res.json({ status: "ok", version: pkg.version }));
 
 app.use((err, _req, res, _next) => {
   console.error(err);
