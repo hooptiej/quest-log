@@ -44,11 +44,19 @@ app.use(express.static(join(__dirname, "public")));
 app.get("/", async (_req, res, next) => {
   try {
     const [template, state] = await Promise.all([readFile(TEMPLATE_PATH, "utf8"), readState()]);
+    // __STATE_JSON__ carries arbitrary user-authored text (quest notes) and
+    // must be substituted LAST. Any placeholder-looking substring a note
+    // happens to contain (e.g. a bug report literally describing
+    // "__APP_VERSION_VALUE__") would otherwise be sitting in the HTML by the
+    // time an earlier .replace() call goes looking for that exact text --
+    // and .replace() matches the FIRST occurrence in the whole string, user
+    // content included. Resolving every fixed system placeholder first means
+    // there's nothing left for stray note text to accidentally satisfy.
     const html = template
-      .replace("__STATE_JSON__", JSON.stringify(state))
       .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN))
       .replace("__APP_VERSION_VALUE__", JSON.stringify(pkg.version))
-      .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(QUEST_LOG_ENV));
+      .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(QUEST_LOG_ENV))
+      .replace("__STATE_JSON__", JSON.stringify(state));
     res.type("html").send(html);
   } catch (err) {
     next(err);
