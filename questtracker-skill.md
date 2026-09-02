@@ -243,12 +243,7 @@ by eye:
   (notes edits, log entries) have piled up since the last sync — republish and call
   `record_artifact_update(url)` immediately after. Don't defer this or batch it up further;
   the threshold logic already handles batching.
-- **Building the mirror:** reuse `state.js`'s rendering shape (status counts, the four quest
-  panels, the mission log) and the same MU/TH/UR terminal CSS from `app/template.html` — this
-  should look like the real page, not a reformatted summary. Don't embed `window.__WRITE_TOKEN__`
-  or any live `fetch("/api/state")` calls in the published Artifact — it's read-only, the token
-  is a secret, and the fetch would just fail silently under the Artifact CSP anyway. A small
-  "read-only mirror, edit at questlog.local" banner at the top is enough to set expectations.
+- **Building the mirror:** Call the new `get_mirror_template()` MCP tool to fetch `{css, renderCode, renderFunctions, version}`. Combine the returned `css` and `renderCode` with the quest state from `get_full_state()` or `get_artifact_status()` to build the artifact. The `renderCode` is a read-only render function that takes state as input — the Artifact should invoke this to render the UI from the current state. Don't embed `window.__WRITE_TOKEN__` or any live `fetch("/api/state")` calls in the published Artifact — it's read-only, the token is a secret, and the fetch would just fail silently under the Artifact CSP anyway. A small "read-only mirror, edit at questlog.local" banner at the top is enough to set expectations.
 - **One shared Artifact, not one per session.** The `url` lives in server state precisely so
   every session (any machine) updates the same Artifact instead of each spawning its own —
   always pass the `url` from `get_artifact_status()` back into the `Artifact` tool's `url`

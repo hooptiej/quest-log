@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { QUEST_LOG_CSS } from "../app/css.js";
 import {
   readState,
   mutateState,
@@ -36,6 +37,16 @@ function withMaintenanceBanner(state, content) {
   if (!m.active) return content;
   const note = m.note ? `: ${m.note}` : "";
   return [{ type: "text", text: `⚠️ quest-log maintenance flagged since ${m.since}${note}` }, ...content];
+}
+
+// Prepended to read tools' responses when the mirrored artifact is stale,
+// so a session is notified on next call instead of silently continuing to
+// work with an out-of-date mirror. Used alongside withMaintenanceBanner()
+// -- maintenance banner appears first if both are flagged.
+function withArtifactStalenessInfo(state, content) {
+  if (!artifactNeedsUpdate(state)) return content;
+  const a = state._artifact ?? { changesSince: 0 };
+  return [{ type: "text", text: `⚠️ Artifact mirror is stale (${a.changesSince} changes since last publish) — call record_artifact_update(url) after republishing` }, ...content];
 }
 
 // Runs a single-item op shaped like recruitQuest/transferQuest --
@@ -79,7 +90,7 @@ function createServer() {
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
-      if (!tree) return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }]) };
+      if (!tree) return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
 
       const byParent = new Map();
       for (const q of quests) {
@@ -89,7 +100,7 @@ function createServer() {
       }
       const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
       const roots = (byParent.get(null) ?? []).map(attachChildren);
-      return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }]) };
+      return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }])) };
     },
   );
 
@@ -345,7 +356,7 @@ function createServer() {
 
   server.tool("get_full_state", "Get the quest log's complete raw state (all quests and the full mission log).", {}, async () => {
     const state = await readState();
-    return { content: withMaintenanceBanner(state, [{ type: "text", text: JSON.stringify(state, null, 2) }]) };
+    return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(state, null, 2) }])) };
   });
 
   server.tool(
@@ -371,7 +382,7 @@ function createServer() {
       const state = await readState();
       const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
       return {
-        content: withMaintenanceBanner(state, [
+        content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [
           {
             type: "text",
             text: JSON.stringify(
@@ -386,7 +397,7 @@ function createServer() {
               2,
             ),
           },
-        ]),
+        ])),
       };
     },
   );
@@ -400,6 +411,241 @@ function createServer() {
         state._artifact = { url, changesSince: 0, mainQuestChanged: false };
       });
       return { content: [{ type: "text", text: `Recorded artifact sync at ${url}` }] };
+    },
+  );
+
+  server.tool(
+    "get_mirror_template",
+    "Fetch the CSS and read-only render logic for building a static mirror of the quest log in claude.ai. Used alongside get_full_state() and get_artifact_status() to assemble a complete artifact mirror.",
+    {},
+    async () => {
+      const renderCode = `// Read-only render logic extracted from app.js for mirror template
+// No event listeners, no persist() calls, no STATE mutations
+(function() {
+  var STATUS_META = {
+    progress: { tag: "ACTIVE" },
+    idea: { tag: "IDEA" },
+    done: { tag: "DONE" }
+  };
+  var LEVEL_UP = { task: "mission", mission: "quest" };
+  var NOTES_ALLOWED_ATTRS = { A: ["href", "target"] };
+
+  function truncate(s, max) {
+    if (s.length <= max) return s;
+    return s.slice(0, max).replace(/\\s+\\S*$/, "") + "…";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\"": "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function sanitizeNotes(html) {
+    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
+    var root = doc.body.firstChild;
+    function clean(node) {
+      Array.prototype.slice.call(node.childNodes).forEach(function (child) {
+        if (child.nodeType === 1) {
+          var tag = child.tagName;
+          if (tag !== "A" && tag !== "CODE") {
+            node.replaceChild(document.createTextNode(child.textContent), child);
+            return;
+          }
+          var keep = NOTES_ALLOWED_ATTRS[tag] || [];
+          Array.prototype.slice.call(child.attributes).forEach(function (attr) {
+            if (keep.indexOf(attr.name) === -1) child.removeAttribute(attr.name);
+          });
+          if (tag === "A") {
+            var href = (child.getAttribute("href") || "").trim();
+            if (!/^(https?:|mailto:|\\/)/.test(href)) child.removeAttribute("href");
+            child.setAttribute("rel", "noopener noreferrer");
+          }
+          clean(child);
+        } else if (child.nodeType !== 3) {
+          node.removeChild(child);
+        }
+      });
+    }
+    clean(root);
+    return root.innerHTML;
+  }
+
+  function notesPlainText(html) {
+    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
+    return (doc.body.textContent || "").replace(/\\s+/g, " ").trim();
+  }
+
+  function childLevelFor(level) {
+    if (level === "quest") return "mission";
+    if (level === "mission") return "task";
+    return null;
+  }
+
+  function notesToggleButton(collapsed, title) {
+    return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸ more" : "▾ less") + '</button>';
+  }
+
+  function notesTeaser(notes) {
+    return escapeHtml(truncate(notesPlainText(notes), 120));
+  }
+
+  function blockedClass(q) {
+    if (q.blocked) return " is-blocked";
+    if (q.blockedByDescendant) return " is-blocked-inherited";
+    return "";
+  }
+
+  function blockedBadge(q) {
+    if (q.blocked) return '<span class="blocked-badge">&#9888; BLOCKED</span>';
+    if (q.blockedByDescendant) return '<span class="blocked-badge blocked-badge-inherited">&#9888; blocked below</span>';
+    return "";
+  }
+
+  function childCountLabel(q, children) {
+    var noun = q.level === "quest" ? "mission" : "task";
+    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
+    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
+  }
+
+  function questRow(q) {
+    var checked = q.status === "done";
+    var childLevel = childLevelFor(q.level);
+    var canPromote = q.level !== "quest";
+    return (
+      '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+        '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
+          (checked ? "[x]" : "[ ]") +
+        '</button>' +
+        '<div class="quest-title-row">' +
+          '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
+          blockedBadge(q) +
+        '</div>' +
+        (q.notes
+          ? '<div class="quest-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
+            '<div class="quest-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
+          : '<div class="quest-notes"></div>') +
+      '</div>'
+    );
+  }
+
+  function isTreeItem(q, parentIds) {
+    return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
+  }
+
+  function treeNode(q, byParent) {
+    var children = byParent[q.id] || [];
+    var checked = q.status === "done";
+    var hasChildren = children.length > 0;
+    var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
+    var childLevel = childLevelFor(q.level);
+    var canPromote = q.level !== "quest" && !hasChildren;
+    var expanded = false;
+    return (
+      '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+        '<div class="tree-row">' +
+          '<span class="tree-title-group">' +
+            (hasChildren
+              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>' +
+                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
+              : '<span class="tree-toggle-spacer"></span>') +
+            '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
+            blockedBadge(q) +
+          '</span>' +
+          '<span class="tree-actions">' +
+            '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
+            (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+          '</span>' +
+        '</div>' +
+        (q.notes
+          ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
+            '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
+          : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  function renderQuestTree(state, parentIds) {
+    var byParent = {};
+    state.quests.forEach(function (q) {
+      if (!q.parentId) return;
+      (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
+    });
+    var roots = state.quests.filter(function (q) {
+      return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
+    });
+    return roots.length
+      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
+      : '<div class="empty-row">// no Quests yet</div>';
+  }
+
+  function render(state) {
+    var parentIds = new Set();
+    state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
+
+    var groups = { progress: [], idea: [], done: [] };
+    state.quests.forEach(function (q) {
+      if (isTreeItem(q, parentIds)) return;
+      if (!groups[q.status]) return;
+      groups[q.status].push(q);
+    });
+
+    var questTreeHtml = renderQuestTree(state, parentIds);
+    var ideaHtml = groups.idea.length
+      ? groups.idea.map(questRow).join("")
+      : '<div class="empty-row">// none</div>';
+
+    var total = state.quests.length;
+    var doneCount = groups.done.length;
+    var pct = total ? Math.round((doneCount / total) * 100) : 0;
+    var blockedCount = state.quests.filter(function (q) { return !!q.blocked; }).length;
+
+    return {
+      questTree: questTreeHtml,
+      idea: ideaHtml,
+      progress: groups.progress.length,
+      doneCount: doneCount,
+      blockedCount: blockedCount,
+      total: total,
+      pct: pct
+    };
+  }
+
+  return { render: render };
+})();`;
+
+      const version = "1.0.0";
+      const renderFunctions = [
+        "render(state)",
+        "renderQuestTree(state, parentIds)",
+        "treeNode(q, byParent)",
+        "questRow(q)",
+        "childCountLabel(q, children)",
+        "notesTeaser(notes)",
+        "blockedBadge(q)",
+        "blockedClass(q)",
+        "escapeHtml(s)",
+        "sanitizeNotes(html)"
+      ];
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                css: QUEST_LOG_CSS,
+                renderCode: renderCode,
+                renderFunctions: renderFunctions,
+                version: version
+              },
+              null,
+              2
+            )
+          }
+        ]
+      };
     },
   );
 
