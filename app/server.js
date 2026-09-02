@@ -47,8 +47,8 @@ app.get("/", async (_req, res, next) => {
     const html = template
       .replace("__STATE_JSON__", JSON.stringify(state))
       .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN))
-      .replace("__APP_VERSION__", JSON.stringify(pkg.version))
-      .replace("__QUEST_LOG_ENV__", JSON.stringify(QUEST_LOG_ENV));
+      .replace("__APP_VERSION_VALUE__", JSON.stringify(pkg.version))
+      .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(QUEST_LOG_ENV));
     res.type("html").send(html);
   } catch (err) {
     next(err);
