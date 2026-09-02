@@ -72,8 +72,10 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
 
-function createServer() {
-  const server = new McpServer({ name: "questhelper", version: "1.0.0" });
+function createServer(options = {}) {
+  const env = options.env ?? "prod";
+  const serverName = env === "dev" ? "questhelper-dev" : "questhelper";
+  const server = new McpServer({ name: serverName, version: "1.0.0" });
 
   server.tool(
     "list_quests",
@@ -652,7 +654,7 @@ function createServer() {
   return server;
 }
 
-export function attachMcp(app) {
+export function attachMcp(app, options = {}) {
   const transports = {};
 
   app.post("/mcp", async (req, res) => {
@@ -671,7 +673,7 @@ export function attachMcp(app) {
       transport.onclose = () => {
         if (transport.sessionId) delete transports[transport.sessionId];
       };
-      await createServer().connect(transport);
+      await createServer(options).connect(transport);
     } else if (sessionId) {
       // Session id doesn't match anything we hold in memory -- almost always
       // because the process restarted (redeploy/crash) and lost the map, not
