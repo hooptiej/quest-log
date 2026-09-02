@@ -1,0 +1,19 @@
+services:
+  quest-log-dev:
+    build: .
+    container_name: quest-log-dev
+    restart: unless-stopped
+    ports:
+      - "4243:4243"
+    volumes:
+      - ./data:/app/data
+      - ./certs:/app/certs
+    environment:
+      - PORT=4243
+      - DISABLE_TLS=1
+      - DATA_PATH=/app/data/state.dev.json
+      - QUEST_LOG_ENV=dev
+      - CERT_PATH=/app/certs/cert.pem
+      - KEY_PATH=/app/certs/key.pem
+      - CERT_SAN_DNS=questlog-dev.local
+      - CERT_SAN_IP=127.0.0.1

@@ -189,6 +189,18 @@
   }
   .boot-line + .boot-line { margin-top: 0.15rem; }
   .boot-line .ok { color: var(--accent); }
+  .boot-line .env-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--alarm) 20%, transparent);
+    border: 1px solid var(--alarm);
+    color: var(--alarm);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
 
   .theme-select {
     background: var(--surface-2);
@@ -781,7 +793,7 @@
 <body>
 <div class="wrap">
   <div class="boot">
-    <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
+    <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span id="boot-env-badge"></span><span class="ok">LINK ESTABLISHED</span></div>
     <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
   </div>
 
@@ -842,7 +854,16 @@
   <footer class="sig">// end transmission — homelab ops · <span id="version-badge"></span></footer>
 </div>
 
-<script>window.__QUEST_STATE__ = __STATE_JSON__; window.__WRITE_TOKEN__ = __WRITE_TOKEN_VALUE__; window.__APP_VERSION__ = __APP_VERSION__;</script>
+<script>window.__QUEST_STATE__ = __STATE_JSON__; window.__WRITE_TOKEN__ = __WRITE_TOKEN_VALUE__; window.__APP_VERSION__ = __APP_VERSION__; window.__QUEST_LOG_ENV__ = __QUEST_LOG_ENV__;</script>
+<script>
+  if (window.__QUEST_LOG_ENV__ === 'dev') {
+    const badge = document.getElementById('boot-env-badge');
+    if (badge) {
+      badge.textContent = 'ENV: DEV';
+      badge.className = 'env-badge';
+    }
+  }
+</script>
 <script src="/app.js"></script>
 </body>
 </html>

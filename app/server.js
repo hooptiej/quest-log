@@ -12,9 +12,12 @@ import pkg from "../package.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, "..");
-const DATA_PATH = process.env.DATA_PATH ?? join(ROOT_DIR, "data", "state.json");
+const QUEST_LOG_ENV = process.env.QUEST_LOG_ENV ?? "prod";
+const DEFAULT_PORT = QUEST_LOG_ENV === "dev" ? 4243 : 4242;
+const DEFAULT_DATA_PATH = QUEST_LOG_ENV === "dev" ? join(ROOT_DIR, "data", "state.dev.json") : join(ROOT_DIR, "data", "state.json");
+const DATA_PATH = process.env.DATA_PATH ?? DEFAULT_DATA_PATH;
 const TEMPLATE_PATH = join(__dirname, "template.html");
-const PORT = Number(process.env.PORT ?? 4242);
+const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
 const DISABLE_TLS = process.env.DISABLE_TLS === "1";
 const CERT_PATH = process.env.CERT_PATH ?? join(ROOT_DIR, "certs", "cert.pem");
 const KEY_PATH = process.env.KEY_PATH ?? join(ROOT_DIR, "certs", "key.pem");
@@ -44,7 +47,8 @@ app.get("/", async (_req, res, next) => {
     const html = template
       .replace("__STATE_JSON__", JSON.stringify(state))
       .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(WRITE_TOKEN))
-      .replace("__APP_VERSION__", JSON.stringify(pkg.version));
+      .replace("__APP_VERSION__", JSON.stringify(pkg.version))
+      .replace("__QUEST_LOG_ENV__", JSON.stringify(QUEST_LOG_ENV));
     res.type("html").send(html);
   } catch (err) {
     next(err);
@@ -115,7 +119,7 @@ app.post("/api/state", async (req, res, next) => {
   }
 });
 
-attachMcp(app);
+attachMcp(app, { env: QUEST_LOG_ENV });
 
 app.get("/health", (_req, res) => res.json({ status: "ok", version: pkg.version }));
 
