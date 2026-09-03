@@ -1,7 +1,8 @@
 # QuestLog
 
-Self-hosted project/idea tracker — checkboxes, status pills (idea / active / blocked / done),
-and a running mission log. Built as a themed personal tool, not a generic app.
+Self-hosted project/idea tracker — checkboxes, status pills (idea / active / done), independent
+`blocked`/`archived`/`attention` flags, and a running mission log. Built as a themed personal
+tool, not a generic app.
 
 This repo is the QuestLog family:
 - **`/app`** — the QuestLog web app (Express server, HTML/JS UI)
@@ -9,7 +10,7 @@ This repo is the QuestLog family:
 - **`/state.js`** — shared state module (read/write lock) both of the above talk to
 - **`questtracker-skill.md`** — QuestTracker, the Claude Code skill that keeps this quest log in sync with conversations
 
-![The QuestLog Family — process/data-flow diagram and the Quest → Mission → Task hierarchy with its confirm-gated rollup](docs/questlog-family.png)
+![The QuestLog Family — process/data-flow diagram, the Quest → Mission → Task hierarchy with its confirm-gated rollup, the QuestHelper tool set, and the checkpoint-hooks system](docs/questlog-family.svg)
 
 State lives in `data/state.json` on disk (volume-mounted in Docker so it survives rebuilds).
 **This file is gitignored and never committed** — the actual project/idea content stays local
@@ -57,8 +58,11 @@ QuestHelper — the MCP server, living in `/questhelper` (formerly the separate 
 repo, merged in 2026-08-30, since renamed) — is mounted on the same Express app at
 `POST/GET/DELETE /mcp`, sharing the exact same state module and lock as the web UI — no separate
 process or HTTP round-trip between the two. Tools: `list_quests`, `add_idea`, `set_quest_status`,
-`confirm_completion`, `update_quest_notes`, `add_log_entry`, `get_full_state`. Point an MCP
-client at `http://<host>:4242/mcp` (or `https://` once a cert is configured, see below).
+`set_blocked`, `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`,
+`transfer`, `move`, `rename_quest`, `delete_quest`, `update_quest_notes`, `add_log_entry`,
+`get_full_state`, `set_maintenance`, `set_designation`, `get_artifact_status`,
+`record_artifact_update`, `get_mirror_template`. Point an MCP client at `http://<host>:4242/mcp`
+(or `https://` once a cert is configured, see below).
 
 Note: MCP sessions are still held in memory (`questhelper/questhelper.js`), so a restart of this
 server still drops any already-connected client's session — merging removed one of the two

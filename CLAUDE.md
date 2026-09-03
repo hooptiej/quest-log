@@ -104,11 +104,12 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**18 tools**, not the 7 the README's intro table lists (that table is stale — trust this file and
-the source over it): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
-`confirm_completion`, `promote`, `recruit`, `transfer`, `delete_quest`, `move`, `rename_quest`,
-`set_designation`, `update_quest_notes`, `add_log_entry`, `get_full_state`, `set_maintenance`,
-`get_artifact_status`, `record_artifact_update`.
+**21 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
+`set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
+`delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
+`get_full_state`, `set_maintenance`, `get_artifact_status`, `record_artifact_update`,
+`get_mirror_template`.
 
 Session gotcha: an unrecognized `Mcp-Session-Id` gets `404` (not `400`) so a compliant client
 reconnects transparently — this matters because sessions are in-memory only and don't survive a
@@ -189,8 +190,9 @@ other open sessions instead of letting them hit a raw stale-session error. Clear
 
 - **`data/state.json` is real user data and is gitignored on purpose.** Never try to commit it or
   "fix" the gitignore; use `data/state.example.json` for anything that needs to ship in the repo.
-- **The README's MCP tool list is stale** (says 7 tools; there are 18 — see above). When in
-  doubt, read `questhelper/questhelper.js` directly rather than the README.
+- **Docs drift on the MCP tool count/list.** README and this file were both caught stale during
+  the 2026-09-03 doc pass and brought back in sync (21 tools). When in doubt, read
+  `questhelper/questhelper.js` directly rather than trusting either doc.
 - **MCP sessions don't survive a restart** (in-memory transport map) — a redeploy or crash makes
   every open `mcp__quest-log__*` call in an already-connected session fail with `no valid session
   and not an initialize request` until that client reinitializes. This is a known limitation, not
