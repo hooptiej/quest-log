@@ -26,6 +26,7 @@ import {
   getMaintenance,
   setMaintenance,
   setBlocked,
+  setArchived,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
@@ -101,20 +102,28 @@ function createServer(options = {}) {
 
   server.tool(
     "list_quests",
-    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created.",
+    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created. By default, archived items are excluded; pass archived:true to see only archived items or archived:false to see only non-archived items.",
     {
       status: z.enum(["idea", "progress", "done"]).optional().describe("Filter to just this status"),
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
       blocked: z.boolean().optional().describe("Filter to only blocked (true) or only unblocked (false) quests"),
+      archived: z.boolean().optional().describe("Filter to only archived (true) or only non-archived (false) quests. Default (undefined) excludes archived items from results."),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
       sortByCreatedAtDesc: z.boolean().optional().describe("Sort by createdAt descending (newest first). Only applies to flat list (tree: false)"),
     },
-    async ({ status, level, blocked, tree, sortByCreatedAtDesc }) => {
+    async ({ status, level, blocked, archived, tree, sortByCreatedAtDesc }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
+      // Default behavior: exclude archived items unless explicitly requested
+      if (archived === undefined) {
+        quests = quests.filter((q) => !q.archived);
+      } else if (archived === true) {
+        quests = quests.filter((q) => !!q.archived);
+      }
+      // archived === false is handled by the exclusion in the undefined case already
       if (sortByCreatedAtDesc && !tree) {
         quests = quests.sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -221,6 +230,24 @@ function createServer(options = {}) {
     async ({ idOrTitle, blocked }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = setBlocked(state, idOrTitle, blocked);
+        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_archived",
+    "Set or clear the independent 'archived' flag (#61) on a quest at any level. Archived items are genuinely hidden from the default view (unlike 'done' items which are sorted to the bottom in a collapsed Completed section) -- use this to park completed items you don't want cluttering even the collapsed view. Archived items still exist in the data and are reachable via list_quests with archived:true, but don't appear in the normal UI or default tool output.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      archived: z.boolean().describe("true to archive it, false to unarchive it"),
+    },
+    async ({ idOrTitle, archived }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = setArchived(state, idOrTitle, archived);
         if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
         return outcome;
       });
