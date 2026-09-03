@@ -27,6 +27,8 @@ import {
   setMaintenance,
   setBlocked,
   setArchived,
+  setAttention,
+  touchQuestAncestor,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
@@ -72,6 +74,17 @@ function withArtifactStalenessInfo(state, content) {
   return [{ type: "text", text: `⚠️ Artifact mirror is stale (${a.changesSince} changes since last publish) — call record_artifact_update(url) after republishing` }, ...content];
 }
 
+// Prepended to read tools' responses when any items have the attention flag set,
+// so a session is nudged to actively follow up on those items. Follows the
+// pattern of withMaintenanceBanner and withArtifactStalenessInfo.
+function withAttentionInfo(state, content) {
+  const attentionItems = state.quests.filter((q) => q.attention);
+  if (attentionItems.length === 0) return content;
+  const titles = attentionItems.slice(0, 5).map((q) => `"${q.title}"`).join(", ");
+  const more = attentionItems.length > 5 ? ` and ${attentionItems.length - 5} more` : "";
+  return [{ type: "text", text: `🔔 ${attentionItems.length} item(s) flagged for attention: ${titles}${more}` }, ...content];
+}
+
 // Runs a single-item op shaped like recruitQuest/transferQuest --
 // (state, idOrTitle, newParentIdOrTitle) => { quest } | { error } -- across
 // one id or a whole array of ids against the same new parent, inside one
@@ -84,6 +97,9 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
   const ids = Array.isArray(idOrTitleOrList) ? idOrTitleOrList : [idOrTitleOrList];
   const { result } = await mutateState(async (state) => {
     const outcomes = ids.map((id) => ({ idOrTitle: id, ...op(state, id, newParentIdOrTitle) }));
+    outcomes.forEach((o) => {
+      if (!o.error) touchQuestAncestor(state, o.quest);
+    });
     if (outcomes.some((o) => !o.error)) bumpArtifactChangeCounter(state, { mainQuest: true });
     return outcomes;
   });
@@ -108,15 +124,17 @@ function createServer(options = {}) {
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
       blocked: z.boolean().optional().describe("Filter to only blocked (true) or only unblocked (false) quests"),
       archived: z.boolean().optional().describe("Filter to only archived (true) or only non-archived (false) quests. Default (undefined) excludes archived items from results."),
+      attention: z.boolean().optional().describe("Filter to only attention-flagged (true) or only non-flagged (false) quests"),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
       sortByCreatedAtDesc: z.boolean().optional().describe("Sort by createdAt descending (newest first). Only applies to flat list (tree: false)"),
     },
-    async ({ status, level, blocked, archived, tree, sortByCreatedAtDesc }) => {
+    async ({ status, level, blocked, archived, attention, tree, sortByCreatedAtDesc }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
+      if (attention !== undefined) quests = quests.filter((q) => !!q.attention === attention);
       // Default behavior: exclude archived items unless explicitly requested.
       // archived === false behaves the same as undefined (both mean "only
       // non-archived") -- only archived === true flips to archived-only.
@@ -130,7 +148,7 @@ function createServer(options = {}) {
           return bTime - aTime;
         });
       }
-      if (!tree) return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
+      if (!tree) return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }]))) };
 
       const byParent = new Map();
       for (const q of quests) {
@@ -140,7 +158,7 @@ function createServer(options = {}) {
       }
       const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
       const roots = (byParent.get(null) ?? []).map(attachChildren);
-      return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }])) };
+      return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }]))) };
     },
   );
 
@@ -179,6 +197,7 @@ function createServer(options = {}) {
         };
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);
+        if (parentResolution.parentId) touchQuestAncestor(state, q);
         bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest: q };
       });
@@ -211,6 +230,7 @@ function createServer(options = {}) {
           delete quest.blocked; // done implies no longer blocked
         }
         quest.status = status;
+        touchQuestAncestor(state, quest);
         bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest };
       });
@@ -229,7 +249,10 @@ function createServer(options = {}) {
     async ({ idOrTitle, blocked }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = setBlocked(state, idOrTitle, blocked);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: false });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -247,7 +270,31 @@ function createServer(options = {}) {
     async ({ idOrTitle, archived }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = setArchived(state, idOrTitle, archived);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: false });
+        }
+        return outcome;
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_attention",
+    "Set or clear the independent 'attention' flag (#60) on a quest at any level. Attention-flagged items are surfaced in read-tool outputs as items needing active follow-up, a deliberate manual flag distinct from #44's auto-set 'unread' marker. Use this to mark items that need to be actively discussed or reviewed in the next session.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      attention: z.boolean().describe("true to flag for attention, false to clear it"),
+    },
+    async ({ idOrTitle, attention }) => {
+      const { result } = await mutateState(async (state) => {
+        const outcome = setAttention(state, idOrTitle, attention);
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: false });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -262,7 +309,10 @@ function createServer(options = {}) {
     async ({ idOrTitle }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = confirmCompletion(state, idOrTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: true });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -277,7 +327,10 @@ function createServer(options = {}) {
     async ({ idOrTitle }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = promoteQuest(state, idOrTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: true });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -317,7 +370,10 @@ function createServer(options = {}) {
     async ({ idOrTitle, cascade }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = deleteQuest(state, idOrTitle, { cascade });
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: true });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -338,7 +394,10 @@ function createServer(options = {}) {
     async ({ idOrTitle, newParentIdOrTitle }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = moveQuest(state, idOrTitle, newParentIdOrTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: true });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -356,7 +415,10 @@ function createServer(options = {}) {
     async ({ idOrTitle, newTitle }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = renameQuest(state, idOrTitle, newTitle);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: true });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: true });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -395,6 +457,7 @@ function createServer(options = {}) {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
         resolved.quest.notes = notes;
+        touchQuestAncestor(state, resolved.quest);
         bumpArtifactChangeCounter(state, { mainQuest: false });
         return resolved;
       });
@@ -433,7 +496,27 @@ function createServer(options = {}) {
 
   server.tool("get_full_state", "Get the quest log's complete raw state (all quests and the full mission log).", {}, async () => {
     const state = await readState();
-    return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(state, null, 2) }])) };
+
+    // Compute the most-neglected (longest-untouched) top-level Quest
+    const topLevelQuests = state.quests.filter((q) => q.level === "quest" && !q.parentId);
+    let mostNeglectedQuest = null;
+    if (topLevelQuests.length > 0) {
+      // Sort by lastTouchedAt, treating missing as earliest (time 0)
+      const sorted = [...topLevelQuests].sort((a, b) => {
+        const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
+        const bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
+        return aTime - bTime;
+      });
+      const oldest = sorted[0];
+      mostNeglectedQuest = {
+        id: oldest.id,
+        title: oldest.title,
+        lastTouchedAt: oldest.lastTouchedAt || null,
+      };
+    }
+
+    const stateWithMostNeglected = { ...state, mostNeglectedQuest };
+    return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(stateWithMostNeglected, null, 2) }]))) };
   });
 
   server.tool(

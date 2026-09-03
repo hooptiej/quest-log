@@ -196,6 +196,15 @@
     return '<button type="button" class="note-btn blocked-btn" data-action="toggle-blocked" data-id="' + escapeHtml(q.id) + '">' + (q.blocked ? "unblock" : "&#9888; block") + '</button>';
   }
 
+  function attentionBadge(q) {
+    if (q.attention) return '<span class="attention-badge">🔔 ATTENTION</span>';
+    return "";
+  }
+
+  function attentionToggleButton(q) {
+    return '<button type="button" class="note-btn attention-btn" data-action="toggle-attention" data-id="' + escapeHtml(q.id) + '">' + (q.attention ? "unmark" : "🔔 mark") + '</button>';
+  }
+
   function questRow(q) {
     var checked = q.status === "done";
     var childLevel = childLevelFor(q.level);
@@ -211,7 +220,9 @@
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           blockedBadge(q) +
+          attentionBadge(q) +
           blockedToggleButton(q) +
+          attentionToggleButton(q) +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
           (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
         '</div>' +
@@ -299,7 +310,9 @@
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
             (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+            attentionBadge(q) +
             blockedToggleButton(q) +
+            attentionToggleButton(q) +
             (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
             (childLevel ? '<button type="button" class="note-btn" data-action="add-note" data-id="' + escapeHtml(q.id) + '" data-level="' + childLevel + '">+ note</button>' : '') +
           '</span>' +
@@ -392,6 +405,26 @@
 
     var bootTime = document.getElementById("boot-time");
     if (bootTime) bootTime.textContent = state.quests.length + " MISSIONS TRACKED";
+
+    // Least-touched top-level Quest (#62) -- mirrors the same computation
+    // get_full_state's mostNeglectedQuest does server-side, done client-side
+    // here since the full state is already embedded in the page.
+    var neglectedLine = document.getElementById("neglected-quest-line");
+    var neglectedValue = document.getElementById("neglected-quest-value");
+    if (neglectedLine && neglectedValue) {
+      var topLevelQuests = state.quests.filter(function (q) { return q.level === "quest" && !q.parentId; });
+      if (topLevelQuests.length > 0) {
+        var oldest = topLevelQuests.slice().sort(function (a, b) {
+          var aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
+          var bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
+          return aTime - bTime;
+        })[0];
+        neglectedValue.textContent = oldest.title + (oldest.lastTouchedAt ? " (" + oldest.lastTouchedAt.slice(0, 10) + ")" : " (never touched)");
+        neglectedLine.hidden = false;
+      } else {
+        neglectedLine.hidden = true;
+      }
+    }
 
     applyFlavor();
   }
@@ -570,6 +603,16 @@
       if (!bq) return;
       if (bq.blocked) delete bq.blocked;
       else bq.blocked = true;
+      persist();
+      return;
+    }
+    var attentionBtn = ev.target.closest('[data-action="toggle-attention"]');
+    if (attentionBtn) {
+      var aid = attentionBtn.getAttribute("data-id");
+      var aq = STATE.quests.find(function (x) { return x.id === aid; });
+      if (!aq) return;
+      if (aq.attention) delete aq.attention;
+      else aq.attention = true;
       persist();
       return;
     }

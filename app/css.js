@@ -376,6 +376,21 @@ export const QUEST_LOG_CSS = `  :root {
   }
   .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
+  /* Attention flag styling -- accent2 (purple/orange) instead of alarm (red) to distinguish from blocked */
+  .attention-badge {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    background: color-mix(in srgb, var(--accent2) 14%, transparent);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .attention-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
   .tree-node {
