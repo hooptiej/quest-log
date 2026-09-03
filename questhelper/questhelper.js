@@ -38,10 +38,13 @@ function validateNoteContent(content) {
   if (!content || typeof content !== "string") return null;
   // Check for script-breaking sequences that could escape the inline block
   // and inject code, even if render-side escaping is temporarily disabled.
-  if (content.includes("</script")) {
+  // Case-insensitive to match #57's ask -- browsers close </script> tags
+  // case-insensitively, so </SCRIPT> is just as dangerous as </script>.
+  const lower = content.toLowerCase();
+  if (lower.includes("</script")) {
     return "notes cannot contain '</script' (would break HTML script block)";
   }
-  if (content.includes("<!--")) {
+  if (lower.includes("<!--")) {
     return "notes cannot contain '<!--' (would break HTML script block)";
   }
   return null;
