@@ -80,9 +80,11 @@ export function isValidQuest(q) {
     // Same convention as readyToClose: absence means false, never stored as false.
     (q.blocked === undefined || q.blocked === true) &&
     (q.archived === undefined || q.archived === true) &&
+    (q.attention === undefined || q.attention === true) &&
     (q.blockedByDescendant === undefined || q.blockedByDescendant === true) &&
-    // createdAt is optional but must be an ISO timestamp string if present
-    (q.createdAt === undefined || typeof q.createdAt === "string")
+    // createdAt and lastTouchedAt are optional but must be ISO timestamp strings if present
+    (q.createdAt === undefined || typeof q.createdAt === "string") &&
+    (q.lastTouchedAt === undefined || typeof q.lastTouchedAt === "string")
   );
 }
 
@@ -239,6 +241,44 @@ export function setArchived(state, idOrTitle, archived) {
   if (archived) quest.archived = true;
   else delete quest.archived;
   return { quest };
+}
+
+// Sets or clears the independent "attention" flag on any quest, at any level.
+// Attention-flagged items are surfaced in read-tool outputs as items needing
+// active follow-up, a deliberate manual flag distinct from #44's auto-set
+// "unread" marker. Follows the exact same pattern as setBlocked/setArchived.
+export function setAttention(state, idOrTitle, attention) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  if (attention) quest.attention = true;
+  else delete quest.attention;
+  return { quest };
+}
+
+// Bumps lastTouchedAt on the top-level Quest ancestor of the given quest
+// (or on the quest itself if it's already a top-level Quest), setting it to
+// the current ISO timestamp. This is called after any meaningful mutation to
+// ensure the root quest's "last touched" time accurately reflects activity
+// anywhere in its subtree.
+export function touchQuestAncestor(state, questOrId) {
+  // If questOrId is a string (id), find the quest object
+  const quest = typeof questOrId === "string"
+    ? state.quests.find((q) => q.id === questOrId)
+    : questOrId;
+
+  if (!quest) return;
+
+  // Walk up the parentId chain to find the top-level Quest ancestor
+  let current = quest;
+  while (current.parentId) {
+    const parent = state.quests.find((q) => q.id === current.parentId);
+    if (!parent) break;
+    current = parent;
+  }
+
+  // Touch the top-level Quest ancestor (or the quest itself if it's already top-level)
+  current.lastTouchedAt = nowISO();
 }
 
 export function resolveOne(state, idOrTitle) {
