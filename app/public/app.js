@@ -249,26 +249,49 @@
   // so the tree shows what Quests/Missions exist without dumping the whole
   // hierarchy on the page at once.
   function treeNode(q, byParent, allQuests) {
-    var children = byParent[q.id] || [];
+    var allChildren = byParent[q.id] || [];
+    // Separate active items from done items (#61)
+    var activeChildren = allChildren.filter(function (c) { return c.status !== "done"; });
+    var doneChildren = allChildren.filter(function (c) { return c.status === "done"; });
+    var hasActiveChildren = activeChildren.length > 0;
+    var hasDoneChildren = doneChildren.length > 0;
     var checked = q.status === "done";
-    var hasChildren = children.length > 0;
     var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
     var childLevel = childLevelFor(q.level);
     // Unlike the flat row, a tree node can have children -- promoting one
     // with children would leave them one tier too deep (see promoteQuest in
     // state.js), so the button only shows once it's actually eligible.
-    var canPromote = q.level !== "quest" && !hasChildren;
+    var canPromote = q.level !== "quest" && allChildren.length === 0;
     var expanded = false;
     // Per-quest progress bar (#29): each top-level Quest shows its own
     // completion status (its Missions/Tasks: done vs. total within that Quest only)
     var progress = q.level === "quest" ? questProgress(q, allQuests) : null;
+
+    // Render active children and done children separately (#61)
+    var childrenHtml = '';
+    if (hasActiveChildren) {
+      childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
+    }
+    if (hasDoneChildren) {
+      var completedExpanded = false;
+      childrenHtml += '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
+        '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
+        '<span class="completed-label">Completed (' + doneChildren.length + ')</span>' +
+        '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
+        doneChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
+        '</div>' +
+        '</div>';
+    }
+
+    var hasChildren = allChildren.length > 0;
+
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
               ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>' +
-                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
+                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, allChildren)) + ')</span>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
             blockedBadge(q) +
@@ -288,7 +311,7 @@
           ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
             '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
           : '') +
-        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + childrenHtml + '</div>' : '') +
       '</div>'
     );
   }
@@ -496,8 +519,20 @@
     }
     var treeToggleBtn = ev.target.closest('[data-action="toggle-tree"]');
     if (treeToggleBtn) {
+      // Handle both regular tree nodes and completed sections (#61)
       var node = treeToggleBtn.closest(".tree-node");
-      var kids = node && node.querySelector(":scope > .tree-children");
+      var completed = treeToggleBtn.closest(".tree-completed");
+      var kids;
+      if (completed) {
+        // For completed sections, toggle both the section and the items container
+        kids = completed.querySelector(":scope > .tree-completed-items");
+        if (kids) {
+          completed.classList.toggle("collapsed");
+        }
+      } else if (node) {
+        // For regular tree nodes, toggle the children
+        kids = node.querySelector(":scope > .tree-children");
+      }
       if (kids) {
         var collapsed = kids.classList.toggle("collapsed");
         treeToggleBtn.textContent = collapsed ? "▸" : "▾";

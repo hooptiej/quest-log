@@ -79,6 +79,7 @@ export function isValidQuest(q) {
     (q.parentId === null || q.parentId === undefined || typeof q.parentId === "string") &&
     // Same convention as readyToClose: absence means false, never stored as false.
     (q.blocked === undefined || q.blocked === true) &&
+    (q.archived === undefined || q.archived === true) &&
     (q.blockedByDescendant === undefined || q.blockedByDescendant === true) &&
     // createdAt is optional but must be an ISO timestamp string if present
     (q.createdAt === undefined || typeof q.createdAt === "string")
@@ -224,6 +225,19 @@ export function setBlocked(state, idOrTitle, blocked) {
   const quest = resolved.quest;
   if (blocked) quest.blocked = true;
   else delete quest.blocked;
+  return { quest };
+}
+
+// Sets or clears the independent "archived" flag on any quest, at any level.
+// Archived items are genuinely hidden from the default view, distinct from
+// "done" items which are sorted to the bottom and grouped in a collapsed
+// Completed section. Follows the exact same pattern as setBlocked.
+export function setArchived(state, idOrTitle, archived) {
+  const resolved = resolveOne(state, idOrTitle);
+  if (resolved.error) return resolved;
+  const quest = resolved.quest;
+  if (archived) quest.archived = true;
+  else delete quest.archived;
   return { quest };
 }
 

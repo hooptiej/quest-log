@@ -406,6 +406,26 @@ export const QUEST_LOG_CSS = `  :root {
   .tree-toggle-spacer { display: inline-block; width: 0.7rem; flex-shrink: 0; }
   .tree-children.collapsed { display: none; }
 
+  /* Completed section (#61): groups done items in a collapsible sub-section,
+     separate from active items, starting collapsed by default. */
+  .tree-completed {
+    margin-top: 0.45rem;
+    padding: 0 0.5rem 0 0.75rem;
+    border-left: 1px dashed var(--border);
+    padding-left: 1rem;
+  }
+  .tree-completed .tree-toggle {
+    margin-right: 0.25rem;
+  }
+  .completed-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .tree-completed-items { margin-top: 0.3rem; }
+  .tree-completed-items.collapsed { display: none; }
+  .tree-completed.collapsed { /* just for consistency */ }
+
   /* Child-count badge (#37): shown next to .tree-toggle only while its
      children are collapsed, so a rolled-up node still says what's inside
      ("4 missions", "3 tasks, 2 done") instead of giving no hint at all. */
