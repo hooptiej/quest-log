@@ -38,6 +38,29 @@ persisted at `data/write-token` (gitignored). The browser gets it embedded in th
 `GET /`; nothing else exposes it. `GET /api/state` and the `/mcp` routes have no auth — this is
 strictly LAN-only, security-through-obscurity-of-network-access.
 
+## Safe embedding of untrusted content (#56/#57)
+
+User-authored note text can contain HTML-like sequences (`</script>`, `<!--`) that could break the
+inline script block if not handled carefully. Quest-log uses a two-layer defense:
+
+**Render-side escaping:** `app/server.js`'s `renderIndexHtml()` function escapes all `<` characters
+in the state JSON via `.replace(/</g, '\\u003c')` applied *after* all other placeholder substitutions.
+This ensures that `</script>` or `<!--` in note text becomes `</script>` in the rendered JSON,
+parsing as a literal string inside the script block, not as a tag boundary. The render-side fix is
+primary and always active.
+
+**Write-layer guard:** `questhelper/questhelper.js`'s `validateNoteContent()` function checks
+incoming note text in `add_idea`, `update_quest_notes`, and `add_log_entry` tools and rejects
+writes containing `</script` or `<!--`. This is defense in depth; it prevents dangerous content
+from ever reaching storage, regardless of whether a future change to render-side logic might introduce
+a gap.
+
+**Verification:** `scripts/test-adversarial-notes.mjs` is an automated test that seeds the state with
+adversarial note content and verifies: (1) the rendered HTML contains valid JavaScript that parses
+cleanly via `new Function()`, and (2) the note content round-trips back intact (proving escaping
+preserves correctness). The test also proves that the bug would be caught without the fix by
+showing the same test fails on a version without escaping applied. Run it with `node scripts/test-adversarial-notes.mjs`.
+
 ## Data / state model
 
 State lives entirely in `data/state.json` — **gitignored, never committed**; only
