@@ -326,6 +326,11 @@ The version is maintained in `package.json` as the canonical source and is expos
 
 When bumping: update `package.json`'s `version` field with the new version, then commit as normal.
 
+**This is easy to forget mid-PR since it's not part of the change itself — it went unbumped for
+7 merges (see #70) before anyone noticed.** Treat it as a standing checklist item: before merging
+any PR that ships a real feature or fix (not a docs-only change), decide whether it's a
+MINOR/PATCH bump and include it in that PR, or as its own immediate follow-up if it was missed.
+
 ## Keeping the mirrored Artifact in sync
 
 hooptiej also keeps a claude.ai Artifact ("MU/TH/UR Quest Log") as a read-only visual mirror

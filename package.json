@@ -1,6 +1,6 @@
 {
   "name": "quest-log",
-  "version": "1.0.00",
+  "version": "1.1.00",
   "description": "Self-hosted project/idea tracker with checkboxes and a mission log",
   "type": "module",
   "main": "app/server.js",
