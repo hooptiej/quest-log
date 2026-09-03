@@ -119,7 +119,28 @@ write token) for when an MCP session is stale.
 
 ## Build / run / test
 
-No test suite in this repo.
+No test suite in this repo. A persistent dev container (`quest-log-dev`) runs on the TrueNAS box
+at `/mnt/Storage Pool/home/hoop/hoop/quest-log-dev` for live verification of feature branches.
+
+**Development container workflow:**
+```bash
+# On TrueNAS box (SSH first: ssh -i ~/.ssh/id_ed25519_truenas hoop@10.0.1.78)
+cd /mnt/Storage\ Pool/home/hoop/hoop/quest-log-dev
+
+# Check out your branch (after pushing it)
+git fetch origin && git checkout <your-branch>
+
+# Rebuild and redeploy
+sudo docker compose -f docker-compose.dev.yml up -d --build
+
+# Verify startup
+sudo docker logs quest-log-dev
+
+# The dev server runs on http://10.0.1.78:4243
+```
+
+Scripts like `scripts/test-adversarial-notes.mjs` can be run locally against this dev server
+or in your local checkout (they read the template and run tests in-process, no server needed).
 
 ```bash
 # local dev
