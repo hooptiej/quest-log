@@ -8,6 +8,7 @@ import {
   readState,
   mutateState,
   todayISO,
+  nowISO,
   slugify,
   describeQuest,
   bumpArtifactChangeCounter,
@@ -100,19 +101,27 @@ function createServer(options = {}) {
 
   server.tool(
     "list_quests",
-    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task).",
+    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created.",
     {
       status: z.enum(["idea", "progress", "done"]).optional().describe("Filter to just this status"),
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
       blocked: z.boolean().optional().describe("Filter to only blocked (true) or only unblocked (false) quests"),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
+      sortByCreatedAtDesc: z.boolean().optional().describe("Sort by createdAt descending (newest first). Only applies to flat list (tree: false)"),
     },
-    async ({ status, level, blocked, tree }) => {
+    async ({ status, level, blocked, tree, sortByCreatedAtDesc }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
+      if (sortByCreatedAtDesc && !tree) {
+        quests = quests.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+      }
       if (!tree) return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
 
       const byParent = new Map();
@@ -158,6 +167,7 @@ function createServer(options = {}) {
           notes: notes ?? "",
           level: questLevel,
           parentId: parentResolution.parentId,
+          createdAt: nowISO(),
         };
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);

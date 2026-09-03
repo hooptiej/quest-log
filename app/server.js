@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState, bumpArtifactChangeCounter } from "../state.js";
+import { readState, mutateState, validateState, bumpArtifactChangeCounter, nowISO } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import pkg from "../package.json" with { type: "json" };
@@ -90,7 +90,17 @@ app.post("/api/state", async (req, res, next) => {
         if (typeof expectedVersion === "number" && expectedVersion !== currentVersion) {
           throw new ConflictError(currentVersion);
         }
-        state.quests = incoming.quests;
+        // Ensure any new quests (ones coming from incoming that weren't in
+        // the previous state) get a createdAt timestamp set if they don't have one
+        const existingIds = new Set(state.quests.map((q) => q.id));
+        state.quests = incoming.quests.map((q) => {
+          // If this is a new quest (wasn't in state before) and doesn't have
+          // createdAt, set it now
+          if (!existingIds.has(q.id) && !q.createdAt) {
+            return { ...q, createdAt: nowISO() };
+          }
+          return q;
+        });
         state.log = incoming.log;
         // The one-time initial Designation entry (#33) rides along on this
         // same wholesale save -- everything after that first save goes

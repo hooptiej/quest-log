@@ -43,6 +43,10 @@ export function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+export function nowISO() {
+  return new Date().toISOString();
+}
+
 export function slugify(title) {
   const base = title
     .toLowerCase()
@@ -75,7 +79,9 @@ export function isValidQuest(q) {
     (q.parentId === null || q.parentId === undefined || typeof q.parentId === "string") &&
     // Same convention as readyToClose: absence means false, never stored as false.
     (q.blocked === undefined || q.blocked === true) &&
-    (q.blockedByDescendant === undefined || q.blockedByDescendant === true)
+    (q.blockedByDescendant === undefined || q.blockedByDescendant === true) &&
+    // createdAt is optional but must be an ISO timestamp string if present
+    (q.createdAt === undefined || typeof q.createdAt === "string")
   );
 }
 
