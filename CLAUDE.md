@@ -43,11 +43,15 @@ strictly LAN-only, security-through-obscurity-of-network-access.
 User-authored note text can contain HTML-like sequences (`</script>`, `<!--`) that could break the
 inline script block if not handled carefully. Quest-log uses a two-layer defense:
 
-**Render-side escaping:** `app/server.js`'s `renderIndexHtml()` function escapes all `<` characters
+**Render-side escaping:** `app/render.js`'s `renderIndexHtml()` function escapes all `<` characters
 in the state JSON via `.replace(/</g, '\\u003c')` applied *after* all other placeholder substitutions.
-This ensures that `</script>` or `<!--` in note text becomes `</script>` in the rendered JSON,
-parsing as a literal string inside the script block, not as a tag boundary. The render-side fix is
-primary and always active.
+This ensures that `</script>` or `<!--` in note text becomes the escaped `</script>` in the
+rendered JSON, parsing as a literal string inside the script block, not as a tag boundary. The
+render-side fix is primary and always active. `renderIndexHtml` lives in its own file, separate from
+`app/server.js`, deliberately — `server.js` has module-level side effects on import (an unconditional
+`process.exit(1)` if the data file is missing, an unconditional `app.listen()`), so anything that needs
+the pure render function (like the adversarial test below) imports `app/render.js` instead of pulling
+in the whole server.
 
 **Write-layer guard:** `questhelper/questhelper.js`'s `validateNoteContent()` function checks
 incoming note text in `add_idea`, `update_quest_notes`, and `add_log_entry` tools and rejects
