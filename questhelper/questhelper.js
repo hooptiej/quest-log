@@ -29,6 +29,27 @@ import {
 
 const LEVELS = ["quest", "mission", "task"];
 
+// Write-layer guard against dangerous HTML/script sequences in user content
+// (#57). Rejects notes/content containing sequences that could escape the
+// inline <script> block even if render-side escaping is misconfigured. This
+// is defense in depth; render-side escaping in app/server.js is the primary
+// protection. Returns null if content is safe, or an error message if not.
+function validateNoteContent(content) {
+  if (!content || typeof content !== "string") return null;
+  // Check for script-breaking sequences that could escape the inline block
+  // and inject code, even if render-side escaping is temporarily disabled.
+  // Case-insensitive to match #57's ask -- browsers close </script> tags
+  // case-insensitively, so </SCRIPT> is just as dangerous as </script>.
+  const lower = content.toLowerCase();
+  if (lower.includes("</script")) {
+    return "notes cannot contain '</script' (would break HTML script block)";
+  }
+  if (lower.includes("<!--")) {
+    return "notes cannot contain '<!--' (would break HTML script block)";
+  }
+  return null;
+}
+
 // Prepended to a read tool's response when maintenance is flagged, so a
 // session sees the heads-up on whatever it happens to call next rather than
 // needing to know to check a specific tool.
@@ -120,6 +141,12 @@ function createServer(options = {}) {
         .describe("Parent's id, exact title, or a title substring -- a mission's parent must be a quest, a task's must be a mission"),
     },
     async ({ title, notes, status, level, parentIdOrTitle }) => {
+      // Write-layer guard: reject dangerous note content (#57)
+      const noteValidation = validateNoteContent(notes);
+      if (noteValidation) {
+        return { content: [{ type: "text", text: noteValidation }], isError: true };
+      }
+
       const { result } = await mutateState(async (state) => {
         const questLevel = level ?? "mission";
         const parentResolution = resolveParent(state, parentIdOrTitle, questLevel);
@@ -322,6 +349,12 @@ function createServer(options = {}) {
       notes: z.string().describe("New notes text, replacing the existing notes entirely"),
     },
     async ({ idOrTitle, notes }) => {
+      // Write-layer guard: reject dangerous note content (#57)
+      const noteValidation = validateNoteContent(notes);
+      if (noteValidation) {
+        return { content: [{ type: "text", text: noteValidation }], isError: true };
+      }
+
       const { result } = await mutateState(async (state) => {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
@@ -342,6 +375,12 @@ function createServer(options = {}) {
       date: z.string().optional().describe("YYYY-MM-DD, defaults to today"),
     },
     async ({ entry, date }) => {
+      // Write-layer guard: reject dangerous log content (#57)
+      const entryValidation = validateNoteContent(entry);
+      if (entryValidation) {
+        return { content: [{ type: "text", text: entryValidation }], isError: true };
+      }
+
       const day = date ?? todayISO();
       await mutateState(async (state) => {
         let logDay = state.log.find((d) => d.date === day);

@@ -38,6 +38,33 @@ persisted at `data/write-token` (gitignored). The browser gets it embedded in th
 `GET /`; nothing else exposes it. `GET /api/state` and the `/mcp` routes have no auth — this is
 strictly LAN-only, security-through-obscurity-of-network-access.
 
+## Safe embedding of untrusted content (#56/#57)
+
+User-authored note text can contain HTML-like sequences (`</script>`, `<!--`) that could break the
+inline script block if not handled carefully. Quest-log uses a two-layer defense:
+
+**Render-side escaping:** `app/render.js`'s `renderIndexHtml()` function escapes all `<` characters
+in the state JSON via `.replace(/</g, '\\u003c')` applied *after* all other placeholder substitutions.
+This ensures that `</script>` or `<!--` in note text becomes the escaped `</script>` in the
+rendered JSON, parsing as a literal string inside the script block, not as a tag boundary. The
+render-side fix is primary and always active. `renderIndexHtml` lives in its own file, separate from
+`app/server.js`, deliberately — `server.js` has module-level side effects on import (an unconditional
+`process.exit(1)` if the data file is missing, an unconditional `app.listen()`), so anything that needs
+the pure render function (like the adversarial test below) imports `app/render.js` instead of pulling
+in the whole server.
+
+**Write-layer guard:** `questhelper/questhelper.js`'s `validateNoteContent()` function checks
+incoming note text in `add_idea`, `update_quest_notes`, and `add_log_entry` tools and rejects
+writes containing `</script` or `<!--`. This is defense in depth; it prevents dangerous content
+from ever reaching storage, regardless of whether a future change to render-side logic might introduce
+a gap.
+
+**Verification:** `scripts/test-adversarial-notes.mjs` is an automated test that seeds the state with
+adversarial note content and verifies: (1) the rendered HTML contains valid JavaScript that parses
+cleanly via `new Function()`, and (2) the note content round-trips back intact (proving escaping
+preserves correctness). The test also proves that the bug would be caught without the fix by
+showing the same test fails on a version without escaping applied. Run it with `node scripts/test-adversarial-notes.mjs`.
+
 ## Data / state model
 
 State lives entirely in `data/state.json` — **gitignored, never committed**; only
@@ -96,7 +123,28 @@ write token) for when an MCP session is stale.
 
 ## Build / run / test
 
-No test suite in this repo.
+No test suite in this repo. A persistent dev container (`quest-log-dev`) runs on the TrueNAS box
+at `/mnt/Storage Pool/home/hoop/hoop/quest-log-dev` for live verification of feature branches.
+
+**Development container workflow:**
+```bash
+# On TrueNAS box (SSH first: ssh -i ~/.ssh/id_ed25519_truenas hoop@10.0.1.78)
+cd /mnt/Storage\ Pool/home/hoop/hoop/quest-log-dev
+
+# Check out your branch (after pushing it)
+git fetch origin && git checkout <your-branch>
+
+# Rebuild and redeploy
+sudo docker compose -f docker-compose.dev.yml up -d --build
+
+# Verify startup
+sudo docker logs quest-log-dev
+
+# The dev server runs on http://10.0.1.78:4243
+```
+
+Scripts like `scripts/test-adversarial-notes.mjs` can be run locally against this dev server
+or in your local checkout (they read the template and run tests in-process, no server needed).
 
 ```bash
 # local dev
