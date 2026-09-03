@@ -117,13 +117,12 @@ function createServer(options = {}) {
       if (status) quests = quests.filter((q) => q.status === status);
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
-      // Default behavior: exclude archived items unless explicitly requested
-      if (archived === undefined) {
-        quests = quests.filter((q) => !q.archived);
-      } else if (archived === true) {
-        quests = quests.filter((q) => !!q.archived);
-      }
-      // archived === false is handled by the exclusion in the undefined case already
+      // Default behavior: exclude archived items unless explicitly requested.
+      // archived === false behaves the same as undefined (both mean "only
+      // non-archived") -- only archived === true flips to archived-only.
+      quests = archived === true
+        ? quests.filter((q) => !!q.archived)
+        : quests.filter((q) => !q.archived);
       if (sortByCreatedAtDesc && !tree) {
         quests = quests.sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
