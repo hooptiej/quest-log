@@ -15,9 +15,11 @@ compatibility: Requires the quest-log MCP server (tools prefixed mcp__quest-log_
 # Quest Tracker
 
 hooptiej keeps a running list of projects, ideas, and tasks in a self-hosted tracker called
-the quest log — a small web app with checkboxes and status pills (idea / progress / blocked /
-done), backed by an MCP server (`quest-log`) so it can be read and updated directly through
-tool calls. The point of this skill is to keep that list honest: if something worth tracking
+the quest log — a small web app with checkboxes and status pills (idea / progress / done),
+backed by an MCP server (`quest-log`) so it can be read and updated directly through
+tool calls. `blocked`, `archived`, and `attention` are separate boolean flags layered on top of
+status, not status values themselves (see `set_blocked`/`set_archived`/`set_attention` below) —
+something can be "in progress but blocked," for example. The point of this skill is to keep that list honest: if something worth tracking
 gets discussed, it should end up in the quest log without hooptiej having to ask for it every
 time — the same way a good pair-programming partner jots things down without being told to.
 
@@ -41,11 +43,18 @@ asked to "track" or "add to the list":
   `idea`.
 - **Something ships, gets fixed, or is confirmed working.** Mark it `done`.
 - **Something hits a real wall** (a licensing block, a missing dependency, a decision that
-  needs the user's input before continuing). Mark it `blocked`.
+  needs the user's input before continuing). Flag it `blocked` with `set_blocked` — this is a
+  separate flag layered on top of status, not a status value itself.
 - **The user asks a status question** — "what's left", "what are we tracking", "what's
   blocked" — read the list back rather than guessing from memory.
 - **A tangent is wrapping up, or the session is winding down.** Quick gut-check: did anything
   come up in the last stretch that isn't reflected in the list yet?
+- **A `done` item is fully wrapped up and shouldn't clutter the view anymore** (even the
+  collapsed Completed section) — `set_archived` on it, only with the user's OK, since it's not
+  reversible from the UI.
+- **Something genuinely needs the user's eyes next session** — a decision pending, a review
+  requested — `set_attention` it, and check `list_quests(attention: true)` early in any session
+  that touches quest-log to surface what's waiting.
 
 Use judgment on granularity. Not every tiny sub-step deserves its own entry — the bar is
 "would this be useful to see again in a week," not "log every action taken." A one-line fix
@@ -60,8 +69,22 @@ The `quest-log` MCP server exposes:
 - `add_idea(title, notes?, status?, level?, parentIdOrTitle?)` — add something new (defaults to
   `idea` status, `mission` level, no parent). Pass `level` + `parentIdOrTitle` to add a Mission
   under a Quest, or a Task under a Mission
-- `set_quest_status(idOrTitle, status)` — move an existing item between idea/progress/blocked/done.
-  Rejects a direct move to `done` for anything with children — see `confirm_completion` below
+- `set_quest_status(idOrTitle, status)` — move an existing item between idea/progress/done.
+  Rejects a direct move to `done` for anything with children — see `confirm_completion` below.
+  `blocked`, `archived`, and `attention` are separate flags, not status values — use the three
+  tools below for those
+- `set_blocked(idOrTitle, blocked)` — set or clear the independent `blocked` flag at any level,
+  without touching status — something can be "in progress but blocked." Flows uphill for
+  display only: a blocked Task marks its Mission and Quest too (`blockedByDescendant`), but only
+  the item you call this on actually stores the flag
+- `set_archived(idOrTitle, archived)` — set or clear the independent `archived` flag. Archived
+  items are genuinely hidden from the default view (unlike `done` items, which just sort into a
+  collapsed Completed section) — use this to park items you don't want cluttering even that
+  collapsed view. Still reachable via `list_quests(archived: true)`
+- `set_attention(idOrTitle, attention)` — set or clear the independent `attention` flag, a
+  deliberate manual marker (distinct from any auto-set "unread" signal) for items that need
+  active follow-up or discussion in the next session. Check `list_quests(attention: true)` early
+  in a session to surface these
 - `confirm_completion(idOrTitle)` — the only way to close a Mission or Quest that has children.
   Succeeds once every child under it is done (check `readyToClose` on the item, from
   `list_quests`/`get_full_state`); also works on a plain childless leaf, same as `set_quest_status`
@@ -95,6 +118,8 @@ The `quest-log` MCP server exposes:
   republish, plus the full state to build it from
 - `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its
   change counter
+- `get_mirror_template()` — fetch the CSS and read-only render logic for building that mirrored
+  Artifact, alongside `get_full_state()` and `get_artifact_status()`
 - `set_maintenance(active, note?)` — flag or clear an in-progress/upcoming redeploy — see
   below
 - `set_designation(name)` — set the header Designation/name shown in the web UI. The browser
@@ -229,7 +254,9 @@ this block manually to that machine's `~/.claude/settings.json` (merge into any 
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: early check — review quest-log for items with status: idea that haven't been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).\"}}'" }
+          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: early check — review quest-log for items with status: idea that haven't been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).\"}}'" },
+          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: if this session ends up calling any quest-log tool, check mcp__quest-log__get_artifact_status early and call mcp__quest-log__record_artifact_update after republishing if it reports needsUpdate — the artifact mirror only stays current if a session actually acts on that flag, not just notices the warning text.\"}}'" },
+          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: if calling any quest-log tool, check for attention-flagged items with mcp__quest-log__list_quests(attention: true) — these are items the owner explicitly marked for active follow-up in this session, distinct from passive markers. Surface them early for discussion.\"}}'" }
         ]
       }
     ]

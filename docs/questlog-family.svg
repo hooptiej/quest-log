@@ -1,0 +1,287 @@
+<svg viewBox="0 0 1040 2180" xmlns="http://www.w3.org/2000/svg" font-family="'Courier New', Consolas, monospace">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3a8a5c"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9a441"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="2180" fill="#05070a"/>
+
+  <!-- Header -->
+  <text x="50" y="34" font-size="13" letter-spacing="1" fill="#3f6b55">MU/TH/UR // SCHEMATIC REV. 3</text>
+  <text x="50" y="102" font-size="46" font-weight="bold" fill="#a9f5c8">QUESTLOG FAMILY</text>
+  <text x="50" y="132" font-size="15" fill="#6fae8c">one repo, one process, three parts — Quest → Mission → Task hierarchy, confirm-gated</text>
+  <text x="50" y="152" font-size="15" fill="#6fae8c">close, independent status flags, and session-level checkpoint hooks.</text>
+  <line x1="50" y1="172" x2="990" y2="172" stroke="#1e3a2a"/>
+
+  <!-- ===================== SECTION 01 ===================== -->
+  <text x="50" y="212" font-size="20" font-weight="bold" fill="#d9a441">01 — Process &#38; data flow</text>
+  <text x="50" y="238" font-size="14" fill="#6fae8c">QuestLog (the web UI) and QuestHelper (the MCP server) are two entry points into the same</text>
+  <text x="50" y="257" font-size="14" fill="#6fae8c">Node process, sharing one state module and its write lock — no second process, no HTTP hop</text>
+  <text x="50" y="276" font-size="14" fill="#6fae8c">between them. Checkpoint hooks live outside this process entirely, in the Claude Code session.</text>
+
+  <rect x="50" y="304" width="940" height="500" rx="4" fill="#0a0f0c" stroke="#1e3a2a"/>
+
+  <rect x="420" y="330" width="480" height="200" rx="4" fill="none" stroke="#274a37" stroke-dasharray="4 3"/>
+  <text x="432" y="346" font-size="11" fill="#3f6b55">quest-log repo — one node process — :4242</text>
+
+  <!-- Browser -->
+  <rect x="90" y="360" width="150" height="58" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="165" y="384" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Browser</text>
+  <text x="165" y="402" font-size="11" fill="#5fa27e" text-anchor="middle">quest-log web UI</text>
+
+  <!-- QuestLog -->
+  <rect x="440" y="350" width="190" height="90" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="535" y="374" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">QuestLog</text>
+  <text x="535" y="392" font-size="11" fill="#5fa27e" text-anchor="middle">Express app + UI</text>
+  <text x="535" y="408" font-size="11" fill="#5fa27e" text-anchor="middle">GET / · GET/POST /api/state</text>
+  <text x="535" y="424" font-size="10" fill="#3f6b55" text-anchor="middle">app/server.js · app/render.js</text>
+
+  <!-- QuestHelper -->
+  <rect x="670" y="350" width="210" height="150" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="775" y="374" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">QuestHelper</text>
+  <text x="775" y="392" font-size="11" fill="#5fa27e" text-anchor="middle">MCP server · POST/GET/DELETE /mcp</text>
+  <text x="775" y="412" font-size="11" fill="#5fa27e" text-anchor="middle">21 tools — read, status, flags,</text>
+  <text x="775" y="428" font-size="11" fill="#5fa27e" text-anchor="middle">restructure, admin, artifact mirror</text>
+  <text x="775" y="448" font-size="11" fill="#d9a441" text-anchor="middle">see 03 — QuestHelper tools</text>
+  <text x="775" y="470" font-size="10" fill="#3f6b55" text-anchor="middle">questhelper/questhelper.js</text>
+  <text x="775" y="486" font-size="10" fill="#3f6b55" text-anchor="middle">in-memory session map — see gotchas</text>
+
+  <!-- Claude Code -->
+  <rect x="90" y="460" width="150" height="58" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="165" y="484" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Claude Code</text>
+  <text x="165" y="502" font-size="11" fill="#5fa27e" text-anchor="middle">a live session</text>
+
+  <!-- QuestTracker -->
+  <rect x="270" y="460" width="150" height="58" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="345" y="484" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">QuestTracker</text>
+  <text x="345" y="502" font-size="11" fill="#5fa27e" text-anchor="middle">Claude skill</text>
+
+  <!-- Hooks box (new) -->
+  <rect x="90" y="560" width="330" height="86" rx="3" fill="#151005" stroke="#7a5a1e"/>
+  <text x="105" y="582" font-size="13" font-weight="bold" fill="#e8c37a">Claude Code checkpoint hooks</text>
+  <text x="105" y="600" font-size="11" fill="#c9a35f">~/.claude/settings.json — machine-level,</text>
+  <text x="105" y="616" font-size="11" fill="#c9a35f">not part of this repo (portable copy in</text>
+  <text x="105" y="632" font-size="11" fill="#c9a35f">questtracker-skill.md). See 04.</text>
+
+  <!-- state.js -->
+  <rect x="440" y="660" width="190" height="62" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="535" y="684" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">state.js</text>
+  <text x="535" y="702" font-size="11" fill="#5fa27e" text-anchor="middle">write-lock + state.json</text>
+
+  <!-- arrows section 01 -->
+  <line x1="240" y1="389" x2="438" y2="389" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <text x="248" y="382" font-size="10" fill="#3f6b55">HTTP GET / · /api/state</text>
+
+  <line x1="535" y1="440" x2="535" y2="658" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <text x="543" y="560" font-size="10" fill="#3f6b55">readState /</text>
+  <text x="543" y="573" font-size="10" fill="#3f6b55">mutateState</text>
+
+  <line x1="700" y1="500" x2="580" y2="670" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <text x="660" y="600" font-size="10" fill="#3f6b55">readState /</text>
+  <text x="660" y="613" font-size="10" fill="#3f6b55">mutateState</text>
+
+  <line x1="165" y1="460" x2="165" y2="424" stroke="#274a37"/>
+  <line x1="240" y1="489" x2="268" y2="489" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <text x="242" y="480" font-size="10" fill="#3f6b55">watches convo</text>
+
+  <line x1="420" y1="489" x2="670" y2="440" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <text x="425" y="450" font-size="10" fill="#3f6b55">MCP tool calls · /mcp</text>
+
+  <line x1="255" y1="560" x2="330" y2="518" stroke="#d9a441" stroke-dasharray="3 3" marker-end="url(#arrowAmber)"/>
+  <text x="200" y="547" font-size="10" fill="#8a6a2a">additionalContext nudge</text>
+
+  <text x="70" y="770" font-size="12" font-weight="bold" fill="#a9f5c8">Fig. 1.</text>
+  <text x="118" y="770" font-size="12" fill="#6fae8c">Two front doors — the browser and an MCP client — into one process, both bottlenecked</text>
+  <text x="70" y="788" font-size="12" fill="#6fae8c">through the same state.js lock. Checkpoint hooks sit outside that process — they inject a text nudge into</text>
+  <text x="70" y="806" font-size="12" fill="#6fae8c">the Claude Code session's context; QuestTracker still has to actually call an MCP tool to make it real.</text>
+
+  <!-- ===================== SECTION 02 ===================== -->
+  <text x="50" y="866" font-size="20" font-weight="bold" fill="#d9a441">02 — Quest → Mission → Task hierarchy, plus status flags</text>
+  <text x="50" y="892" font-size="14" fill="#6fae8c">status (idea / progress / done) drives the Quest → Mission → Task rollup below. blocked, archived,</text>
+  <text x="50" y="911" font-size="14" fill="#6fae8c">and attention are independent boolean flags layered on top — not status values themselves, and each</text>
+  <text x="50" y="930" font-size="14" fill="#6fae8c">carries its own createdAt/lastTouchedAt-aware semantics (see 03).</text>
+
+  <rect x="50" y="958" width="940" height="560" rx="4" fill="#0a0f0c" stroke="#1e3a2a"/>
+
+  <text x="90" y="1000" font-size="11" fill="#3f6b55">QUEST</text>
+  <rect x="350" y="985" width="330" height="60" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="515" y="1008" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Quest · "Rescue the princess"</text>
+  <text x="515" y="1026" font-size="11" fill="#5fa27e" text-anchor="middle">1 of 2 missions done — not ready</text>
+
+  <text x="90" y="1090" font-size="11" fill="#3f6b55">MISSION</text>
+  <rect x="150" y="1075" width="290" height="70" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="295" y="1098" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Mission A · "Obtain the sword"</text>
+  <text x="295" y="1116" font-size="11" fill="#5fa27e" text-anchor="middle">status: progress</text>
+  <text x="230" y="1134" font-size="10" fill="#d9a441">blocked</text>
+  <text x="300" y="1134" font-size="10" fill="#8fd6ab">attention</text>
+
+  <rect x="600" y="1075" width="290" height="70" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="745" y="1098" font-size="13" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Mission B · "Slay the dragon"</text>
+  <text x="745" y="1116" font-size="11" fill="#5fa27e" text-anchor="middle">status: done · confirmed 2026-08-30</text>
+  <text x="745" y="1134" font-size="10" fill="#3f6b55" text-anchor="middle">archived — hidden from default view</text>
+
+  <text x="90" y="1230" font-size="11" fill="#3f6b55">TASK</text>
+  <rect x="150" y="1215" width="150" height="58" rx="3" fill="#0f1713" stroke="#3a7a52"/>
+  <text x="225" y="1238" font-size="12" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Travel to swamp</text>
+  <text x="225" y="1256" font-size="10" fill="#5fa27e" text-anchor="middle">done</text>
+
+  <rect x="320" y="1215" width="150" height="58" rx="3" fill="#0f1713" stroke="#5a4a1e" stroke-dasharray="4 3"/>
+  <text x="395" y="1238" font-size="12" font-weight="bold" fill="#a9f5c8" text-anchor="middle">Purchase sword</text>
+  <text x="395" y="1256" font-size="10" fill="#5fa27e" text-anchor="middle">progress</text>
+
+  <!-- hierarchy arrows -->
+  <line x1="295" y1="1075" x2="460" y2="1015" stroke="#274a37" stroke-dasharray="3 3"/>
+  <line x1="745" y1="1075" x2="595" y2="1015" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <line x1="225" y1="1215" x2="270" y2="1145" stroke="#3a8a5c" marker-end="url(#arrow)"/>
+  <line x1="395" y1="1215" x2="330" y2="1145" stroke="#274a37" stroke-dasharray="3 3"/>
+
+  <rect x="470" y="1150" width="150" height="24" rx="10" fill="none" stroke="#d9a441"/>
+  <text x="545" y="1166" font-size="10" fill="#d9a441" text-anchor="middle">readyToClose: true</text>
+
+  <rect x="668" y="1160" width="34" height="34" rx="3" fill="none" stroke="#d9a441"/>
+  <text x="685" y="1183" font-size="14" fill="#d9a441" text-anchor="middle">?</text>
+  <text x="712" y="1170" font-size="10" fill="#d9a441">confirm_completion</text>
+  <text x="712" y="1184" font-size="10" fill="#5fa27e">Claude + user agree:</text>
+  <text x="712" y="1198" font-size="10" fill="#5fa27e">nothing left → done</text>
+
+  <text x="390" y="1300" font-size="10" fill="#3f6b55" text-anchor="middle">reopening a task clears the parent's readyToClose (and reverts "done")</text>
+
+  <text x="70" y="1350" font-size="12" font-weight="bold" fill="#a9f5c8">Fig. 2.</text>
+  <text x="118" y="1350" font-size="12" fill="#6fae8c">Status only ever flows up as a proposal (amber, dashed) — never as fact. The only thing that</text>
+  <text x="70" y="1368" font-size="12" fill="#6fae8c">writes status: "done" onto a Mission or Quest is an explicit confirm_completion call. blocked,</text>
+  <text x="70" y="1386" font-size="12" fill="#6fae8c">archived, and attention (small badges above) ride alongside status but never gate or get gated by it.</text>
+
+  <rect x="70" y="1408" width="14" height="14" fill="#274a37"/>
+  <text x="90" y="1420" font-size="11" fill="#6fae8c">done (confirmed)</text>
+  <rect x="220" y="1408" width="14" height="14" fill="none" stroke="#5fa27e"/>
+  <text x="240" y="1420" font-size="11" fill="#6fae8c">open / in progress</text>
+  <rect x="390" y="1408" width="14" height="14" fill="none" stroke="#d9a441"/>
+  <text x="410" y="1420" font-size="11" fill="#6fae8c">readyToClose — awaiting confirm</text>
+
+  <!-- ===================== SECTION 03 ===================== -->
+  <text x="50" y="1478" font-size="20" font-weight="bold" fill="#d9a441">03 — QuestHelper tools (21)</text>
+  <text x="50" y="1504" font-size="14" fill="#6fae8c">Mounted at POST/GET/DELETE /mcp, sharing the exact same state module and lock as the web UI.</text>
+
+  <rect x="50" y="1528" width="940" height="600" rx="4" fill="#0a0f0c" stroke="#1e3a2a"/>
+
+  <text x="70" y="1554" font-size="12" fill="#3f6b55" letter-spacing="1">— READ —</text>
+  <!-- row 1: 4 cards -->
+  <g font-size="11">
+    <rect x="70" y="1564" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="82" y="1584" fill="#a9f5c8" font-weight="bold">list_quests</text>
+    <text x="82" y="1600" fill="#5fa27e">filter status/level/tree/</text>
+    <text x="82" y="1614" fill="#5fa27e">archived/attention</text>
+
+    <rect x="292" y="1564" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="304" y="1584" fill="#a9f5c8" font-weight="bold">get_full_state</text>
+    <text x="304" y="1600" fill="#5fa27e">full raw quests + log</text>
+
+    <rect x="514" y="1564" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="526" y="1584" fill="#a9f5c8" font-weight="bold">get_artifact_status</text>
+    <text x="526" y="1600" fill="#5fa27e">mirror needsUpdate?</text>
+    <text x="526" y="1614" fill="#5fa27e">+ full state</text>
+
+    <rect x="736" y="1564" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="748" y="1584" fill="#a9f5c8" font-weight="bold">get_mirror_template</text>
+    <text x="748" y="1600" fill="#5fa27e">CSS + render logic</text>
+    <text x="748" y="1614" fill="#5fa27e">for the Artifact mirror</text>
+  </g>
+
+  <text x="70" y="1650" font-size="12" fill="#3f6b55" letter-spacing="1">— STATUS &#38; LOG —</text>
+  <g font-size="11">
+    <rect x="70" y="1660" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="82" y="1680" fill="#a9f5c8" font-weight="bold">add_idea</text>
+    <text x="82" y="1696" fill="#5fa27e">new item, level + parent</text>
+
+    <rect x="292" y="1660" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="304" y="1680" fill="#a9f5c8" font-weight="bold">set_quest_status</text>
+    <text x="304" y="1696" fill="#5fa27e">idea/progress/done</text>
+    <text x="304" y="1710" fill="#5fa27e">not blocked/archived</text>
+
+    <rect x="514" y="1660" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="526" y="1680" fill="#a9f5c8" font-weight="bold">confirm_completion</text>
+    <text x="526" y="1696" fill="#5fa27e">only path to done for</text>
+    <text x="526" y="1710" fill="#5fa27e">a parent with children</text>
+
+    <rect x="736" y="1660" width="212" height="58" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="748" y="1680" fill="#a9f5c8" font-weight="bold">update_quest_notes</text>
+    <text x="748" y="1696" fill="#5fa27e">replace notes in place</text>
+
+    <rect x="70" y="1730" width="212" height="42" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="82" y="1754" fill="#a9f5c8" font-weight="bold">add_log_entry</text>
+  </g>
+
+  <text x="70" y="1798" font-size="12" fill="#d9a441" letter-spacing="1">— FLAGS (new 2026-09-03) —</text>
+  <g font-size="11">
+    <rect x="70" y="1808" width="212" height="58" rx="3" fill="#151005" stroke="#7a5a1e"/>
+    <text x="82" y="1828" fill="#e8c37a" font-weight="bold">set_blocked</text>
+    <text x="82" y="1844" fill="#c9a35f">flows uphill for display</text>
+    <text x="82" y="1858" fill="#c9a35f">(blockedByDescendant)</text>
+
+    <rect x="292" y="1808" width="212" height="58" rx="3" fill="#151005" stroke="#7a5a1e"/>
+    <text x="304" y="1828" fill="#e8c37a" font-weight="bold">set_archived</text>
+    <text x="304" y="1844" fill="#c9a35f">hidden from default view,</text>
+    <text x="304" y="1858" fill="#c9a35f">not just collapsed</text>
+
+    <rect x="514" y="1808" width="212" height="58" rx="3" fill="#151005" stroke="#7a5a1e"/>
+    <text x="526" y="1828" fill="#e8c37a" font-weight="bold">set_attention</text>
+    <text x="526" y="1844" fill="#c9a35f">manual "needs follow-up"</text>
+    <text x="526" y="1858" fill="#c9a35f">marker for next session</text>
+  </g>
+
+  <text x="70" y="1900" font-size="12" fill="#3f6b55" letter-spacing="1">— RESTRUCTURE —</text>
+  <g font-size="11">
+    <rect x="70" y="1910" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="82" y="1928" fill="#a9f5c8" font-weight="bold">promote</text>
+    <text x="82" y="1944" fill="#5fa27e">task→mission→quest</text>
+
+    <rect x="292" y="1910" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="304" y="1928" fill="#a9f5c8" font-weight="bold">recruit</text>
+    <text x="304" y="1944" fill="#5fa27e">bring parentless item in</text>
+
+    <rect x="514" y="1910" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="526" y="1928" fill="#a9f5c8" font-weight="bold">transfer</text>
+    <text x="526" y="1944" fill="#5fa27e">same-level, new parent</text>
+
+    <rect x="736" y="1910" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="748" y="1928" fill="#a9f5c8" font-weight="bold">move</text>
+    <text x="748" y="1944" fill="#5fa27e">reparent whole subtree</text>
+
+    <rect x="70" y="1972" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="82" y="1990" fill="#a9f5c8" font-weight="bold">rename_quest</text>
+    <text x="82" y="2006" fill="#5fa27e">retitle in place</text>
+
+    <rect x="292" y="1972" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="304" y="1990" fill="#a9f5c8" font-weight="bold">delete_quest</text>
+    <text x="304" y="2006" fill="#5fa27e">cascade for children</text>
+  </g>
+
+  <text x="514" y="1900" font-size="12" fill="#3f6b55" letter-spacing="1">— ADMIN &#38; ARTIFACT —</text>
+  <g font-size="11">
+    <rect x="514" y="1972" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="526" y="1990" fill="#a9f5c8" font-weight="bold">set_designation</text>
+    <text x="526" y="2006" fill="#5fa27e">header name, after first save</text>
+
+    <rect x="736" y="1972" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="748" y="1990" fill="#a9f5c8" font-weight="bold">set_maintenance</text>
+    <text x="748" y="2006" fill="#5fa27e">warn open sessions pre-redeploy</text>
+
+    <rect x="736" y="1808" width="212" height="50" rx="3" fill="#0f1713" stroke="#2f6b4a"/>
+    <text x="748" y="1826" fill="#a9f5c8" font-weight="bold">record_artifact_update</text>
+    <text x="748" y="1842" fill="#5fa27e">reset mirror change counter</text>
+  </g>
+
+  <!-- ===================== SECTION 04 (NEW) ===================== -->
+  <text x="50" y="2078" font-size="20" font-weight="bold" fill="#d9a441">04 — Checkpoint hooks (Claude Code session, not this process)</text>
+  <text x="50" y="2104" font-size="14" fill="#6fae8c">~/.claude/settings.json on each machine. These fire inside a Claude Code session and inject a text</text>
+  <text x="50" y="2123" font-size="14" fill="#6fae8c">nudge — they never call the MCP server directly. Portable copy tracked in questtracker-skill.md.</text>
+
+  <text x="50" y="2152" font-size="12" fill="#8fd6ab">PostToolUse:</text>
+  <text x="180" y="2152" font-size="12" fill="#5fa27e">git commit/push · gh pr create · gh issue create/close/comment · Write|Edit on CLAUDE.md/memory</text>
+  <text x="50" y="2172" font-size="12" fill="#8fd6ab">SessionStart:</text>
+  <text x="180" y="2172" font-size="12" fill="#5fa27e">stale-idea nudge · artifact-staleness nudge (#47) · attention-flag nudge (#60)</text>
+</svg>
