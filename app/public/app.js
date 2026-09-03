@@ -406,6 +406,26 @@
     var bootTime = document.getElementById("boot-time");
     if (bootTime) bootTime.textContent = state.quests.length + " MISSIONS TRACKED";
 
+    // Least-touched top-level Quest (#62) -- mirrors the same computation
+    // get_full_state's mostNeglectedQuest does server-side, done client-side
+    // here since the full state is already embedded in the page.
+    var neglectedLine = document.getElementById("neglected-quest-line");
+    var neglectedValue = document.getElementById("neglected-quest-value");
+    if (neglectedLine && neglectedValue) {
+      var topLevelQuests = state.quests.filter(function (q) { return q.level === "quest" && !q.parentId; });
+      if (topLevelQuests.length > 0) {
+        var oldest = topLevelQuests.slice().sort(function (a, b) {
+          var aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
+          var bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
+          return aTime - bTime;
+        })[0];
+        neglectedValue.textContent = oldest.title + (oldest.lastTouchedAt ? " (" + oldest.lastTouchedAt.slice(0, 10) + ")" : " (never touched)");
+        neglectedLine.hidden = false;
+      } else {
+        neglectedLine.hidden = true;
+      }
+    }
+
     applyFlavor();
   }
 

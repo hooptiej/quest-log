@@ -291,7 +291,10 @@ function createServer(options = {}) {
     async ({ idOrTitle, attention }) => {
       const { result } = await mutateState(async (state) => {
         const outcome = setAttention(state, idOrTitle, attention);
-        if (!outcome.error) bumpArtifactChangeCounter(state, { mainQuest: false });
+        if (!outcome.error) {
+          touchQuestAncestor(state, outcome.quest);
+          bumpArtifactChangeCounter(state, { mainQuest: false });
+        }
         return outcome;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
