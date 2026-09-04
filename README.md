@@ -110,7 +110,7 @@ shape to copy from.
 docker compose up -d --build
 ```
 
-`docker-compose.yml` mounts `./data` into the container so state persists across rebuilds.
+`docker-compose.yml` mounts persistent data into the container so state survives rebuilds.
 By default the container joins an external `ipvlan` network (`questlog-lan`) and gets its own
 static LAN IP (see the `networks:` block), rather than being port-mapped on the host — so it's
 reachable directly at `http://<its-ip>/mcp`, no port number needed. Set `PORT` (default `80`
@@ -121,6 +121,30 @@ cert dance entirely for a LAN-only deployment (see HTTPS section below).
 docker network create -d ipvlan --subnet=<lan-subnet> --gateway=<lan-gateway> \
   -o parent=<host-nic> -o ipvlan_mode=l2 questlog-lan
 ```
+
+### Data persistence and migration
+
+Persistent data (`state.json`, write-token, and self-signed certs) is stored at
+`/mnt/Storage Pool/quest-log-data/{data,certs}` on the host, outside the git checkout.
+This separates live data from the code repo, making it safe to re-clone or clean the
+checkout without losing state or accidentally wiping prod data with `git clean`.
+
+**If migrating from an older version that stored data in `./data` and `./certs` inside the checkout:**
+Before pulling the updated `docker-compose.yml`, run the migration script from the checkout root:
+
+```bash
+bash scripts/migrate-data-path.sh
+```
+
+This copies existing `data/state.json` and `certs/` to the new host path, then you can:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The script is safe to re-run (it skips if data is already migrated) and can be deleted after
+a successful deployment confirms the new paths are working.
 
 ### Running elsewhere (demo / work server / Docker Desktop)
 
@@ -133,16 +157,18 @@ compose and just port-map it:
 ```bash
 git clone https://github.com/hooptiej/quest-log.git
 cd quest-log
-cp data/state.example.json data/state.json  # or drop in a real state.json for a populated demo
+mkdir -p /tmp/quest-log-demo/data /tmp/quest-log-demo/certs
+cp data/state.example.json /tmp/quest-log-demo/data/state.json  # or drop in a real state.json for a populated demo
 docker build -t quest-log .
 docker run -d --name quest-log -p 8080:80 \
   -e PORT=80 -e DISABLE_TLS=1 -e DATA_PATH=/app/data/state.json \
-  -v "$(pwd)/data:/app/data" \
+  -v "/tmp/quest-log-demo/data:/app/data" \
+  -v "/tmp/quest-log-demo/certs:/app/certs" \
   quest-log
 ```
 
 Then it's at `http://localhost:8080`. This is the same pattern used to verify PRs on an
-isolated scratch container before merging (separate port, separate `-v` data mount, real
+isolated scratch container before merging (separate port, separate data mounts, real
 `docker build` from the checkout) — nothing TrueNAS-specific about the app itself, only the
 checked-in compose file's networking assumes that one deployment.
 
@@ -150,17 +176,17 @@ checked-in compose file's networking assumes that one deployment.
 
 Set `DISABLE_TLS=1` to skip certs entirely and serve plain HTTP — reasonable for a LAN-only
 deployment with its own dedicated IP, since there's no shared host/port to spoof. Otherwise,
-`docker-entrypoint.sh` generates a self-signed cert into `./certs` (also volume-mounted) on
-first boot if one isn't already there, then starts the server — no manual setup needed for a
-fresh deployment. `server.js` serves over HTTPS automatically whenever `certs/cert.pem` and
-`certs/key.pem` exist (and `DISABLE_TLS` isn't set), falling back to plain HTTP otherwise (e.g.
-for local dev without a cert). Configure what the cert covers via `CERT_SAN_DNS` (default
-`questlog.local`) and `CERT_SAN_IP` (unset by default) env vars — set `CERT_SAN_IP` to whatever
-address this is actually reachable at. Since it's self-signed, browsers still show a one-time
-"not trusted" warning to click through; a self-signed cert avoids a hard connection failure on
-`https://`, not that warning.
+`docker-entrypoint.sh` generates a self-signed cert into `/mnt/Storage Pool/quest-log-data/certs`
+(also volume-mounted) on first boot if one isn't already there, then starts the server — no manual
+setup needed for a fresh deployment. `server.js` serves over HTTPS automatically whenever
+`certs/cert.pem` and `certs/key.pem` exist (and `DISABLE_TLS` isn't set), falling back to plain
+HTTP otherwise (e.g. for local dev without a cert). Configure what the cert covers via
+`CERT_SAN_DNS` (default `questlog.local`) and `CERT_SAN_IP` (unset by default) env vars — set
+`CERT_SAN_IP` to whatever address this is actually reachable at. Since it's self-signed, browsers
+still show a one-time "not trusted" warning to click through; a self-signed cert avoids a hard
+connection failure on `https://`, not that warning.
 
-`./certs` is gitignored — the private key never leaves the machine it's generated on.
+The private key never leaves the machine it's generated on.
 
 ## mDNS
 

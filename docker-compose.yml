@@ -7,8 +7,8 @@ services:
       questlog-lan:
         ipv4_address: 10.0.1.250
     volumes:
-      - ./data:/app/data
-      - ./certs:/app/certs
+      - /mnt/Storage Pool/quest-log-data/data:/app/data
+      - /mnt/Storage Pool/quest-log-data/certs:/app/certs
     environment:
       - PORT=80
       - DISABLE_TLS=1
