@@ -81,6 +81,26 @@ function sanitizeNotes(html) {
   return out;
 }
 
+function notesPlainText(html) {
+  return String(html == null ? "" : html)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function notesTeaser(notes) {
+  return escapeHtml(truncate(notesPlainText(notes), 120));
+}
+
+// Disclosure toggle for notes (#87): pure client-side state, no server
+// round-trip -- unlike the write-back controls this mirror deliberately
+// strips (toggle-blocked, promote, +note, ...), this is safe to keep
+// genuinely interactive. data-action="toggle-notes" is picked up by the
+// inline <script> at the bottom of buildMirrorHtml().
+function notesToggleButton(collapsed, title) {
+  return `<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="${!collapsed}" aria-label="Toggle notes for ${escapeHtml(title)}">${collapsed ? "▸ more" : "▾ less"}</button>`;
+}
+
 function blockedClass(q) {
   if (q.blocked) return " is-blocked";
   if (q.blockedByDescendant) return " is-blocked-inherited";
@@ -120,7 +140,8 @@ function questRow(q) {
     `<button type="button" class="quest-check" aria-pressed="${checked}" disabled aria-label="${escapeHtml(q.title)}">${checked ? "[x]" : "[ ]"}</button>` +
     `<div class="quest-title-row"><span class="quest-title">${escapeHtml(q.title)}</span>${blockedBadge(q)}${attentionBadge(q)}</div>` +
     (q.notes
-      ? `<div class="quest-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
+      ? `<div class="quest-notes-teaser">${notesTeaser(q.notes)} ${notesToggleButton(true, q.title)}</div>` +
+        `<div class="quest-notes collapsed">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""} ${notesToggleButton(false, q.title)}</div>`
       : '<div class="quest-notes"></div>') +
     "</div>"
   );
@@ -148,6 +169,7 @@ function treeNode(q, byParent, allQuests) {
   if (doneChildren.length) {
     childrenHtml +=
       `<div class="tree-completed collapsed">` +
+      `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed">▸</button>` +
       `<span class="completed-label">Completed (${doneChildren.length})</span>` +
       `<div class="tree-completed-items collapsed">${doneChildren.map((c) => treeNode(c, byParent, allQuests)).join("")}</div>` +
       "</div>";
@@ -158,7 +180,8 @@ function treeNode(q, byParent, allQuests) {
     `<div class="tree-node${checked ? " is-done" : ""}${blockedClass(q)}" data-id="${escapeHtml(q.id)}">` +
     `<div class="tree-row"><span class="tree-title-group">` +
     (hasChildren
-      ? `<span class="child-count">(${escapeHtml(childCountLabel(q, allChildren))})</span>`
+      ? `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle ${escapeHtml(q.title)}">▸</button>` +
+        `<span class="child-count">(${escapeHtml(childCountLabel(q, allChildren))})</span>`
       : '<span class="tree-toggle-spacer"></span>') +
     `<span class="tree-title">${escapeHtml(q.title)}</span>${blockedBadge(q)}</span>` +
     `<span class="tree-actions"><span class="tree-meta">${escapeHtml(q.level)}</span>` +
@@ -168,9 +191,10 @@ function treeNode(q, byParent, allQuests) {
       ? `<div class="quest-progress"><span class="progress-label">${progress.done}/${progress.total}</span><div class="bar-track"><div class="bar-fill" style="width:${progress.pct}%"></div></div></div>`
       : "") +
     (q.notes
-      ? `<div class="tree-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
+      ? `<div class="tree-notes-teaser">${notesTeaser(q.notes)} ${notesToggleButton(true, q.title)}</div>` +
+        `<div class="tree-notes collapsed">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""} ${notesToggleButton(false, q.title)}</div>`
       : "") +
-    (hasChildren ? `<div class="tree-children">${childrenHtml}</div>` : "") +
+    (hasChildren ? `<div class="tree-children collapsed">${childrenHtml}</div>` : "") +
     "</div>"
   );
 }
@@ -292,5 +316,44 @@ ${logItems}
 </div>
 
 <footer class="sig">// end transmission — homelab ops · <a href="https://github.com/hooptiej/quest-log" target="_blank" rel="noopener">github.com/hooptiej/quest-log</a></footer>
+
+<script>
+// Disclosure toggles only (#87) -- purely local UI state, no server calls.
+// Everything that writes back to a live server (toggle-blocked, promote,
+// +note, ...) was deliberately left out of this static mirror; these two
+// data-actions never appear on any element that mutates state.
+document.addEventListener("click", function (ev) {
+  var notesBtn = ev.target.closest('[data-action="toggle-notes"]');
+  if (notesBtn) {
+    var notesContainer = notesBtn.closest(".tree-node, .quest");
+    var notesEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes, :scope > .quest-notes");
+    var teaserEl = notesContainer && notesContainer.querySelector(":scope > .tree-notes-teaser, :scope > .quest-notes-teaser");
+    if (notesEl && teaserEl) {
+      var notesCollapsed = notesEl.classList.toggle("collapsed");
+      teaserEl.classList.toggle("collapsed", !notesCollapsed);
+    }
+    return;
+  }
+  var treeBtn = ev.target.closest('[data-action="toggle-tree"]');
+  if (treeBtn) {
+    var completed = treeBtn.closest(".tree-completed");
+    var kids;
+    if (completed) {
+      kids = completed.querySelector(":scope > .tree-completed-items");
+      if (kids) completed.classList.toggle("collapsed");
+    } else {
+      var node = treeBtn.closest(".tree-node");
+      kids = node && node.querySelector(":scope > .tree-children");
+    }
+    if (kids) {
+      var collapsed = kids.classList.toggle("collapsed");
+      treeBtn.textContent = collapsed ? "▸" : "▾";
+      treeBtn.setAttribute("aria-expanded", String(!collapsed));
+      var countEl = treeBtn.parentNode.querySelector(":scope > .child-count");
+      if (countEl) countEl.classList.toggle("collapsed", !collapsed);
+    }
+  }
+});
+</script>
 `;
 }
