@@ -55,6 +55,11 @@ asked to "track" or "add to the list":
 - **Something genuinely needs the user's eyes next session** — a decision pending, a review
   requested — `set_attention` it, and check `list_quests(attention: true)` early in any session
   that touches quest-log to surface what's waiting.
+- **Starting a serialized batch across multiple issues/PRs** (e.g. "run tonight's Constructicon
+  issues in order, one PR each") — create a Mission for the batch, then `add_idea` a Task under
+  it for each item *in the order it'll run*, passing `repo`/`issueNumber` when an item is a real
+  GitHub issue. Check progress with `get_batch_status` rather than reconstructing it from prose —
+  see "Batch runs" in CLAUDE.md for the full pattern.
 
 Use judgment on granularity. Not every tiny sub-step deserves its own entry — the bar is
 "would this be useful to see again in a week," not "log every action taken." A one-line fix
@@ -123,6 +128,12 @@ The `quest-log` MCP server exposes:
   unless `cascade: true`, which removes the whole subtree in one call and reports every id
   removed. There's no undo — confirm with the user before deleting anything with real history
 - `get_full_state()` — the complete raw state, if you need to see everything at once
+- `get_batch_status(idOrTitle)` — status of a serialized multi-issue batch run (#64), tracked as
+  a Mission/Quest whose Task children are the batch's items in run order (creation order — add
+  them via `add_idea` in the order they'll run). Returns each item's status plus a one-line
+  summary ("3 of 6 done, currently on #44"). Pass `repo`/`issueNumber` to `add_idea` when creating
+  a batch item that tracks a specific GitHub issue, so it's a structured link, not just prose in
+  the title
 - `get_artifact_status()` — whether the mirrored claude.ai Artifact (see below) is due for a
   republish, plus the full state to build it from
 - `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its

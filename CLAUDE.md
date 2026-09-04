@@ -72,7 +72,7 @@ State lives entirely in `data/state.json` — **gitignored, never committed**; o
 log: [], designation, _version, _artifact, _maintenance }`.
 
 Each quest/mission/task object: `{ id, title, status, notes, level, parentId, blocked?,
-readyToClose?, blockedByDescendant?, _confirmedDone?, _prevStatus?, date? }`.
+readyToClose?, blockedByDescendant?, _confirmedDone?, _prevStatus?, date?, repo?, issueNumber? }`.
 
 - `level` is `"quest" | "mission" | "task"`; `PARENT_LEVEL` in `state.js` fixes the tree shape —
   a mission's parent must be a quest, a task's must be a mission, a quest has no parent. Most
@@ -89,6 +89,36 @@ readyToClose?, blockedByDescendant?, _confirmedDone?, _prevStatus?, date? }`.
   bypassed from either write path.
 - `blockedByDescendant` is purely derived by the same rollup pass (a blocked task marks its
   mission and quest) — never set directly by a tool.
+- `repo`/`issueNumber` (#64) — optional structured link from a quest to the specific GitHub
+  issue it tracks, e.g. `{ repo: "hooptiej/Constructicon", issueNumber: 103 }`. Neither field is
+  required or paired-enforced; either can be present alone.
+
+### Batch runs (#64)
+
+A serialized multi-issue batch (e.g. "run tonight's Constructicon PRs in order, one PR each,
+verified live before merge") is tracked as an ordinary **Mission (or Quest) whose children are
+the batch's items, added as Tasks in run order** — deliberately reusing the existing
+Quest → Mission → Task hierarchy rather than adding a fourth level or a parallel construct. The
+issue this closes explicitly weighed a dedicated "batch" level/construct against fitting it into
+the existing shape, and concluded a batch really is "a checklist-shaped sub-structure attached to
+a mission" — which is what a Mission with ordered Task children already *is*, once each Task can
+link directly to the GitHub issue it represents (see `repo`/`issueNumber` above) instead of only
+carrying prose.
+
+- **Order is creation order.** No separate `sortOrder` field — a batch's run order is decided
+  once, at planning time, by the order its Tasks get added via `add_idea`. `get_batch_status`
+  sorts children by `createdAt` ascending to reconstruct that order; nothing needs a reordering
+  UI for the batches this was designed against (today's quest-log batch, tonight's Constructicon
+  batch, the compute-rc research trickle).
+- **`get_batch_status(idOrTitle)`** is the query surface: given the batch's own Mission/Quest,
+  returns its Task children (id, title, status, blocked, repo, issueNumber) in that order plus a
+  computed one-line summary ("3 of 6 done, currently on #44 (in progress)") — the "resuming a
+  session, or the user checking in, shouldn't have to re-read a wall of prose notes" requirement
+  from the issue. Read-only; doesn't require the batch to have been created any particular way,
+  any Mission/Quest with children works.
+- **Cross-repo is free.** Since `repo` is just a string per Task, a batch spanning multiple repos
+  (or non-repo items, like a research task with no GitHub issue at all — just leave `repo`/
+  `issueNumber` unset) is the same shape as a single-repo batch, no special-casing needed.
 
 **Write serialization + optimistic locking (still true, verified in `state.js`):**
 `mutateState()` chains every read-modify-write through an in-process `Promise` (`writeLock`), so
@@ -104,12 +134,12 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**21 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+**22 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
 included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
 `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
 `delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
-`get_full_state`, `set_maintenance`, `get_artifact_status`, `record_artifact_update`,
-`get_mirror_template`.
+`get_full_state`, `get_batch_status`, `set_maintenance`, `get_artifact_status`,
+`record_artifact_update`, `get_mirror_template`.
 
 Session gotcha: an unrecognized `Mcp-Session-Id` gets `404` (not `400`) so a compliant client
 reconnects transparently — this matters because sessions are in-memory only and don't survive a
