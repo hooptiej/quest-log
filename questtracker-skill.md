@@ -258,7 +258,9 @@ this block manually to that machine's `~/.claude/settings.json` (merge into any 
           { "type": "command", "if": "Bash(gh pr create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Pull request created. New PRs often represent completed features — consider updating quest-log with this work.\"}}'" },
           { "type": "command", "if": "Bash(gh issue close *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue closed. This likely represents completed work — check quest-log to ensure this closure is logged.\"}}'" },
           { "type": "command", "if": "Bash(gh issue create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue created. New issues often signal scope changes or discovered blockers — consider updating quest-log status or dependencies.\"}}'" },
-          { "type": "command", "if": "Bash(gh issue comment *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue comment posted. Design decisions and scope discussions often happen in comments — check if quest-log should reflect this.\"}}'" }
+          { "type": "command", "if": "Bash(gh issue comment *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue comment posted. Design decisions and scope discussions often happen in comments — check if quest-log should reflect this.\"}}'" },
+          { "type": "command", "if": "Bash(*docker restart*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Deploy/restart completed. If this closes out a tracked GitHub issue AND an existing quest-log idea/mission represents the same work, update that item status now (set_quest_status/confirm_completion) — a log entry alone does not close it out.\"}}'" },
+          { "type": "command", "if": "Bash(*docker compose*up -d*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Deploy/restart completed. If this closes out a tracked GitHub issue AND an existing quest-log idea/mission represents the same work, update that item status now (set_quest_status/confirm_completion) — a log entry alone does not close it out.\"}}'" }
         ]
       },
       {
@@ -294,6 +296,18 @@ The `SessionStart` idea-board nudge exists for a different reason: a standing id
 for an entire session even with the write-triggered hooks firing correctly, because nothing about
 *writing* new state re-surfaces *old* unread state — that's a periodic-read gap, not a
 write-trigger gap.
+
+**`docker restart` / `docker compose ... up -d` added 2026-09-03/04** after a real gap: every
+existing hook's wording says "log this" / "consider updating quest-log" — none of them say
+*close out the tracked item itself*. During a long batch session, a pre-existing idea-status
+entry ("Add a UI scale/zoom slider to quest-log") sat unclosed for hours after the matching work
+shipped and deployed live, because every hook nudge got answered with a fresh `add_log_entry`
+(prose) rather than a status flip on the *existing* record that idea had already created. The
+hooks fired correctly the whole time — the gap was in how the nudge got acted on, not a missing
+trigger. Deploy completion is the natural moment to catch this (it is the actual "this is now
+live" signal, later than commit/push/PR-create/issue-close), so this hook explicitly calls out
+*update that item's status*, not just "log it" — the other hooks' softer wording was consistently
+read as satisfied by a log entry alone.
 
 A hook can only inject a reminder via `additionalContext` — it's a shell command, it cannot call
 quest-log's MCP tools directly. The actual sync/check still has to come from Claude reacting to
