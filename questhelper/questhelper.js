@@ -620,25 +620,40 @@ function createServer(options = {}) {
     "Fetch the CSS and read-only render logic for building a static mirror of the quest log in claude.ai. Used alongside get_full_state() and get_artifact_status() to assemble a complete artifact mirror.",
     {},
     async () => {
-      const renderCode = `// Read-only render logic extracted from app.js for mirror template
-// No event listeners, no persist() calls, no STATE mutations
+      // SYNCED 2026-09-04 (see #81) from app/public/app.js's current
+      // treeNode/questRow/render functions, hand-adapted to be read-only
+      // (app.js's real versions now write directly to the DOM and include
+      // interactive controls -- toggle-blocked, toggle-attention, promote,
+      // +note -- that call back to a live server; none of that belongs in
+      // a static Artifact with no backend, so those are stripped here,
+      // keeping only the display badges/progress-bar/structure). Was
+      // stale enough to be missing archived/attention/mostNeglected
+      // entirely -- #81 tracks the real structural fix so this stops
+      // being a manual step to remember.
+      const renderCode = `// Read-only render logic, hand-adapted from app/public/app.js's current
+// treeNode/questRow/render functions (see #81) -- this is a READ-ONLY
+// subset: app.js's real versions now write directly to specific DOM
+// elements and include interactive controls (toggle-blocked, toggle-
+// attention, promote, +note) that call back to a live server, none of
+// which make sense in a static claude.ai Artifact with no backend. This
+// keeps the same visual structure/badges/progress bars but strips those
+// controls and returns HTML strings instead of writing to the DOM.
 (function() {
   var STATUS_META = {
     progress: { tag: "ACTIVE" },
     idea: { tag: "IDEA" },
     done: { tag: "DONE" }
   };
-  var LEVEL_UP = { task: "mission", mission: "quest" };
   var NOTES_ALLOWED_ATTRS = { A: ["href", "target"] };
 
   function truncate(s, max) {
     if (s.length <= max) return s;
-    return s.slice(0, max).replace(/\\s+\\S*$/, "") + "…";
+    return s.slice(0, max).replace(/\s+\S*$/, "") + "…";
   }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\"": "&quot;", "'": "&#39;" }[c];
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
     });
   }
 
@@ -659,7 +674,7 @@ function createServer(options = {}) {
           });
           if (tag === "A") {
             var href = (child.getAttribute("href") || "").trim();
-            if (!/^(https?:|mailto:|\\/)/.test(href)) child.removeAttribute("href");
+            if (!/^(https?:|mailto:|\/)/.test(href)) child.removeAttribute("href");
             child.setAttribute("rel", "noopener noreferrer");
           }
           clean(child);
@@ -674,13 +689,7 @@ function createServer(options = {}) {
 
   function notesPlainText(html) {
     var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
-    return (doc.body.textContent || "").replace(/\\s+/g, " ").trim();
-  }
-
-  function childLevelFor(level) {
-    if (level === "quest") return "mission";
-    if (level === "mission") return "task";
-    return null;
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
   }
 
   function notesToggleButton(collapsed, title) {
@@ -703,24 +712,38 @@ function createServer(options = {}) {
     return "";
   }
 
-  function childCountLabel(q, children) {
-    var noun = q.level === "quest" ? "mission" : "task";
-    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
-    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
+  function attentionBadge(q) {
+    if (q.attention) return '<span class="attention-badge">🔔 ATTENTION</span>';
+    return "";
+  }
+
+  function getDescendants(questId, allQuests) {
+    var children = allQuests.filter(function (q) { return q.parentId === questId; });
+    var result = children.slice();
+    for (var i = 0; i < children.length; i++) {
+      result = result.concat(getDescendants(children[i].id, allQuests));
+    }
+    return result;
+  }
+
+  function questProgress(q, allQuests) {
+    var descendants = getDescendants(q.id, allQuests);
+    var total = descendants.length + 1;
+    var doneCount = (q.status === "done" ? 1 : 0) + descendants.filter(function (d) { return d.status === "done"; }).length;
+    return { done: doneCount, total: total, pct: total ? Math.round((doneCount / total) * 100) : 0 };
   }
 
   function questRow(q) {
     var checked = q.status === "done";
-    var childLevel = childLevelFor(q.level);
-    var canPromote = q.level !== "quest";
     return (
       '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
-        '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
+        '<button type="button" class="quest-check" aria-pressed="' + checked + '" disabled aria-label="' + escapeHtml(q.title) + '">' +
           (checked ? "[x]" : "[ ]") +
         '</button>' +
         '<div class="quest-title-row">' +
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           blockedBadge(q) +
+          attentionBadge(q) +
         '</div>' +
         (q.notes
           ? '<div class="quest-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
@@ -734,21 +757,47 @@ function createServer(options = {}) {
     return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
   }
 
-  function treeNode(q, byParent) {
-    var children = byParent[q.id] || [];
+  function childCountLabel(q, children) {
+    var noun = q.level === "quest" ? "mission" : "task";
+    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
+    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
+  }
+
+  function treeNode(q, byParent, allQuests) {
+    var allChildren = byParent[q.id] || [];
+    var activeChildren = allChildren.filter(function (c) { return c.status !== "done"; });
+    var doneChildren = allChildren.filter(function (c) { return c.status === "done"; });
+    var hasActiveChildren = activeChildren.length > 0;
+    var hasDoneChildren = doneChildren.length > 0;
     var checked = q.status === "done";
-    var hasChildren = children.length > 0;
     var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
-    var childLevel = childLevelFor(q.level);
-    var canPromote = q.level !== "quest" && !hasChildren;
     var expanded = false;
+    var progress = q.level === "quest" ? questProgress(q, allQuests) : null;
+
+    var childrenHtml = "";
+    if (hasActiveChildren) {
+      childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
+    }
+    if (hasDoneChildren) {
+      var completedExpanded = false;
+      childrenHtml += '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
+        '<button type="button" class="tree-toggle" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed" disabled>' + (completedExpanded ? "▾" : "▸") + '</button>' +
+        '<span class="completed-label">Completed (' + doneChildren.length + ')</span>' +
+        '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
+        doneChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
+        '</div>' +
+        '</div>';
+    }
+
+    var hasChildren = allChildren.length > 0;
+
     return (
       '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
-              ? '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '">' + (expanded ? "▾" : "▸") + '</button>' +
-                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, children)) + ')</span>'
+              ? '<button type="button" class="tree-toggle" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '" disabled>' + (expanded ? "▾" : "▸") + '</button>' +
+                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, allChildren)) + ')</span>'
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
             blockedBadge(q) +
@@ -756,13 +805,17 @@ function createServer(options = {}) {
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
             (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
+            attentionBadge(q) +
           '</span>' +
         '</div>' +
+        (progress
+          ? '<div class="quest-progress"><span class="progress-label">' + progress.done + '/' + progress.total + '</span><div class="bar-track"><div class="bar-fill" style="width:' + progress.pct + '%"></div></div></div>'
+          : '') +
         (q.notes
           ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
             '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
           : '') +
-        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + children.map(function (c) { return treeNode(c, byParent); }).join("") + '</div>' : '') +
+        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + childrenHtml + '</div>' : '') +
       '</div>'
     );
   }
@@ -777,7 +830,7 @@ function createServer(options = {}) {
       return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
     });
     return roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent); }).join("")
+      ? roots.map(function (q) { return treeNode(q, byParent, state.quests); }).join("")
       : '<div class="empty-row">// no Quests yet</div>';
   }
 
@@ -816,19 +869,22 @@ function createServer(options = {}) {
   return { render: render };
 })();`;
 
-      const version = "1.0.0";
+      const version = "1.1.0";
       const renderFunctions = [
         "render(state)",
         "renderQuestTree(state, parentIds)",
-        "treeNode(q, byParent)",
+        "treeNode(q, byParent, allQuests)",
         "questRow(q)",
+        "questProgress(q, allQuests)",
         "childCountLabel(q, children)",
         "notesTeaser(notes)",
         "blockedBadge(q)",
         "blockedClass(q)",
+        "attentionBadge(q)",
         "escapeHtml(s)",
         "sanitizeNotes(html)"
       ];
+
 
       return {
         content: [

@@ -1,6 +1,11 @@
 // Extracted CSS from template.html for use by get_mirror_template() MCP tool.
 // This is the authoritative CSS stylesheet for the quest log UI.
-export const QUEST_LOG_CSS = `  :root {
+// SYNCED 2026-09-04 from app/template.html's current <style> block (see #81 --
+// this had drifted stale since before today, missing #72/#74/#77/#78's
+// changes entirely; #81 tracks the real structural fix so this stops being
+// a manual step to remember).
+export const QUEST_LOG_CSS = `
+  :root {
     --bg: #1c1c1c;
     --surface: #262626;
     --surface-2: #2f2f2f;
@@ -135,7 +140,7 @@ export const QUEST_LOG_CSS = `  :root {
     mix-blend-mode: multiply;
   }
 
-  .wrap { max-width: 760px; margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
+  .wrap { max-width: 47.5rem; margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
 
   /* ---------- main + sidebar layout ---------- */
 
@@ -147,7 +152,7 @@ export const QUEST_LOG_CSS = `  :root {
   }
 
   @media (min-width: 900px) {
-    .wrap { max-width: 1040px; }
+    .wrap { max-width: 65rem; }
     .layout { grid-template-columns: minmax(0, 1fr) 280px; }
     .layout-sidebar { position: sticky; top: 1.5rem; }
   }
@@ -155,11 +160,12 @@ export const QUEST_LOG_CSS = `  :root {
   /* ---------- header / terminal boot ---------- */
 
   .boot {
+    width: 100%;
+    box-sizing: border-box;
     border: 1px solid var(--border);
-    border-radius: 6px;
     background: var(--surface);
     padding: 0.5rem 1.1rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.1rem;
   }
 
   .boot-line {
@@ -173,6 +179,18 @@ export const QUEST_LOG_CSS = `  :root {
   }
   .boot-line + .boot-line { margin-top: 0.15rem; }
   .boot-line .ok { color: var(--accent); }
+  .boot-line .env-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--alarm) 20%, transparent);
+    border: 1px solid var(--alarm);
+    color: var(--alarm);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
 
   .theme-select {
     background: var(--surface-2);
@@ -188,10 +206,26 @@ export const QUEST_LOG_CSS = `  :root {
   .name-input { width: 6.5rem; }
   .name-input::placeholder { color: var(--muted); opacity: 0.6; }
 
+  .scale-stepper {
+    display: flex; align-items: center; gap: 0.35rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+  }
+  .scale-stepper button {
+    background: none; border: none; color: var(--accent); font-family: var(--font-mono);
+    font-size: 0.85rem; line-height: 1; padding: 0.1rem 0.25rem; cursor: pointer;
+  }
+  .scale-stepper button:hover { color: var(--text); }
+  .scale-stepper button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #scale-value {
+    font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.05em;
+    color: var(--accent); min-width: 2.6rem; text-align: center;
+  }
+
   header.masthead {
     position: relative;
     text-align: center;
-    padding: 0.1rem 0 0.5rem;
+    padding: 0 0 0.1rem;
   }
 
   .theme-switcher {
@@ -227,7 +261,7 @@ export const QUEST_LOG_CSS = `  :root {
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--text);
-    margin: 0.2rem 0 0.1rem;
+    margin: 0.05rem 0 0.1rem;
     text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 25%, transparent);
     text-wrap: balance;
   }
@@ -239,6 +273,7 @@ export const QUEST_LOG_CSS = `  :root {
     letter-spacing: 0.12em;
     color: var(--accent);
     text-transform: uppercase;
+    margin: 0;
   }
 
   /* ---------- status readout ---------- */
@@ -288,20 +323,31 @@ export const QUEST_LOG_CSS = `  :root {
     transition: width 0.5s ease;
   }
 
-  .status-counts {
-    display: flex;
-    gap: 1.25rem;
-    margin-top: 0.5rem;
+  /* Per-quest progress bars (#29): each top-level Quest shows completion
+     status for its own subtree (Missions/Tasks within that Quest only) */
+  .quest-progress {
+    margin-top: 0.3rem;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--muted);
-    flex-wrap: wrap;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
-  .status-counts span b { font-variant-numeric: tabular-nums; }
-  .c-active b { color: var(--accent); }
-  .c-idea b { color: var(--idea); }
-  .c-blocked b { color: var(--alarm); }
-  .c-done b { color: var(--accent2); }
+  .progress-label {
+    color: var(--muted);
+    opacity: 0.8;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .quest-progress .bar-track {
+    flex: 1;
+    margin-top: 0;
+    height: 6px;
+    min-width: 50px;
+  }
+  .quest-progress .bar-fill {
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
 
   /* ---------- panels ---------- */
 
@@ -376,21 +422,6 @@ export const QUEST_LOG_CSS = `  :root {
   }
   .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
-  /* Attention flag styling -- accent2 (purple/orange) instead of alarm (red) to distinguish from blocked */
-  .attention-badge {
-    font-family: var(--font-mono);
-    font-size: 0.76rem;
-    letter-spacing: 0.06em;
-    padding: 0.1rem 0.45rem;
-    border-radius: 3px;
-    border: 1px solid var(--accent2);
-    color: var(--accent2);
-    background: color-mix(in srgb, var(--accent2) 14%, transparent);
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .attention-btn:hover { border-color: var(--accent2); color: var(--accent2); }
-
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
   .tree-node {
@@ -420,26 +451,6 @@ export const QUEST_LOG_CSS = `  :root {
   .tree-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .tree-toggle-spacer { display: inline-block; width: 0.7rem; flex-shrink: 0; }
   .tree-children.collapsed { display: none; }
-
-  /* Completed section (#61): groups done items in a collapsible sub-section,
-     separate from active items, starting collapsed by default. */
-  .tree-completed {
-    margin-top: 0.45rem;
-    padding: 0 0.5rem 0 0.75rem;
-    border-left: 1px dashed var(--border);
-    padding-left: 1rem;
-  }
-  .tree-completed .tree-toggle {
-    margin-right: 0.25rem;
-  }
-  .completed-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--muted);
-  }
-  .tree-completed-items { margin-top: 0.3rem; }
-  .tree-completed-items.collapsed { display: none; }
-  .tree-completed.collapsed { /* just for consistency */ }
 
   /* Child-count badge (#37): shown next to .tree-toggle only while its
      children are collapsed, so a rolled-up node still says what's inside
@@ -766,13 +777,18 @@ export const QUEST_LOG_CSS = `  :root {
   }
 
   footer.sig {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0.5rem 1.1rem;
+    margin-top: 1.25rem;
     text-align: center;
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--muted);
     opacity: 0.55;
     letter-spacing: 0.08em;
-    margin-top: 1.25rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
