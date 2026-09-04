@@ -74,6 +74,11 @@
   [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
 
   /* ---------- theme: Guild Charter / WoW (#9) ---------- */
+  /* Retuned 2026-09-04 (#90) against a real WoW quest-dialog UI mockup
+     (dark riveted-metal frame + parchment body + item-tooltip conventions)
+     -- accent2 moves from a plain red to the actual WoW item-name orange,
+     panel borders/headers get a real title-bar/frame treatment instead of
+     a plain gradient line, buttons get the wood-and-red-leather look. */
   [data-theme="wow"] {
     --bg: #241407;
     --surface: #3a2413;
@@ -83,9 +88,11 @@
     --muted: #b99b6b;
     --accent: #ffd100;
     --accent-dim: #a3790f;
-    --accent2: #a6231f;
+    --accent2: #ff8000;
     --alarm: #ff4d2e;
     --idea: #4fa8d8;
+    --wow-frame: #1c1a19;
+    --wow-frame-hi: #4a4644;
 
     /* Same display face as MU/TH/UR (that Cinzel Q) -- carried over on purpose. */
     --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
@@ -110,8 +117,9 @@
   [data-theme="wow"] .status-panel,
   [data-theme="wow"] .panel {
     border-width: 2px;
-    border-image: linear-gradient(135deg, var(--accent-dim), var(--accent) 45%, var(--accent-dim)) 1;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 14px rgba(0,0,0,0.55);
+    border-color: var(--wow-frame-hi);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--wow-frame-hi) 15%, transparent), transparent 12%), var(--surface);
+    box-shadow: inset 0 0 0 1px var(--wow-frame), inset 0 1px 0 rgba(255,255,255,0.08), 0 3px 14px rgba(0,0,0,0.6);
   }
   [data-theme="wow"] .panel::before,
   [data-theme="wow"] .panel::after,
@@ -120,7 +128,24 @@
     background: radial-gradient(circle at 35% 30%, #fff3c4, transparent 55%), var(--panel-accent, var(--accent));
     box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent), 0 1px 1px rgba(0,0,0,0.6);
   }
-  [data-theme="wow"] .add-btn { color: #241407; }
+  /* Panel headers read as a dark title-bar plaque, like the quest-giver
+     dialog's own header strip, instead of plain uppercase mono text. */
+  [data-theme="wow"] .panel h2 {
+    background: linear-gradient(180deg, #2c2926, var(--wow-frame));
+    border: 1px solid var(--wow-frame-hi);
+    border-radius: 3px;
+    padding: 0.45rem 0.75rem;
+    margin: -0.2rem -0.2rem 0.75rem;
+    color: var(--text);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.8);
+  }
+  [data-theme="wow"] .add-btn {
+    color: var(--accent);
+    background: linear-gradient(180deg, #7a1010, #4a0000);
+    border: 1px solid #1c0000;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 3px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.7);
+  }
 
   * { box-sizing: border-box; }
 
