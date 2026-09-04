@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { QUEST_LOG_CSS } from "../app/css.js";
+import { buildMirrorHtml } from "../app/mirror.js";
 import {
   readState,
   mutateState,
@@ -577,7 +577,7 @@ function createServer(options = {}) {
 
   server.tool(
     "get_artifact_status",
-    "Check whether the mirrored claude.ai Artifact of this quest log is due for a republish, and get the current full state to build it from. Call this at the start of every session that uses quest-log, and again after any write that might have flipped needsUpdate.",
+    "Check whether the mirrored claude.ai Artifact of this quest log is due for a republish -- a cheap status check only (needsUpdate/url/changesSince), not the full state. Call this at the start of every session that uses quest-log, and again after any write that might have flipped needsUpdate. To actually build the mirror, call get_mirror_html() separately.",
     {},
     async () => {
       const state = await readState();
@@ -592,7 +592,6 @@ function createServer(options = {}) {
                 url: a.url,
                 mainQuestChanged: a.mainQuestChanged,
                 changesSince: a.changesSince,
-                state,
               },
               null,
               2,
@@ -616,293 +615,13 @@ function createServer(options = {}) {
   );
 
   server.tool(
-    "get_mirror_template",
-    "Fetch the CSS and read-only render logic for building a static mirror of the quest log in claude.ai. Used alongside get_full_state() and get_artifact_status() to assemble a complete artifact mirror.",
+    "get_mirror_html",
+    "Get the complete, ready-to-publish static HTML for the read-only claude.ai Artifact mirror of this quest log (#85). Assembled server-side from the live template.html CSS, live state, and a real read-only render module (app/mirror.js) -- no client-side assembly needed. Just publish the returned HTML directly, then call record_artifact_update(url).",
     {},
     async () => {
-      // SYNCED 2026-09-04 (see #81) from app/public/app.js's current
-      // treeNode/questRow/render functions, hand-adapted to be read-only
-      // (app.js's real versions now write directly to the DOM and include
-      // interactive controls -- toggle-blocked, toggle-attention, promote,
-      // +note -- that call back to a live server; none of that belongs in
-      // a static Artifact with no backend, so those are stripped here,
-      // keeping only the display badges/progress-bar/structure). Was
-      // stale enough to be missing archived/attention/mostNeglected
-      // entirely -- #81 tracks the real structural fix so this stops
-      // being a manual step to remember.
-      const renderCode = `// Read-only render logic, hand-adapted from app/public/app.js's current
-// treeNode/questRow/render functions (see #81) -- this is a READ-ONLY
-// subset: app.js's real versions now write directly to specific DOM
-// elements and include interactive controls (toggle-blocked, toggle-
-// attention, promote, +note) that call back to a live server, none of
-// which make sense in a static claude.ai Artifact with no backend. This
-// keeps the same visual structure/badges/progress bars but strips those
-// controls and returns HTML strings instead of writing to the DOM.
-(function() {
-  var STATUS_META = {
-    progress: { tag: "ACTIVE" },
-    idea: { tag: "IDEA" },
-    done: { tag: "DONE" }
-  };
-  var NOTES_ALLOWED_ATTRS = { A: ["href", "target"] };
-
-  function truncate(s, max) {
-    if (s.length <= max) return s;
-    return s.slice(0, max).replace(/\s+\S*$/, "") + "…";
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
-    });
-  }
-
-  function sanitizeNotes(html) {
-    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
-    var root = doc.body.firstChild;
-    function clean(node) {
-      Array.prototype.slice.call(node.childNodes).forEach(function (child) {
-        if (child.nodeType === 1) {
-          var tag = child.tagName;
-          if (tag !== "A" && tag !== "CODE") {
-            node.replaceChild(document.createTextNode(child.textContent), child);
-            return;
-          }
-          var keep = NOTES_ALLOWED_ATTRS[tag] || [];
-          Array.prototype.slice.call(child.attributes).forEach(function (attr) {
-            if (keep.indexOf(attr.name) === -1) child.removeAttribute(attr.name);
-          });
-          if (tag === "A") {
-            var href = (child.getAttribute("href") || "").trim();
-            if (!/^(https?:|mailto:|\/)/.test(href)) child.removeAttribute("href");
-            child.setAttribute("rel", "noopener noreferrer");
-          }
-          clean(child);
-        } else if (child.nodeType !== 3) {
-          node.removeChild(child);
-        }
-      });
-    }
-    clean(root);
-    return root.innerHTML;
-  }
-
-  function notesPlainText(html) {
-    var doc = new DOMParser().parseFromString("<div>" + String(html == null ? "" : html) + "</div>", "text/html");
-    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
-  }
-
-  function notesToggleButton(collapsed, title) {
-    return '<button type="button" class="notes-toggle" data-action="toggle-notes" aria-expanded="' + (!collapsed) + '" aria-label="Toggle notes for ' + escapeHtml(title) + '">' + (collapsed ? "▸ more" : "▾ less") + '</button>';
-  }
-
-  function notesTeaser(notes) {
-    return escapeHtml(truncate(notesPlainText(notes), 120));
-  }
-
-  function blockedClass(q) {
-    if (q.blocked) return " is-blocked";
-    if (q.blockedByDescendant) return " is-blocked-inherited";
-    return "";
-  }
-
-  function blockedBadge(q) {
-    if (q.blocked) return '<span class="blocked-badge">&#9888; BLOCKED</span>';
-    if (q.blockedByDescendant) return '<span class="blocked-badge blocked-badge-inherited">&#9888; blocked below</span>';
-    return "";
-  }
-
-  function attentionBadge(q) {
-    if (q.attention) return '<span class="attention-badge">🔔 ATTENTION</span>';
-    return "";
-  }
-
-  function getDescendants(questId, allQuests) {
-    var children = allQuests.filter(function (q) { return q.parentId === questId; });
-    var result = children.slice();
-    for (var i = 0; i < children.length; i++) {
-      result = result.concat(getDescendants(children[i].id, allQuests));
-    }
-    return result;
-  }
-
-  function questProgress(q, allQuests) {
-    var descendants = getDescendants(q.id, allQuests);
-    var total = descendants.length + 1;
-    var doneCount = (q.status === "done" ? 1 : 0) + descendants.filter(function (d) { return d.status === "done"; }).length;
-    return { done: doneCount, total: total, pct: total ? Math.round((doneCount / total) * 100) : 0 };
-  }
-
-  function questRow(q) {
-    var checked = q.status === "done";
-    return (
-      '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
-        '<button type="button" class="quest-check" aria-pressed="' + checked + '" disabled aria-label="' + escapeHtml(q.title) + '">' +
-          (checked ? "[x]" : "[ ]") +
-        '</button>' +
-        '<div class="quest-title-row">' +
-          '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
-          blockedBadge(q) +
-          attentionBadge(q) +
-        '</div>' +
-        (q.notes
-          ? '<div class="quest-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
-            '<div class="quest-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
-          : '<div class="quest-notes"></div>') +
-      '</div>'
-    );
-  }
-
-  function isTreeItem(q, parentIds) {
-    return q.level === "quest" || !!q.parentId || parentIds.has(q.id);
-  }
-
-  function childCountLabel(q, children) {
-    var noun = q.level === "quest" ? "mission" : "task";
-    var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
-    return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
-  }
-
-  function treeNode(q, byParent, allQuests) {
-    var allChildren = byParent[q.id] || [];
-    var activeChildren = allChildren.filter(function (c) { return c.status !== "done"; });
-    var doneChildren = allChildren.filter(function (c) { return c.status === "done"; });
-    var hasActiveChildren = activeChildren.length > 0;
-    var hasDoneChildren = doneChildren.length > 0;
-    var checked = q.status === "done";
-    var meta = STATUS_META[q.status] || { tag: "UNKNOWN" };
-    var expanded = false;
-    var progress = q.level === "quest" ? questProgress(q, allQuests) : null;
-
-    var childrenHtml = "";
-    if (hasActiveChildren) {
-      childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
-    }
-    if (hasDoneChildren) {
-      var completedExpanded = false;
-      childrenHtml += '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
-        '<button type="button" class="tree-toggle" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed" disabled>' + (completedExpanded ? "▾" : "▸") + '</button>' +
-        '<span class="completed-label">Completed (' + doneChildren.length + ')</span>' +
-        '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
-        doneChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
-        '</div>' +
-        '</div>';
-    }
-
-    var hasChildren = allChildren.length > 0;
-
-    return (
-      '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
-        '<div class="tree-row">' +
-          '<span class="tree-title-group">' +
-            (hasChildren
-              ? '<button type="button" class="tree-toggle" aria-expanded="' + expanded + '" aria-label="Toggle ' + escapeHtml(q.title) + '" disabled>' + (expanded ? "▾" : "▸") + '</button>' +
-                '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + escapeHtml(childCountLabel(q, allChildren)) + ')</span>'
-              : '<span class="tree-toggle-spacer"></span>') +
-            '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
-            blockedBadge(q) +
-          '</span>' +
-          '<span class="tree-actions">' +
-            '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
-            (hasChildren && q.readyToClose ? '<span class="ready-badge">Ready to close</span>' : '<span class="quest-tag">' + meta.tag + '</span>') +
-            attentionBadge(q) +
-          '</span>' +
-        '</div>' +
-        (progress
-          ? '<div class="quest-progress"><span class="progress-label">' + progress.done + '/' + progress.total + '</span><div class="bar-track"><div class="bar-fill" style="width:' + progress.pct + '%"></div></div></div>'
-          : '') +
-        (q.notes
-          ? '<div class="tree-notes-teaser">' + notesTeaser(q.notes) + ' ' + notesToggleButton(true, q.title) + '</div>' +
-            '<div class="tree-notes collapsed">' + sanitizeNotes(q.notes) + (q.date ? ' <span style="opacity:0.6">(' + q.date + ')</span>' : '') + ' ' + notesToggleButton(false, q.title) + '</div>'
-          : '') +
-        (hasChildren ? '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' + childrenHtml + '</div>' : '') +
-      '</div>'
-    );
-  }
-
-  function renderQuestTree(state, parentIds) {
-    var byParent = {};
-    state.quests.forEach(function (q) {
-      if (!q.parentId) return;
-      (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
-    });
-    var roots = state.quests.filter(function (q) {
-      return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
-    });
-    return roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent, state.quests); }).join("")
-      : '<div class="empty-row">// no Quests yet</div>';
-  }
-
-  function render(state) {
-    var parentIds = new Set();
-    state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
-
-    var groups = { progress: [], idea: [], done: [] };
-    state.quests.forEach(function (q) {
-      if (isTreeItem(q, parentIds)) return;
-      if (!groups[q.status]) return;
-      groups[q.status].push(q);
-    });
-
-    var questTreeHtml = renderQuestTree(state, parentIds);
-    var ideaHtml = groups.idea.length
-      ? groups.idea.map(questRow).join("")
-      : '<div class="empty-row">// none</div>';
-
-    var total = state.quests.length;
-    var doneCount = groups.done.length;
-    var pct = total ? Math.round((doneCount / total) * 100) : 0;
-    var blockedCount = state.quests.filter(function (q) { return !!q.blocked; }).length;
-
-    return {
-      questTree: questTreeHtml,
-      idea: ideaHtml,
-      progress: groups.progress.length,
-      doneCount: doneCount,
-      blockedCount: blockedCount,
-      total: total,
-      pct: pct
-    };
-  }
-
-  return { render: render };
-})();`;
-
-      const version = "1.1.0";
-      const renderFunctions = [
-        "render(state)",
-        "renderQuestTree(state, parentIds)",
-        "treeNode(q, byParent, allQuests)",
-        "questRow(q)",
-        "questProgress(q, allQuests)",
-        "childCountLabel(q, children)",
-        "notesTeaser(notes)",
-        "blockedBadge(q)",
-        "blockedClass(q)",
-        "attentionBadge(q)",
-        "escapeHtml(s)",
-        "sanitizeNotes(html)"
-      ];
-
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                css: QUEST_LOG_CSS,
-                renderCode: renderCode,
-                renderFunctions: renderFunctions,
-                version: version
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      const state = await readState();
+      const html = await buildMirrorHtml(state);
+      return { content: [{ type: "text", text: html }] };
     },
   );
 
