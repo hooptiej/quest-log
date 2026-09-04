@@ -159,7 +159,7 @@
     mix-blend-mode: multiply;
   }
 
-  .wrap { max-width: 760px; margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
+  .wrap { max-width: 47.5rem; margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
 
   /* ---------- main + sidebar layout ---------- */
 
@@ -171,7 +171,7 @@
   }
 
   @media (min-width: 900px) {
-    .wrap { max-width: 1040px; }
+    .wrap { max-width: 65rem; }
     .layout { grid-template-columns: minmax(0, 1fr) 280px; }
     .layout-sidebar { position: sticky; top: 1.5rem; }
   }
@@ -179,8 +179,9 @@
   /* ---------- header / terminal boot ---------- */
 
   .boot {
+    width: 100%;
+    box-sizing: border-box;
     border: 1px solid var(--border);
-    border-radius: 6px;
     background: var(--surface);
     padding: 0.5rem 1.1rem;
     margin-bottom: 0.1rem;
@@ -795,13 +796,18 @@
   }
 
   footer.sig {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0.5rem 1.1rem;
+    margin-top: 1.25rem;
     text-align: center;
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--muted);
     opacity: 0.55;
     letter-spacing: 0.08em;
-    margin-top: 1.25rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -816,12 +822,12 @@
 </style>
 </head>
 <body>
+<div class="boot">
+  <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span id="boot-env-badge"></span><span class="ok">LINK ESTABLISHED</span></div>
+  <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
+  <div class="boot-line" id="neglected-quest-line" hidden><span>LEAST-TOUCHED QUEST:</span><span id="neglected-quest-value"></span></div>
+</div>
 <div class="wrap">
-  <div class="boot">
-    <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span id="boot-env-badge"></span><span class="ok">LINK ESTABLISHED</span></div>
-    <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
-    <div class="boot-line" id="neglected-quest-line" hidden><span>LEAST-TOUCHED QUEST:</span><span id="neglected-quest-value"></span></div>
-  </div>
 
   <header class="masthead">
     <div class="theme-switcher">
@@ -884,9 +890,9 @@
       </section>
     </aside>
   </div>
-
-  <footer class="sig">// end transmission — homelab ops · <span id="version-badge"></span></footer>
 </div>
+
+<footer class="sig">// end transmission — homelab ops · <span id="version-badge"></span></footer>
 
 <script>window.__QUEST_STATE__ = __STATE_JSON__; window.__WRITE_TOKEN__ = __WRITE_TOKEN_VALUE__; window.__APP_VERSION__ = __APP_VERSION_VALUE__; window.__QUEST_LOG_ENV__ = __QUEST_LOG_ENV_VALUE__;</script>
 <script>
