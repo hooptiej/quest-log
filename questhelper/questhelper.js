@@ -174,8 +174,10 @@ function createServer(options = {}) {
         .string()
         .optional()
         .describe("Parent's id, exact title, or a title substring -- a mission's parent must be a quest, a task's must be a mission"),
+      repo: z.string().optional().describe("#64: 'owner/repo' this quest tracks a GitHub issue in, e.g. for one item in a serialized batch run"),
+      issueNumber: z.number().optional().describe("#64: the GitHub issue number this quest tracks, paired with repo"),
     },
-    async ({ title, notes, status, level, parentIdOrTitle }) => {
+    async ({ title, notes, status, level, parentIdOrTitle, repo, issueNumber }) => {
       // Write-layer guard: reject dangerous note content (#57)
       const noteValidation = validateNoteContent(notes);
       if (noteValidation) {
@@ -195,6 +197,8 @@ function createServer(options = {}) {
           parentId: parentResolution.parentId,
           createdAt: nowISO(),
         };
+        if (repo !== undefined) q.repo = repo;
+        if (issueNumber !== undefined) q.issueNumber = issueNumber;
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);
         if (parentResolution.parentId) touchQuestAncestor(state, q);
@@ -518,6 +522,43 @@ function createServer(options = {}) {
     const stateWithMostNeglected = { ...state, mostNeglectedQuest };
     return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(stateWithMostNeglected, null, 2) }]))) };
   });
+
+  server.tool(
+    "get_batch_status",
+    "#64: status of a serialized multi-issue batch run, tracked as a Mission (or Quest) whose children are the batch's items in run order. Returns the batch item and its children ordered by createdAt (the order they were added while planning the run -- add_idea's repo/issueNumber params let each child link directly to the GitHub issue it tracks), plus a computed one-line summary ('3 of 6 done, currently on #44') so a session resuming a batch -- or the user checking in -- doesn't have to re-read prose notes to see where it stands. Doesn't require anything special about how the batch was created; any Mission/Quest with children works, repo/issueNumber are optional per child.",
+    {
+      idOrTitle: z.string().describe("The batch's own quest/mission id, exact title, or a substring of the title"),
+    },
+    async ({ idOrTitle }) => {
+      const state = await readState();
+      const resolved = resolveOne(state, idOrTitle);
+      if (resolved.error) return { content: [{ type: "text", text: resolved.error }], isError: true };
+      const batch = resolved.quest;
+      const items = state.quests
+        .filter((q) => q.parentId === batch.id)
+        .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+      const done = items.filter((q) => q.status === "done").length;
+      const current = items.find((q) => q.status !== "done");
+      const summary = items.length === 0
+        ? `${batch.title}: no items yet`
+        : done === items.length
+          ? `${batch.title}: ${done} of ${items.length} done -- batch complete`
+          : `${batch.title}: ${done} of ${items.length} done -- currently on "${current.title}"${current.status === "progress" ? " (in progress)" : current.blocked ? " (blocked)" : ""}`;
+      const result = {
+        batch: { id: batch.id, title: batch.title, status: batch.status, notes: batch.notes },
+        items: items.map((q) => ({
+          id: q.id,
+          title: q.title,
+          status: q.status,
+          blocked: q.blocked ?? false,
+          repo: q.repo ?? null,
+          issueNumber: q.issueNumber ?? null,
+        })),
+        summary,
+      };
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
 
   server.tool(
     "set_maintenance",

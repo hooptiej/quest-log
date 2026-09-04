@@ -84,7 +84,15 @@ export function isValidQuest(q) {
     (q.blockedByDescendant === undefined || q.blockedByDescendant === true) &&
     // createdAt and lastTouchedAt are optional but must be ISO timestamp strings if present
     (q.createdAt === undefined || typeof q.createdAt === "string") &&
-    (q.lastTouchedAt === undefined || typeof q.lastTouchedAt === "string")
+    (q.lastTouchedAt === undefined || typeof q.lastTouchedAt === "string") &&
+    // #64: optional structured link to the GitHub issue this quest tracks
+    // (e.g. one item in a serialized batch run) -- "owner/repo" string plus
+    // its issue number. Both optional, but if either is present the pairing
+    // should make sense; not strictly enforced here (a lone issueNumber
+    // with no repo is still valid, just less useful) to keep validation
+    // simple and match how every other optional field on a quest works.
+    (q.repo === undefined || typeof q.repo === "string") &&
+    (q.issueNumber === undefined || typeof q.issueNumber === "number")
   );
 }
 
