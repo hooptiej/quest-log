@@ -463,6 +463,40 @@
     });
   }
 
+  // #69: UI scale stepper. Adjusts the root font-size (everything in
+  // app/css.js is already sized in rem, so this scales the whole layout
+  // proportionally with no other CSS changes needed) rather than relying on
+  // browser zoom. Per-viewer localStorage preference, same as theme -- never
+  // touches STATE/persist().
+  var SCALE_KEY = "questlog-scale";
+  var SCALE_MIN = 90;
+  var SCALE_MAX = 150;
+  var SCALE_STEP = 5;
+  var scaleValueEl = document.getElementById("scale-value");
+  var scaleDownBtn = document.getElementById("scale-down-btn");
+  var scaleUpBtn = document.getElementById("scale-up-btn");
+  if (scaleValueEl && scaleDownBtn && scaleUpBtn) {
+    var currentScale = parseInt(localStorage.getItem(SCALE_KEY), 10);
+    if (!currentScale || isNaN(currentScale)) currentScale = 100;
+    currentScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, currentScale));
+
+    function applyScale(scale) {
+      currentScale = scale;
+      document.documentElement.style.fontSize = scale === 100 ? "" : scale + "%";
+      scaleValueEl.textContent = scale + "%";
+      scaleDownBtn.disabled = scale <= SCALE_MIN;
+      scaleUpBtn.disabled = scale >= SCALE_MAX;
+      try { localStorage.setItem(SCALE_KEY, scale); } catch (e) {}
+    }
+    scaleDownBtn.addEventListener("click", function () {
+      applyScale(Math.max(SCALE_MIN, currentScale - SCALE_STEP));
+    });
+    scaleUpBtn.addEventListener("click", function () {
+      applyScale(Math.min(SCALE_MAX, currentScale + SCALE_STEP));
+    });
+    applyScale(currentScale);
+  }
+
   // Designation is set once on first visit, then locked (#33): once a name
   // has been saved, the whole field hides itself rather than just going
   // read-only, since a locked-but-visible input invites retyping attempts
