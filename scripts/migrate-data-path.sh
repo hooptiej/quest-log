@@ -37,14 +37,30 @@ if [ ! -d "$CHECKOUT_DATA_DIR" ]; then
     exit 0
 fi
 
-# Create the host directory if it doesn't exist
+# Create the host directory if it doesn't exist. The parent (e.g.
+# /mnt/Storage Pool) is typically root-owned (mode 755) on a TrueNAS box, so
+# a plain mkdir here fails with Permission denied for a non-root user even
+# though that user has passwordless sudo -- fall back to sudo, then hand
+# ownership back so the rest of this script (running as the normal user)
+# can write into it.
 echo "Creating host directory: $HOST_DATA_DIR"
-mkdir -p "$HOST_DATA_DIR"
+if ! mkdir -p "$HOST_DATA_DIR" 2>/dev/null; then
+    echo "  (plain mkdir failed, retrying with sudo)"
+    sudo mkdir -p "$HOST_DATA_DIR"
+    sudo chown "$(id -u):$(id -g)" "$HOST_DATA_DIR"
+fi
 
-# Migrate data directory
+# Migrate data directory. write-token is deliberately root-owned, mode 600
+# (see server.js) -- a plain `cp -r` as a non-root user can create the
+# destination tree but can't read that one file, and fails partway through.
+# `sudo cp -rp` reads everything regardless of ownership, and -p preserves
+# each file's original owner/permissions on the copy (only meaningful when
+# the copy itself runs as root, which sudo gives us here) -- so state.json
+# etc. land hoop-owned same as before, and write-token stays root-owned
+# without a separate special case.
 if [ -d "$CHECKOUT_DATA_DIR" ]; then
     echo "Copying data directory from $CHECKOUT_DATA_DIR to $HOST_DATA_MOUNT"
-    cp -r "$CHECKOUT_DATA_DIR" "$HOST_DATA_MOUNT"
+    sudo cp -rp "$CHECKOUT_DATA_DIR" "$HOST_DATA_MOUNT"
     echo "✓ Data directory migrated"
 else
     echo "! $CHECKOUT_DATA_DIR not found (fresh deployment?)"
@@ -54,7 +70,7 @@ fi
 # Migrate certs directory if it exists
 if [ -d "$CHECKOUT_CERTS_DIR" ]; then
     echo "Copying certs directory from $CHECKOUT_CERTS_DIR to $HOST_CERTS_MOUNT"
-    cp -r "$CHECKOUT_CERTS_DIR" "$HOST_CERTS_MOUNT"
+    sudo cp -rp "$CHECKOUT_CERTS_DIR" "$HOST_CERTS_MOUNT"
     echo "✓ Certs directory migrated"
 else
     echo "! $CHECKOUT_CERTS_DIR not found (certs will be generated on first boot)"
