@@ -81,17 +81,6 @@ function sanitizeNotes(html) {
   return out;
 }
 
-function notesPlainText(html) {
-  return String(html == null ? "" : html)
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function notesTeaser(notes) {
-  return escapeHtml(truncate(notesPlainText(notes), 120));
-}
-
 function blockedClass(q) {
   if (q.blocked) return " is-blocked";
   if (q.blockedByDescendant) return " is-blocked-inherited";
@@ -131,7 +120,7 @@ function questRow(q) {
     `<button type="button" class="quest-check" aria-pressed="${checked}" disabled aria-label="${escapeHtml(q.title)}">${checked ? "[x]" : "[ ]"}</button>` +
     `<div class="quest-title-row"><span class="quest-title">${escapeHtml(q.title)}</span>${blockedBadge(q)}${attentionBadge(q)}</div>` +
     (q.notes
-      ? `<div class="quest-notes-teaser">${notesTeaser(q.notes)}</div><div class="quest-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
+      ? `<div class="quest-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
       : '<div class="quest-notes"></div>') +
     "</div>"
   );
@@ -179,7 +168,7 @@ function treeNode(q, byParent, allQuests) {
       ? `<div class="quest-progress"><span class="progress-label">${progress.done}/${progress.total}</span><div class="bar-track"><div class="bar-fill" style="width:${progress.pct}%"></div></div></div>`
       : "") +
     (q.notes
-      ? `<div class="tree-notes-teaser">${notesTeaser(q.notes)}</div><div class="tree-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
+      ? `<div class="tree-notes">${sanitizeNotes(q.notes)}${q.date ? ` <span style="opacity:0.6">(${escapeHtml(q.date)})</span>` : ""}</div>`
       : "") +
     (hasChildren ? `<div class="tree-children">${childrenHtml}</div>` : "") +
     "</div>"
