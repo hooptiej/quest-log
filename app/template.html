@@ -13,6 +13,14 @@
     var savedTheme = localStorage.getItem("questlog-theme");
     if (savedTheme && savedTheme !== "muthur") document.documentElement.dataset.theme = savedTheme;
   } catch (e) {}
+  // #69: UI scale, same before-first-paint treatment as theme above, so a
+  // returning viewer's saved scale doesn't flash at 100% first. Per-viewer
+  // display preference (localStorage), not app state -- never touches
+  // data/state.json or POST /api/state.
+  try {
+    var savedScale = parseInt(localStorage.getItem("questlog-scale"), 10);
+    if (savedScale && savedScale !== 100) document.documentElement.style.fontSize = savedScale + "%";
+  } catch (e) {}
 </script>
 
 <style>
@@ -215,6 +223,22 @@
   .theme-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .name-input { width: 6.5rem; }
   .name-input::placeholder { color: var(--muted); opacity: 0.6; }
+
+  .scale-stepper {
+    display: flex; align-items: center; gap: 0.35rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+  }
+  .scale-stepper button {
+    background: none; border: none; color: var(--accent); font-family: var(--font-mono);
+    font-size: 0.85rem; line-height: 1; padding: 0.1rem 0.25rem; cursor: pointer;
+  }
+  .scale-stepper button:hover { color: var(--text); }
+  .scale-stepper button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #scale-value {
+    font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.05em;
+    color: var(--accent); min-width: 2.6rem; text-align: center;
+  }
 
   header.masthead {
     position: relative;
@@ -812,6 +836,14 @@
       <div class="switcher-row">
         <label for="name-input">Designation</label>
         <input id="name-input" class="theme-select name-input" type="text" maxlength="24" placeholder="unnamed" autocomplete="off" aria-label="Your designation">
+      </div>
+      <div class="switcher-row">
+        <label id="scale-label" for="scale-down-btn">Scale</label>
+        <div class="scale-stepper">
+          <button type="button" id="scale-down-btn" aria-label="Decrease scale">−</button>
+          <span id="scale-value" aria-live="polite">100%</span>
+          <button type="button" id="scale-up-btn" aria-label="Increase scale">+</button>
+        </div>
       </div>
     </div>
     <div class="eyebrow" id="eyebrow">Interest: None</div>
