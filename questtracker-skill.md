@@ -60,6 +60,15 @@ Use judgment on granularity. Not every tiny sub-step deserves its own entry — 
 "would this be useful to see again in a week," not "log every action taken." A one-line fix
 made in passing usually belongs in a log entry (see below), not a new quest.
 
+**Don't duplicate a GitHub issue as a new top-level quest/mission when it already belongs under
+one that's already tracked.** If a GitHub issue comes up and its subject matter is really a
+sub-part of an existing tracked Quest/Mission, add it as a **Task** under that existing item, not
+a redundant new top-level entry — the issue itself is already the durable, closeable unit of work,
+so the Task's completion is tied to that issue closing, and quest-log shouldn't grow a second,
+parallel top-level entry for the same thing GitHub is already tracking. This only applies when the
+issue is genuinely part of something already on the board; an issue that's its own standalone
+effort with no existing parent still gets added normally (see above).
+
 ## Tools available
 
 The `quest-log` MCP server exposes:
