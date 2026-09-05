@@ -23,6 +23,7 @@
       titleSuffix: "Mission Log",
       subtitlePrefix: "Priority One",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Recent Activity",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
@@ -32,6 +33,7 @@
       titleSuffix: "Survey Report",
       subtitlePrefix: "Undervault Directive",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Terminal Log",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
     },
     wow: {
@@ -41,15 +43,17 @@
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Guild News",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     },
     raccoonmanor: {
       orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
       terminalName: "R.P.D. DISPATCH-7",
       titlePrefix: "Raccoon Manor",
-      titleSuffix: "Evidence Log",
-      subtitlePrefix: "Survive The Night",
-      subtitleSuffix: "Track All Missions",
+      titleSuffix: "",
+      subtitlePrefix: "Est. 1998",
+      subtitleSuffix: "Condition: Abandoned",
+      logLabel: "Evidence Log",
       designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     },
     testpattern: {
@@ -59,6 +63,7 @@
       titleSuffix: "Channel Log",
       subtitlePrefix: "Please Stand By",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Broadcast Log",
       designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
     },
     hadleyshope: {
@@ -68,6 +73,7 @@
       titleSuffix: "",
       subtitlePrefix: "Ops Terminal",
       subtitleSuffix: "It's A Bug Hunt",
+      logLabel: "Contact Log",
       designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
     }
   };
@@ -219,6 +225,248 @@
     }
   }
 
+  // Raccoon Manor ambient scene: ceiling drips, EKG/ribbon HUD, the
+  // generator valve (cuts power to a moonlight-only palette instead of
+  // sounding an alarm), lightning through the window (occasionally trips
+  // the generator itself), and the FX kill switch. Same "populate once,
+  // hidden markup is harmless" pattern as Hadley's Hope.
+  var rmInitialized = false;
+  function isRaccoonManor() { return document.documentElement.dataset.theme === "raccoonmanor"; }
+  function initRaccoonManorEffects() {
+    if (rmInitialized) return;
+    rmInitialized = true;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var ribbonEl = document.getElementById("rmRibbonCount");
+    var bpmEl = document.getElementById("rmEkgBpm");
+    var ribbons = 3;
+    setInterval(function () {
+      if (!isRaccoonManor()) return;
+      var scared = Math.random() < 0.3;
+      if (bpmEl) bpmEl.textContent = (scared ? (110 + Math.floor(Math.random() * 40)) : (68 + Math.floor(Math.random() * 10))) + " bpm";
+      if (scared && ribbonEl) {
+        ribbons = Math.max(0, ribbons - 1);
+        if (ribbons === 0) ribbons = 3;
+        ribbonEl.textContent = ribbons;
+      }
+    }, 2600);
+
+    var dripLayer = document.getElementById("rmDripLayer");
+    if (!reduce && dripLayer) {
+      dripLayer.querySelectorAll(".rm-drip").forEach(function (d) {
+        var left = d.style.left;
+        var startHeight = parseInt(d.style.height, 10) || 60;
+        setInterval(function () {
+          if (!isRaccoonManor()) return;
+          var drop = document.createElement("div");
+          drop.className = "rm-goo-drop";
+          drop.style.left = left;
+          drop.style.top = startHeight + "px";
+          drop.style.animationDuration = (2.2 + Math.random() * 1.4) + "s";
+          document.body.appendChild(drop);
+          setTimeout(function () { drop.remove(); }, 4000);
+        }, 3200 + Math.random() * 3000);
+      });
+    }
+
+    var valveRig = document.getElementById("rmValveRig");
+    var valveWheel = document.getElementById("rmValveWheel");
+    if (valveWheel && valveRig) {
+      valveWheel.addEventListener("click", function () {
+        var cut = valveRig.classList.toggle("armed");
+        document.documentElement.classList.toggle("power-cut", cut);
+      });
+    }
+
+    // Temp debug readout (settings-mode only, see CSS) -- polls rather
+    // than hooking every state-changing call site, so it can't miss one
+    // (the ambient auto-trip included) and stays trivial to remove later.
+    var debugReadout = document.getElementById("rmDebugReadout");
+    if (debugReadout) {
+      setInterval(function () {
+        if (!isRaccoonManor()) return;
+        var html = document.documentElement;
+        var cs = getComputedStyle(html);
+        debugReadout.textContent =
+          "power-cut: " + html.classList.contains("power-cut") + "\n" +
+          "valve armed: " + (valveRig ? valveRig.classList.contains("armed") : "n/a") + "\n" +
+          "settings-mode: " + html.classList.contains("settings-mode") + "\n" +
+          "darkness: " + cs.getPropertyValue("--rm-power-cut-brightness").trim() + "\n" +
+          "glow: " + cs.getPropertyValue("--rm-power-cut-glow").trim() + "\n" +
+          "hud-boost: " + cs.getPropertyValue("--rm-hud-boost").trim();
+      }, 400);
+    }
+
+    // Settings-mode tuning sliders (darkness/glow/HUD boost) -- each moves a
+    // CSS custom property live on "input" for instant feedback while
+    // dragging, and saves to STATE._themeTuning.raccoonmanor on "change"
+    // (once per interaction, not per drag-tick) through the same
+    // persist()/write-token path every other mutation in this app already
+    // uses -- "saved with the site," not per-browser localStorage, so the
+    // chosen values show up the same on any machine that loads the page.
+    // Only visible at all under settings-mode (see the settings-mode class
+    // applied near the bottom of this file); wiring one up while hidden is
+    // harmless, just a no-op with no visible effect.
+    function wireTunedSlider(elementId, cssVarName, tuningKey) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var saved = (STATE._themeTuning && STATE._themeTuning.raccoonmanor && STATE._themeTuning.raccoonmanor[tuningKey]);
+      if (saved !== undefined && saved !== null) {
+        el.value = saved;
+        document.documentElement.style.setProperty(cssVarName, saved);
+      }
+      el.addEventListener("input", function () {
+        document.documentElement.style.setProperty(cssVarName, el.value);
+      });
+      el.addEventListener("change", function () {
+        STATE._themeTuning = STATE._themeTuning || {};
+        STATE._themeTuning.raccoonmanor = STATE._themeTuning.raccoonmanor || {};
+        STATE._themeTuning.raccoonmanor[tuningKey] = el.value;
+        persist();
+      });
+    }
+    wireTunedSlider("rmDarknessSlider", "--rm-power-cut-brightness", "darkness");
+    wireTunedSlider("rmGlowSlider", "--rm-power-cut-glow", "glow");
+    wireTunedSlider("rmHudBoostSlider", "--rm-hud-boost", "hudBoost");
+
+    var candleRig = document.getElementById("rmCandleRig");
+    var candleBtn = document.getElementById("rmCandleBtn");
+    if (candleBtn && candleRig) {
+      candleBtn.addEventListener("click", function () {
+        var on = candleRig.classList.toggle("on");
+        document.documentElement.classList.toggle("fx-off", !on);
+      });
+    }
+
+    // Three elements flash together on every strike: #rmStormFlash (a
+    // fixed, full-viewport wash living in .rm-scene, never touched by the
+    // power-cut filter), #rmLightningBolt (the bolt shape seen through the
+    // window when power is ON -- it darkens along with the room like
+    // everything else once power-cut is active, same as the moon), and
+    // #rmBoltDupe (an undarkened stand-in bolt, also living in .rm-scene,
+    // that CSS only shows during power-cut -- so exactly one of the two
+    // bolt elements is ever actually visible, and flashing both on every
+    // strike regardless of power state is harmless). All three just
+    // toggle the same .flash class/restart trick the old single
+    // #rmLightning div used.
+    var stormFlash = document.getElementById("rmStormFlash");
+    var lightningBolt = document.getElementById("rmLightningBolt");
+    var boltDupe = document.getElementById("rmBoltDupe");
+    if (!reduce && stormFlash && lightningBolt) {
+      function flashEl(el) {
+        if (!el) return;
+        el.classList.remove("flash");
+        void el.offsetWidth; // restart the CSS animation
+        el.classList.add("flash");
+      }
+      function strike() {
+        if (!isRaccoonManor()) return;
+        flashEl(stormFlash);
+        flashEl(lightningBolt);
+        flashEl(boltDupe);
+        if (Math.random() < 0.3) setTimeout(strike, 220 + Math.random() * 180);
+        // ~10% of strikes trip the generator -- same power-cut state the
+        // valve wheel toggles manually, so turning it back on afterward
+        // just works (the click handler toggles whatever's already there).
+        // Suppressed under settings-mode: a random auto-trip landing right
+        // when someone's testing the manual valve/sliders reads as "my
+        // click didn't work" even though it's really just unlucky timing
+        // from a fully independent system -- confusing during tuning,
+        // fine during normal play.
+        if (!document.documentElement.classList.contains("settings-mode") &&
+            Math.random() < 0.1 && !document.documentElement.classList.contains("power-cut")) {
+          setTimeout(function () {
+            document.documentElement.classList.add("power-cut");
+            if (valveRig) valveRig.classList.add("armed");
+          }, 140);
+        }
+      }
+      function scheduleLightning() {
+        setTimeout(function () { strike(); scheduleLightning(); }, 6000 + Math.random() * 18000);
+      }
+      scheduleLightning();
+    }
+  }
+
+  // Test Pattern ambient widgets: the channel tuner (cycles which
+  // jitterClass bucket is "tuned in", dimming the other two via --tp-dim)
+  // and the convergence pad (drags --tp-conv-x/-y, which the h1's fringe
+  // and the pad's own dot both read). Same "wire once, CSS keeps it inert
+  // while another theme is active" pattern as the other themes' effects.
+  var tpInitialized = false;
+  function isTestPattern() { return document.documentElement.dataset.theme === "testpattern"; }
+  function initTestPatternEffects() {
+    if (tpInitialized) return;
+    tpInitialized = true;
+
+    var CHANNELS = ["a", "b", "c"];
+    var CHANNEL_READOUT = { a: "CH 3", b: "CH 4", c: "CH 5" };
+    var chanIndex = 0;
+    var tunerBtn = document.getElementById("tpTunerBtn");
+    var tunerReadout = document.getElementById("tpTunerReadout");
+    function applyChannel() {
+      var ch = CHANNELS[chanIndex];
+      CHANNELS.forEach(function (c) {
+        document.documentElement.classList.toggle("tp-tuned-" + c, c === ch);
+      });
+      if (tunerReadout) tunerReadout.textContent = CHANNEL_READOUT[ch];
+    }
+    if (tunerBtn) {
+      applyChannel();
+      tunerBtn.addEventListener("click", function () {
+        if (!isTestPattern()) return;
+        chanIndex = (chanIndex + 1) % CHANNELS.length;
+        applyChannel();
+      });
+    }
+
+    var pad = document.getElementById("tpConvPad");
+    if (pad) {
+      var dragging = false;
+      var radius = 19; // px of drag inside the pad that maps to the full -1..1 range
+      function setConv(x, y) {
+        x = Math.max(-1, Math.min(1, x));
+        y = Math.max(-1, Math.min(1, y));
+        document.documentElement.style.setProperty("--tp-conv-x", x.toFixed(3));
+        document.documentElement.style.setProperty("--tp-conv-y", y.toFixed(3));
+        pad.setAttribute("aria-valuetext", (x === 0 && y === 0) ? "centered" : ("offset " + x.toFixed(2) + ", " + y.toFixed(2)));
+      }
+      function updateFromPoint(clientX, clientY) {
+        var rect = pad.getBoundingClientRect();
+        setConv((clientX - (rect.left + rect.width / 2)) / radius, (clientY - (rect.top + rect.height / 2)) / radius);
+      }
+      pad.addEventListener("pointerdown", function (e) {
+        if (!isTestPattern()) return;
+        dragging = true;
+        pad.setPointerCapture(e.pointerId);
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      pad.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      ["pointerup", "pointercancel"].forEach(function (evt) {
+        pad.addEventListener(evt, function () { dragging = false; });
+      });
+      // Double-click/tap re-centers -- 0,0 is "converged", i.e. no fringe.
+      pad.addEventListener("dblclick", function () { if (isTestPattern()) setConv(0, 0); });
+      // Keyboard nudge for the role="slider" a11y hook (arrow keys, since
+      // dragging alone would otherwise leave no non-pointer way to reach it).
+      pad.addEventListener("keydown", function (e) {
+        if (!isTestPattern()) return;
+        var style = getComputedStyle(document.documentElement);
+        var x = parseFloat(style.getPropertyValue("--tp-conv-x")) || 0;
+        var y = parseFloat(style.getPropertyValue("--tp-conv-y")) || 0;
+        var step = 0.15;
+        if (e.key === "ArrowLeft") { setConv(x - step, y); e.preventDefault(); }
+        else if (e.key === "ArrowRight") { setConv(x + step, y); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { setConv(x, y - step); e.preventDefault(); }
+        else if (e.key === "ArrowDown") { setConv(x, y + step); e.preventDefault(); }
+        else if (e.key === "Enter" || e.key === " ") { setConv(0, 0); e.preventDefault(); }
+      });
+    }
+  }
+
   function applyFlavor() {
     var theme = document.documentElement.dataset.theme || "muthur";
     var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
@@ -235,12 +483,42 @@
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var subtitleSuffixEl = document.getElementById("subtitle-suffix");
     if (subtitleSuffixEl) subtitleSuffixEl.textContent = flavor.subtitleSuffix;
+    var logLabelEl = document.getElementById("log-title");
+    if (logLabelEl) logLabelEl.textContent = flavor.logLabel || "Recent Activity";
     var eyebrowEl = document.getElementById("eyebrow");
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
     var versionEl = document.getElementById("version-badge");
     if (versionEl && window.__APP_VERSION__) versionEl.textContent = "v" + window.__APP_VERSION__;
 
     if (theme === "hadleyshope") updateHadleysHopeFlavor();
+    if (theme === "raccoonmanor") updateRaccoonManorFlavor();
+  }
+
+  // Same trick as updateHadleysHopeFlavor() below, re-skinned for this
+  // theme's case-file vocabulary instead of Hadley's Hope's hazard/contact
+  // wording -- a real open quest title stamped into the boot bar's case
+  // line, refreshed as quests change.
+  function updateRaccoonManorFlavor() {
+    var stampEl = document.getElementById("rmCaseStamp");
+    var witnessEl = document.getElementById("rmWitnessLine");
+    if (!stampEl && !witnessEl) return;
+    var openTitles = Array.prototype.slice
+      .call(document.querySelectorAll(".tree-node:not(.is-done) .tree-title, .quest:not(.is-done) .quest-title"))
+      .map(function (el) { return el.textContent.trim(); })
+      .filter(Boolean);
+    if (!openTitles.length) {
+      if (stampEl) stampEl.textContent = "";
+      if (witnessEl) witnessEl.textContent = "";
+      return;
+    }
+    if (stampEl) {
+      var pick = openTitles[Math.floor(Math.random() * openTitles.length)];
+      stampEl.textContent = "Case File — " + pick + " — Unsolved";
+    }
+    if (witnessEl) {
+      var next = openTitles[Math.floor(Math.random() * openTitles.length)];
+      witnessEl.textContent = "Last witness account: " + next;
+    }
   }
 
   // Reads real open-quest titles straight out of the rendered tree/idea
@@ -955,6 +1233,14 @@
     });
   }
 
+  // Settings mode (Raccoon Manor's power-cut tuning sliders, currently the
+  // only thing gated on it) has no in-page toggle by design -- flipped only
+  // via the set_settings_mode MCP tool, read here from the server-rendered
+  // state the same way SERVER_DESIGNATION is above.
+  document.documentElement.classList.toggle("settings-mode", !!STATE._settingsMode);
+
   render(STATE);
   initHadleysHopeEffects();
+  initRaccoonManorEffects();
+  initTestPatternEffects();
 })();

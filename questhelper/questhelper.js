@@ -25,6 +25,7 @@ import {
   setDesignation,
   getMaintenance,
   setMaintenance,
+  setSettingsMode,
   setBlocked,
   setArchived,
   setAttention,
@@ -572,6 +573,20 @@ function createServer(options = {}) {
         return setMaintenance(state, { active, note });
       });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_settings_mode",
+    "Show (or hide) per-theme dev/tuning controls in the UI -- currently Raccoon Manor's power-cut darkness/glow/HUD-boost sliders. There's no in-page toggle by design: this MCP call is the only way to flip it, the same 'ask Claude, no code change needed' pattern as set_designation, so the owner can turn it on to tweak something and off again from any machine without a redeploy.",
+    {
+      enabled: z.boolean().describe("true to reveal settings-mode controls, false to hide them"),
+    },
+    async ({ enabled }) => {
+      const { result } = await mutateState(async (state) => {
+        return setSettingsMode(state, { enabled });
+      });
+      return { content: [{ type: "text", text: JSON.stringify({ settingsMode: result }, null, 2) }] };
     },
   );
 
