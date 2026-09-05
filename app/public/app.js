@@ -22,6 +22,7 @@
       titlePrefix: "MU/TH/UR",
       titleSuffix: "Mission Log",
       subtitlePrefix: "Priority One",
+      subtitleSuffix: "Track All Missions",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
@@ -30,6 +31,7 @@
       titlePrefix: "ROBCO",
       titleSuffix: "Survey Report",
       subtitlePrefix: "Undervault Directive",
+      subtitleSuffix: "Track All Missions",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
     },
     wow: {
@@ -38,6 +40,7 @@
       titlePrefix: "Azeroth",
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
+      subtitleSuffix: "Track All Missions",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     },
     raccoonmanor: {
@@ -46,6 +49,7 @@
       titlePrefix: "Raccoon Manor",
       titleSuffix: "Evidence Log",
       subtitlePrefix: "Survive The Night",
+      subtitleSuffix: "Track All Missions",
       designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     },
     testpattern: {
@@ -54,14 +58,16 @@
       titlePrefix: "Test Pattern",
       titleSuffix: "Channel Log",
       subtitlePrefix: "Please Stand By",
+      subtitleSuffix: "Track All Missions",
       designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
     },
     hadleyshope: {
       orgLine: "USS SULACO // COLONIAL MARINE OPERATIONS",
       terminalName: "APC MOTION TRACKER LINK",
       titlePrefix: "Hadley's Hope",
-      titleSuffix: "Ops Terminal",
-      subtitlePrefix: "It's A Bug Hunt",
+      titleSuffix: "",
+      subtitlePrefix: "Ops Terminal",
+      subtitleSuffix: "It's A Bug Hunt",
       designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
     }
   };
@@ -227,6 +233,8 @@
     if (titleSuffixEl) titleSuffixEl.textContent = flavor.titleSuffix;
     var subtitleEl = document.getElementById("subtitle-prefix");
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
+    var subtitleSuffixEl = document.getElementById("subtitle-suffix");
+    if (subtitleSuffixEl) subtitleSuffixEl.textContent = flavor.subtitleSuffix;
     var eyebrowEl = document.getElementById("eyebrow");
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
     var versionEl = document.getElementById("version-badge");

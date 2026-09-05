@@ -453,12 +453,29 @@
       radial-gradient(ellipse 80% 70% at 50% 35%, transparent 45%, rgba(0,0,0,0.55) 100%);
   }
   [data-theme="hadleyshope"] h1 {
-    font-family:var(--font-display); letter-spacing:0.03em;
+    font-family:var(--font-display); letter-spacing:0.03em; text-transform:uppercase;
     background: linear-gradient(180deg, #a8d4b0, var(--accent) 55%, var(--accent-dim));
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 10px rgba(92,156,104,0.4));
   }
-  [data-theme="hadleyshope"] .subtitle { font-weight:600; }
+  [data-theme="hadleyshope"] .subtitle { font-weight:600; text-transform:uppercase; letter-spacing:0.1em; }
+  /* Hazard stripes flanking the header, and a biohazard placard underneath
+     -- both pure decoration via pseudo-elements, no extra markup needed. */
+  [data-theme="hadleyshope"] header.masthead { position:relative; padding-top:0.6rem; padding-bottom:0.6rem; }
+  [data-theme="hadleyshope"] header.masthead::before,
+  [data-theme="hadleyshope"] header.masthead::after {
+    content:""; display:block; height:9px; margin:0 auto 0.6rem; max-width:47.5rem;
+    background:repeating-linear-gradient(135deg, var(--accent2) 0 14px, #141414 14px 28px);
+    box-shadow:0 0 10px rgba(184,152,88,0.3);
+  }
+  [data-theme="hadleyshope"] header.masthead::after { margin:0.6rem auto 0; }
+  [data-theme="hadleyshope"] .subtitle::after {
+    content:"Biohazard \2014  Area Sealed";
+    display:inline-block; margin-top:0.6rem; font-family:var(--font-display); font-size:0.65rem;
+    letter-spacing:0.1em; color:var(--alarm); border:2px solid var(--alarm); border-radius:8px;
+    padding:0.15rem 0.6rem; transform:rotate(-1.2deg);
+    background:repeating-linear-gradient(135deg, rgba(179,80,63,0.08) 0 8px, transparent 8px 16px);
+  }
   [data-theme="hadleyshope"] .boot,
   [data-theme="hadleyshope"] .status-panel,
   [data-theme="hadleyshope"] .panel { border-radius:12px; }
@@ -1502,7 +1519,7 @@
     </div>
     <div class="eyebrow" id="eyebrow">Interest: None</div>
     <h1><span id="title-prefix">MU/TH/UR</span> <span id="title-suffix">Mission Log</span></h1>
-    <p class="subtitle"><span id="subtitle-prefix">Priority One</span> — Track All Missions</p>
+    <p class="subtitle"><span id="subtitle-prefix">Priority One</span> — <span id="subtitle-suffix">Track All Missions</span></p>
   </header>
 
 
