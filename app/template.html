@@ -243,6 +243,22 @@
     box-shadow: none;
   }
   [data-theme="raccoonmanor"] .boot-line { font-family: var(--font-mono); letter-spacing: 0.05em; }
+  /* The mockup's case-strip isn't plain monospace status text throughout --
+     its middle badge ("Classified") is a rubber stamp: no fill, thick
+     colored border, tilted, a small glow. The env badge is this app's
+     closest equivalent slot (a badge already, mid-strip), so it gets the
+     stamp treatment instead of the shared pill look every other theme
+     uses -- transparent instead of filled, thicker border, rotated,
+     case-file type instead of plain mono. */
+  [data-theme="raccoonmanor"] .boot-line .env-badge {
+    background: transparent;
+    border-width: 2px;
+    border-radius: 3px;
+    font-family: var(--font-head);
+    letter-spacing: 0.1em;
+    transform: rotate(-4deg);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+  }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
