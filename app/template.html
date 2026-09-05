@@ -170,14 +170,16 @@
   [data-theme="raccoonmanor"] .rm-window {
     position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 0;
     width: min(92%, 420px);
-    border: 3px solid #262c1f; border-radius: 2px; background: linear-gradient(180deg, #05070a, #0e120c);
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 0 6px #14170f; overflow: hidden;
+    border: 3px solid #5a4530; border-radius: 2px; background: linear-gradient(180deg, #05070a, #0e120c);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 0 6px #14170f, 0 0 0 1px #2c2013; overflow: hidden;
   }
+  /* Window mullions -- lightened from the original near-black so the
+     frame actually reads as a window instead of blending into the page. */
   [data-theme="raccoonmanor"] .rm-window::before,
-  [data-theme="raccoonmanor"] .rm-window::after { content:""; position:absolute; top:0; bottom:0; width:1px; background:#262c1f; }
+  [data-theme="raccoonmanor"] .rm-window::after { content:""; position:absolute; top:0; bottom:0; width:2px; background:#5a4530; box-shadow: 0 0 2px rgba(0,0,0,0.8); }
   [data-theme="raccoonmanor"] .rm-window::before { left: 33%; }
   [data-theme="raccoonmanor"] .rm-window::after { left: 66%; }
-  [data-theme="raccoonmanor"] .rm-sash { position:absolute; left:0; right:0; top:50%; height:1px; background:#262c1f; }
+  [data-theme="raccoonmanor"] .rm-sash { position:absolute; left:0; right:0; top:50%; height:2px; background:#5a4530; box-shadow: 0 0 2px rgba(0,0,0,0.8); z-index: 1; }
   [data-theme="raccoonmanor"] .rm-moon {
     position:absolute; top:14%; left:50%; width:34%; aspect-ratio:1; border-radius:50%;
     background: radial-gradient(circle at 38% 34%, #f2f8f6, var(--accent) 55%, var(--accent-dim) 100%);
@@ -210,20 +212,24 @@
     78% { opacity: 0.9; }
     80% { opacity: 1; }
   }
-  [data-theme="raccoonmanor"] .boot,
   [data-theme="raccoonmanor"] .status-panel,
   [data-theme="raccoonmanor"] .panel {
     border-color: var(--border);
     box-shadow: inset 0 0 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03), 0 3px 12px rgba(0,0,0,0.6);
   }
+  /* Case-strip, not a boxed panel like the other themes' boot bar --
+     a dashed-border dossier strip (matching the mockup) with a faint
+     cobweb worked into the corner, monospace case-file type. */
   [data-theme="raccoonmanor"] .boot {
+    border-style: dashed; border-width: 1px 0; border-color: var(--border);
+    background: var(--surface);
     background-image:
-      radial-gradient(ellipse 60% 140% at 100% 0%, rgba(20,25,15,0.5), transparent),
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='none' stroke='%23cdd4bd' stroke-width='0.7' opacity='0.35'><line x1='0' y1='0' x2='60' y2='60'/><line x1='0' y1='0' x2='40' y2='0'/><line x1='0' y1='0' x2='0' y2='40'/><path d='M8,2 Q10,10 2,8'/><path d='M18,5 Q21,20 5,18'/><path d='M30,10 Q34,34 10,30'/></g></svg>"),
-      var(--surface);
-    background-repeat: no-repeat, no-repeat, no-repeat;
-    background-position: top left, top left, top left;
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='none' stroke='%23cdd4bd' stroke-width='0.7' opacity='0.3'><line x1='0' y1='0' x2='60' y2='60'/><line x1='0' y1='0' x2='40' y2='0'/><line x1='0' y1='0' x2='0' y2='40'/><path d='M8,2 Q10,10 2,8'/><path d='M18,5 Q21,20 5,18'/><path d='M30,10 Q34,34 10,30'/></g></svg>");
+    background-repeat: no-repeat;
+    background-position: top left;
+    box-shadow: none;
   }
+  [data-theme="raccoonmanor"] .boot-line { font-family: var(--font-mono); letter-spacing: 0.05em; }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
@@ -304,6 +310,19 @@
     background: linear-gradient(178deg, #e9e3cd, #dcd5b8);
     border-radius: 4px 10px 0 0;
     box-shadow: 2px 4px 10px rgba(0,0,0,0.55);
+  }
+  /* Real status label stuck on the tab, not blank manila -- reuses the
+     existing ACTIVE/DONE/IDEA badge instead of inventing a caption with
+     no real data behind it (the mockup's "Lead · West Wing" text had no
+     equivalent in real quest data). */
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node .quest-tag,
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node .ready-badge,
+  [data-theme="raccoonmanor"] #list-idea > .quest .quest-tag {
+    position: absolute; top: -13px; left: 22px; z-index: 2;
+    font-family: var(--font-mono); font-size: 0.62rem; color: #2c2013;
+    background: rgba(233,227,201,0.92); border-color: rgba(44,32,19,0.4);
+    padding: 0.1rem 0.4rem; transform: rotate(-1.5deg); white-space: nowrap;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
   }
   [data-theme="raccoonmanor"] .card-edge-bottom {
     display: block;
