@@ -47,9 +47,9 @@
       orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
       terminalName: "R.P.D. DISPATCH-7",
       titlePrefix: "Raccoon Manor",
-      titleSuffix: "Evidence Log",
-      subtitlePrefix: "Survive The Night",
-      subtitleSuffix: "Track All Missions",
+      titleSuffix: "",
+      subtitlePrefix: "Est. 1998",
+      subtitleSuffix: "Condition: Abandoned",
       designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     },
     testpattern: {
@@ -216,6 +216,93 @@
         var q = document.querySelector(".hh-queen-lurker");
         if (q) q.style.transform = "translate(" + (x * -8) + "px," + (y * -5) + "px)";
       });
+    }
+  }
+
+  // Raccoon Manor ambient scene: ceiling drips, EKG/ribbon HUD, the
+  // generator valve (cuts power to a moonlight-only palette instead of
+  // sounding an alarm), lightning through the window (occasionally trips
+  // the generator itself), and the FX kill switch. Same "populate once,
+  // hidden markup is harmless" pattern as Hadley's Hope.
+  var rmInitialized = false;
+  function isRaccoonManor() { return document.documentElement.dataset.theme === "raccoonmanor"; }
+  function initRaccoonManorEffects() {
+    if (rmInitialized) return;
+    rmInitialized = true;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var ribbonEl = document.getElementById("rmRibbonCount");
+    var bpmEl = document.getElementById("rmEkgBpm");
+    var ribbons = 3;
+    setInterval(function () {
+      if (!isRaccoonManor()) return;
+      var scared = Math.random() < 0.3;
+      if (bpmEl) bpmEl.textContent = (scared ? (110 + Math.floor(Math.random() * 40)) : (68 + Math.floor(Math.random() * 10))) + " bpm";
+      if (scared && ribbonEl) {
+        ribbons = Math.max(0, ribbons - 1);
+        if (ribbons === 0) ribbons = 3;
+        ribbonEl.textContent = ribbons;
+      }
+    }, 2600);
+
+    var dripLayer = document.getElementById("rmDripLayer");
+    if (!reduce && dripLayer) {
+      dripLayer.querySelectorAll(".rm-drip").forEach(function (d) {
+        var left = d.style.left;
+        var startHeight = parseInt(d.style.height, 10) || 60;
+        setInterval(function () {
+          if (!isRaccoonManor()) return;
+          var drop = document.createElement("div");
+          drop.className = "rm-goo-drop";
+          drop.style.left = left;
+          drop.style.top = startHeight + "px";
+          drop.style.animationDuration = (2.2 + Math.random() * 1.4) + "s";
+          document.body.appendChild(drop);
+          setTimeout(function () { drop.remove(); }, 4000);
+        }, 3200 + Math.random() * 3000);
+      });
+    }
+
+    var valveRig = document.getElementById("rmValveRig");
+    var valveWheel = document.getElementById("rmValveWheel");
+    if (valveWheel && valveRig) {
+      valveWheel.addEventListener("click", function () {
+        var cut = valveRig.classList.toggle("armed");
+        document.documentElement.classList.toggle("power-cut", cut);
+      });
+    }
+
+    var candleRig = document.getElementById("rmCandleRig");
+    var candleBtn = document.getElementById("rmCandleBtn");
+    if (candleBtn && candleRig) {
+      candleBtn.addEventListener("click", function () {
+        var on = candleRig.classList.toggle("on");
+        document.documentElement.classList.toggle("fx-off", !on);
+      });
+    }
+
+    var lightning = document.getElementById("rmLightning");
+    if (!reduce && lightning) {
+      function strike() {
+        if (!isRaccoonManor()) return;
+        lightning.classList.remove("flash");
+        void lightning.offsetWidth; // restart the CSS animation
+        lightning.classList.add("flash");
+        if (Math.random() < 0.3) setTimeout(strike, 220 + Math.random() * 180);
+        // ~10% of strikes trip the generator -- same power-cut state the
+        // valve wheel toggles manually, so turning it back on afterward
+        // just works (the click handler toggles whatever's already there).
+        if (Math.random() < 0.1 && !document.documentElement.classList.contains("power-cut")) {
+          setTimeout(function () {
+            document.documentElement.classList.add("power-cut");
+            if (valveRig) valveRig.classList.add("armed");
+          }, 140);
+        }
+      }
+      function scheduleLightning() {
+        setTimeout(function () { strike(); scheduleLightning(); }, 6000 + Math.random() * 18000);
+      }
+      scheduleLightning();
     }
   }
 
@@ -957,4 +1044,5 @@
 
   render(STATE);
   initHadleysHopeEffects();
+  initRaccoonManorEffects();
 })();

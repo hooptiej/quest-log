@@ -149,14 +149,58 @@
       radial-gradient(ellipse 85% 70% at 50% 35%, transparent 40%, rgba(0,0,0,0.6) 100%);
   }
   [data-theme="raccoonmanor"] h1 {
+    position: relative; z-index: 1;
     letter-spacing: 0.02em;
     background: linear-gradient(180deg, #e0838f, var(--alarm) 55%, #5e1620);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     filter: drop-shadow(0 0 10px color-mix(in srgb, var(--alarm) 45%, transparent));
+    text-shadow: none;
     animation: raccoonmanor-flicker 5s linear infinite;
   }
+  [data-theme="raccoonmanor"] .subtitle { position: relative; z-index: 1; }
+
+  /* A window behind the title -- shares its vertical footprint instead of
+     stacking above it, so it can be large and atmospheric without eating
+     screen space. The moon is the brightest thing in the scene; distant
+     lightning occasionally flashes through it, and ~1 in 10 strikes trips
+     the generator (see .rm-valve-rig below). */
+  [data-theme="raccoonmanor"] header.masthead { padding: 1.75rem 0 1.25rem; }
+  [data-theme="raccoonmanor"] .rm-window {
+    position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 0;
+    width: min(92%, 420px);
+    border: 3px solid #262c1f; border-radius: 2px; background: linear-gradient(180deg, #05070a, #0e120c);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 0 6px #14170f; overflow: hidden;
+  }
+  [data-theme="raccoonmanor"] .rm-window::before,
+  [data-theme="raccoonmanor"] .rm-window::after { content:""; position:absolute; top:0; bottom:0; width:1px; background:#262c1f; }
+  [data-theme="raccoonmanor"] .rm-window::before { left: 33%; }
+  [data-theme="raccoonmanor"] .rm-window::after { left: 66%; }
+  [data-theme="raccoonmanor"] .rm-sash { position:absolute; left:0; right:0; top:50%; height:1px; background:#262c1f; }
+  [data-theme="raccoonmanor"] .rm-moon {
+    position:absolute; top:14%; left:50%; width:34%; aspect-ratio:1; border-radius:50%;
+    background: radial-gradient(circle at 38% 34%, #f2f8f6, var(--accent) 55%, var(--accent-dim) 100%);
+    box-shadow: 0 0 40px 18px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 90px 40px color-mix(in srgb, var(--accent) 12%, transparent);
+    transform: translateX(-50%);
+    animation: rm-moonpulse 6s ease-in-out infinite;
+  }
+  @keyframes rm-moonpulse {
+    0%,100%{ box-shadow: 0 0 40px 18px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 90px 40px color-mix(in srgb, var(--accent) 12%, transparent); }
+    50%{ box-shadow: 0 0 30px 10px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 70px 30px color-mix(in srgb, var(--accent) 8%, transparent); }
+  }
+  [data-theme="raccoonmanor"] .rm-lightning {
+    position:absolute; inset:0; z-index:1; pointer-events:none; opacity:0;
+    background: radial-gradient(circle at 50% 40%, rgba(225,235,255,0.95), rgba(200,215,240,0.4) 55%, transparent 85%);
+  }
+  [data-theme="raccoonmanor"] .rm-lightning.flash { animation: rm-lightning-flash 0.4s ease-out; }
+  @keyframes rm-lightning-flash { 0%{opacity:0;} 8%{opacity:1;} 18%{opacity:0.15;} 28%{opacity:0.85;} 45%,100%{opacity:0;} }
+  [data-theme="raccoonmanor"] .rm-curtain {
+    position:absolute; top:0; bottom:0; width:46%; z-index:2;
+    background: linear-gradient(90deg, rgba(20,18,10,0.95), rgba(20,18,10,0.55));
+  }
+  [data-theme="raccoonmanor"] .rm-curtain-left { left:0; }
+  [data-theme="raccoonmanor"] .rm-curtain-right { right:0; transform: scaleX(-1); }
   @keyframes raccoonmanor-flicker {
     0%, 100% { opacity: 1; }
     4% { opacity: 0.86; }
@@ -215,15 +259,28 @@
     border-left-color: #b9ac83;
   }
 
-  /* Top-level cards get the full pinned-to-the-board treatment: lift,
-     hand-placed rotation (per item, via the jitter class the renderer
-     assigns from the item's own id), a thumbtack, a torn bottom edge. */
+  /* Top-level cards read as file folders in a loose pile now, not a tidy
+     stack of index cards: a small overlap (kept modest -- unlike a static
+     mockup these can expand/grow when a child list opens, so a dramatic
+     overlap would risk real content hiding behind the next card down),
+     hand-placed rotation per item, and a depth cue so the pile actually
+     looks stacked instead of same-toned overlapping sheets. Whichever
+     card the user is actively working also gets lifted to the front
+     regardless of pile order. */
   [data-theme="raccoonmanor"] #quest-tree > .tree-node,
   [data-theme="raccoonmanor"] #list-idea > .quest {
-    padding: 0.85rem 1rem 1.15rem;
-    margin: 0 0.2rem 1.3rem 0.5rem;
+    padding: 1.7rem 1rem 1.15rem;
+    margin: 1.5rem 0.2rem 0 0.5rem;
     box-shadow: 2px 5px 12px rgba(0,0,0,0.55);
   }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node:first-child,
+  [data-theme="raccoonmanor"] #list-idea > .quest:first-child { margin-top: 0.3rem; }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node:not(:last-child),
+  [data-theme="raccoonmanor"] #list-idea > .quest:not(:last-child) { filter: brightness(0.85) saturate(0.88); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node:nth-last-child(2),
+  [data-theme="raccoonmanor"] #list-idea > .quest:nth-last-child(2) { filter: brightness(0.92) saturate(0.94); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node:focus-within,
+  [data-theme="raccoonmanor"] #list-idea > .quest:focus-within { filter: none; z-index: 1; }
   [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-a,
   [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-a { transform: rotate(-1.6deg); }
   [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-b,
@@ -233,10 +290,20 @@
 
   [data-theme="raccoonmanor"] .card-pin {
     display: block;
-    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: -7px; right: 18px; z-index: 2;
     width: 12px; height: 12px; border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #e58a92, var(--alarm) 70%);
     box-shadow: 0 2px 3px rgba(0,0,0,0.6);
+  }
+  /* card-edge-top: the manila folder tab -- a real hook, not a pseudo-
+     element, so it casts the same shadow as the card body it belongs to. */
+  [data-theme="raccoonmanor"] .card-edge-top {
+    display: block;
+    position: absolute; top: -16px; left: 16px; z-index: 1;
+    width: 100px; height: 18px;
+    background: linear-gradient(178deg, #e9e3cd, #dcd5b8);
+    border-radius: 4px 10px 0 0;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.55);
   }
   [data-theme="raccoonmanor"] .card-edge-bottom {
     display: block;
@@ -245,8 +312,10 @@
     clip-path: polygon(0% 0%,6% 100%,12% 8%,18% 100%,24% 4%,30% 100%,36% 8%,42% 100%,48% 0%,
                         54% 100%,60% 6%,66% 100%,72% 4%,78% 100%,84% 8%,90% 100%,96% 4%,100% 0%);
   }
-  /* card-edge-top and card-fold are plumbed in but unused by this theme --
-     available for the next one. */
+  /* Nested rows keep the tab hidden -- only top-level folders get one,
+     same rule as the pin below. */
+  [data-theme="raccoonmanor"] .tree-children .card-edge-top,
+  [data-theme="raccoonmanor"] .tree-completed .card-edge-top { display: none; }
   /* Nested (sub-task/sub-idea) cards stay flat paper, no pin/rotation --
      they read as notes clipped to the card above them, not their own
      pinned object. */
@@ -273,18 +342,32 @@
     text-decoration-color: var(--alarm);
   }
 
-  /* ---- Evidence Log: the sidebar log becomes a torn page ---- */
+  /* ---- Evidence Log: the sidebar becomes a clipboard, not a torn page --
+     a rigid board with a metal clip + hinge rivet holding the pages, not
+     a ragged edge (clipboards aren't torn paper). */
   [data-theme="raccoonmanor"] .log-panel-mini {
     position: relative;
     background: linear-gradient(178deg, #e5dfc7, #d7cfaf);
     color: #241c10;
     border: none;
+    border-radius: 3px;
     box-shadow: 3px 6px 18px rgba(0,0,0,0.5);
+    padding-top: 2.1rem;
+  }
+  [data-theme="raccoonmanor"] .log-panel-mini::before {
+    content: ""; position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    width: 64%; height: 24px; border-radius: 4px;
+    background: linear-gradient(180deg, #9aa09a, #4a4f48 45%, #2c2f2a);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  [data-theme="raccoonmanor"] .log-panel-mini::after {
+    content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #c4c9c2, #4a4f48 70%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
   [data-theme="raccoonmanor"] .log-panel-mini h2 { color: var(--alarm); text-shadow: none; }
-  [data-theme="raccoonmanor"] .log-panel-mini .card-edge {
-    left: 8px; right: 8px; bottom: -6px; height: 12px;
-  }
+  [data-theme="raccoonmanor"] .log-panel-mini .card-edge { display: none; }
   [data-theme="raccoonmanor"] .log-mini-list li {
     color: #4a4126;
     font-family: var(--font-body);
@@ -300,8 +383,94 @@
   [data-theme="raccoonmanor"] .unroll-btn { color: #6b3a1f; border-color: #b9ac83; }
   [data-theme="raccoonmanor"] .unroll-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
+  /* ---- Ambient scene: roach, ceiling drips, EKG/ribbon HUD, the
+     generator valve, and the FX kill switch. All live in .rm-scene,
+     added straight after <body> -- zero footprint for every other theme. ---- */
+  [data-theme="raccoonmanor"] .rm-roach { position: fixed; z-index: 2; bottom: 1.5%; pointer-events: none; animation: rm-roach-skitter 15s linear infinite; }
+  [data-theme="raccoonmanor"] .rm-roach svg { width: 24px; height: 13px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.9)); }
+  @keyframes rm-roach-skitter {
+    0% { left: -5%; transform: scaleX(1); } 35% { left: 58%; transform: scaleX(1); }
+    38% { left: 58%; transform: scaleX(-1); } 74% { left: -5%; transform: scaleX(-1); }
+    77%, 100% { left: -5%; transform: scaleX(1); }
+  }
+
+  [data-theme="raccoonmanor"] .rm-drip {
+    position: fixed; z-index: 6; pointer-events: none; transform-origin: top center;
+    background: linear-gradient(180deg, var(--alarm) 0%, #e58a92 45%, transparent 100%);
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+    clip-path: polygon(38% 0%,62% 0%,58% 14%,66% 27%,54% 42%,64% 58%,48% 74%,60% 87%,50% 100%,40% 87%,52% 74%,36% 58%,46% 42%,34% 27%,42% 14%);
+  }
+  [data-theme="raccoonmanor"] .rm-drip::after {
+    content: ""; position: absolute; top: 6%; left: 50%; transform: translateX(-50%);
+    width: 34%; height: 75%; border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,190,190,0.55), rgba(255,190,190,0.18) 45%, transparent 88%);
+    filter: blur(0.5px);
+  }
+  [data-theme="raccoonmanor"] .rm-drip::before {
+    content: ""; position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    width: 240%; height: 15px; border-radius: 40% 60% 55% 45% / 65% 45% 55% 40%;
+    background: var(--alarm); filter: blur(0.4px);
+  }
+  [data-theme="raccoonmanor"] .rm-goo-drop { position: fixed; top: 0; width: 5px; height: 8px; border-radius: 50%; background: #e58a92; z-index: 1; animation: rm-goo-fall linear forwards; }
+  @keyframes rm-goo-fall { from { transform: translateY(0); opacity: 0.9; } to { transform: translateY(80vh); opacity: 0; } }
+
+  [data-theme="raccoonmanor"] .rm-ekg-hud {
+    position: fixed; top: 1.1rem; right: 1.1rem; z-index: 50; width: 150px; background: #050705; border: 2px solid var(--accent-dim);
+    border-radius: 6px; box-shadow: 0 0 0 3px #0a0f0a, 0 0 16px color-mix(in srgb, var(--accent) 25%, transparent); padding: 0.4rem 0.5rem 0.3rem;
+  }
+  [data-theme="raccoonmanor"] .rm-ekg-label { font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; }
+  [data-theme="raccoonmanor"] .rm-ekg-bpm { color: var(--accent); }
+  [data-theme="raccoonmanor"] .rm-ekg-hud svg { width: 100%; height: 36px; display: block; }
+  [data-theme="raccoonmanor"] .rm-ekg-trace { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 220; stroke-dashoffset: 220; animation: rm-ekg-sweep 2.4s linear infinite; }
+  @keyframes rm-ekg-sweep { to { stroke-dashoffset: 0; } }
+
+  [data-theme="raccoonmanor"] .rm-ribbon-hud {
+    position: fixed; top: 1.1rem; left: 1.1rem; z-index: 50; background: #0a0a08; border: 2px solid #2a2a20; border-radius: 6px;
+    padding: 0.4rem 0.6rem; box-shadow: 0 0 0 3px #000, 0 4px 10px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .rm-ribbon-label { font-family: var(--font-head); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  [data-theme="raccoonmanor"] .rm-ribbon-count { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700; color: var(--alarm); }
+  [data-theme="raccoonmanor"] .rm-ribbon-count::after { content: "⁄3 ribbons"; font-size: 0.6rem; color: var(--muted); margin-left: 0.2rem; }
+
+  /* Generator valve: turn it to cut the power -- the room cools toward
+     moonlight instead of sounding an alarm, on the nose with the
+     mechanic itself. */
+  [data-theme="raccoonmanor"] .rm-valve-rig { position: fixed; bottom: 1.1rem; left: 1.1rem; z-index: 50; text-align: center; }
+  [data-theme="raccoonmanor"] .rm-valve-wheel {
+    width: 52px; height: 52px; border-radius: 50%; border: 5px solid #3a3f2e; background: #15170f; position: relative;
+    cursor: pointer; transition: transform 0.6s cubic-bezier(.34,1.2,.64,1); box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .rm-valve-wheel::before,
+  [data-theme="raccoonmanor"] .rm-valve-wheel::after { content: ""; position: absolute; background: #3a3f2e; }
+  [data-theme="raccoonmanor"] .rm-valve-wheel::before { top: 50%; left: 6%; right: 6%; height: 5px; transform: translateY(-50%); }
+  [data-theme="raccoonmanor"] .rm-valve-wheel::after { left: 50%; top: 6%; bottom: 6%; width: 5px; transform: translateX(-50%); }
+  [data-theme="raccoonmanor"] .rm-valve-rig.armed .rm-valve-wheel {
+    transform: rotate(160deg); border-color: var(--alarm); animation: rm-valve-prompt 1.2s ease-in-out infinite;
+  }
+  @keyframes rm-valve-prompt { 0%,100%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6); } 50%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6), 0 0 14px 5px color-mix(in srgb, var(--alarm) 55%, transparent); } }
+  [data-theme="raccoonmanor"] .rm-valve-label { display: block; margin-top: 0.3rem; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
+
+  [data-theme="raccoonmanor"].power-cut {
+    --bg: #05070a; --surface: #12181c; --surface-2: #1a2226; --text: #c9d9dd; --muted: #5c6e73;
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-moon {
+    box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
+     lives entirely outside it, so this collapses to one rule -- hide
+     every .rm-scene child except the switch, or there'd be no way back. */
+  [data-theme="raccoonmanor"] .rm-candle-rig { position: fixed; bottom: 1.1rem; right: 1.1rem; z-index: 50; text-align: center; }
+  [data-theme="raccoonmanor"] .rm-candle-plate { background: #15170f; border: 2px solid #3a3f2e; border-radius: 9px; padding: 0.4rem 0.5rem 0.75rem; box-shadow: 0 4px 10px rgba(0,0,0,0.6); }
+  [data-theme="raccoonmanor"] .rm-candle-btn { display: block; width: 22px; height: 38px; border-radius: 11px; background: #0a0c07; border: none; cursor: pointer; position: relative; margin: 0 auto; }
+  [data-theme="raccoonmanor"] .rm-candle-nub { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #cfd8c4, #5a624c); transition: transform 0.25s ease; }
+  [data-theme="raccoonmanor"] .rm-candle-rig.on .rm-candle-nub { transform: translateY(16px); background: radial-gradient(circle at 35% 30%, #ffe9b0, #d9a84a); }
+  [data-theme="raccoonmanor"] .rm-candle-label { display: block; margin-top: 0.35rem; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
+  [data-theme="raccoonmanor"].fx-off .rm-scene > *:not(.rm-candle-rig) { display: none !important; }
+
   @media (prefers-reduced-motion: reduce) {
     [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
+    [data-theme="raccoonmanor"] .rm-lightning { animation: none !important; }
   }
 
   /* ---------- theme: Test Pattern (showcase/diagnostic, exercises every
@@ -1074,6 +1243,10 @@
      theme opts in (a theme styles them via its own [data-theme="X"]
      selectors); absent that they render as literally nothing. */
   .card-pin, .card-edge, .card-fold { display: none; }
+  .rm-window { display: none; }
+  [data-theme="raccoonmanor"] .rm-window { display: block; }
+  .rm-scene > * { display: none; }
+  [data-theme="raccoonmanor"] .rm-scene > * { display: block; }
   .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
@@ -1477,6 +1650,45 @@
 </style>
 </head>
 <body>
+<div class="rm-scene" id="rmScene" aria-hidden="true">
+  <div class="rm-roach"><svg viewBox="0 0 24 13"><ellipse cx="12" cy="6.5" rx="11" ry="4" fill="#050705"/><ellipse cx="3.5" cy="6.5" rx="2.6" ry="2.3" fill="#050705"/><circle cx="2" cy="5.5" r="0.6" fill="#a8d3dc"/></svg></div>
+
+  <div id="rmDripLayer">
+    <div class="rm-drip" style="top:0; left:6%; width:9px; height:210px; animation-duration:7s;"></div>
+    <div class="rm-drip" style="top:0; left:15%; width:2px; height:60px;"></div>
+    <div class="rm-drip" style="top:0; left:24%; width:5px; height:140px;"></div>
+    <div class="rm-drip" style="top:0; left:33%; width:3px; height:120px;"></div>
+    <div class="rm-drip" style="top:0; left:42%; width:10px; height:90px;"></div>
+    <div class="rm-drip" style="top:0; left:58%; width:6px; height:70px;"></div>
+    <div class="rm-drip" style="top:0; left:67%; width:8px; height:260px;"></div>
+    <div class="rm-drip" style="top:0; left:78%; width:3px; height:70px;"></div>
+    <div class="rm-drip" style="top:0; left:88%; width:2px; height:200px;"></div>
+    <div class="rm-drip" style="top:0; left:95%; width:5px; height:150px;"></div>
+  </div>
+
+  <div class="rm-ekg-hud">
+    <div class="rm-ekg-label"><span>Pulse</span><span class="rm-ekg-bpm" id="rmEkgBpm">72 bpm</span></div>
+    <svg viewBox="0 0 140 36" preserveAspectRatio="none">
+      <path class="rm-ekg-trace" d="M0,20 L28,20 L34,6 L40,32 L46,20 L60,20 L66,14 L72,26 L78,20 L140,20"></path>
+    </svg>
+  </div>
+  <div class="rm-ribbon-hud">
+    <div class="rm-ribbon-label">Ink Ribbons</div>
+    <div class="rm-ribbon-count" id="rmRibbonCount">3</div>
+  </div>
+
+  <div class="rm-valve-rig" id="rmValveRig">
+    <div class="rm-valve-wheel" id="rmValveWheel"></div>
+    <span class="rm-valve-label">GENERATOR</span>
+  </div>
+  <div class="rm-candle-rig on" id="rmCandleRig">
+    <div class="rm-candle-plate">
+      <button type="button" class="rm-candle-btn" id="rmCandleBtn" aria-label="Turn off all the ambient effects"><span class="rm-candle-nub"></span></button>
+      <span class="rm-candle-label">FX</span>
+    </div>
+  </div>
+</div>
+
 <div class="hh-scene" id="hhScene" aria-hidden="true">
   <div class="hh-redout"></div>
   <div class="hh-hazard-light" style="left:20%;"><div class="hh-hl-housing"></div><div class="hh-hl-lens"></div></div>
@@ -1559,6 +1771,7 @@
     <svg viewBox="0 0 34 26">
       <path d="M17 10c-4-6-9-8-13-6 2 1 3 3 3 5-3 0-6 1-7 4 3-1 6-1 7 1-3 1-5 3-5 6 3-2 5-3 7-2-1 3-1 5 1 7 0-3 1-5 3-6 2 1 3 3 3 6 2-2 2-4 1-7 2-1 4 0 7 2 0-3-2-5-5-6 1-2 4-2 7-1-1-3-4-4-7-4 0-2 1-4 3-5-4-2-9 0-13 6" fill="#0a0906" stroke="#2c2818" stroke-width="0.6"/>
       <ellipse cx="17" cy="11" rx="6" ry="4.5" fill="#12100a"/>
+      <path d="M17 15c1 4 1 8-1 11" fill="none" stroke="#0a0906" stroke-width="2.2" stroke-linecap="round"/>
     </svg>
   </div>
 </div>
@@ -1595,6 +1808,13 @@
           <button type="button" id="scale-up-btn" aria-label="Increase scale">+</button>
         </div>
       </div>
+    </div>
+    <div class="rm-window" id="rmWindow" aria-hidden="true">
+      <div class="rm-moon"></div>
+      <div class="rm-lightning" id="rmLightning"></div>
+      <div class="rm-sash"></div>
+      <div class="rm-curtain rm-curtain-left"></div>
+      <div class="rm-curtain rm-curtain-right"></div>
     </div>
     <div class="eyebrow" id="eyebrow">Interest: None</div>
     <h1><span id="title-prefix">MU/TH/UR</span> <span id="title-suffix">Mission Log</span></h1>
