@@ -490,6 +490,26 @@
   @keyframes rm-valve-prompt { 0%,100%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6); } 50%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6), 0 0 14px 5px color-mix(in srgb, var(--alarm) 55%, transparent); } }
   [data-theme="raccoonmanor"] .rm-valve-label { display: block; margin-top: 0.3rem; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
 
+  /* Dev-only tuning slider for the power-cut darkness level (--rm-power-cut-brightness,
+     read by the .power-cut .boot/.wrap filter rule below). Deliberately styled as an
+     obvious debug control, not a themed widget -- lime/mono, dashed border -- so it
+     reads as "temporary tool" rather than a permanent feature. Irrelevant while power
+     is on: hidden outright rather than just dimmed, so it can't be fiddled with or
+     mistaken for a live control when it has no effect. Remove (or hide behind a flag)
+     once the owner locks in a final default and it gets hardcoded above instead. */
+  [data-theme="raccoonmanor"] .rm-darkness-tune { display: none; }
+  [data-theme="raccoonmanor"].power-cut .rm-darkness-tune {
+    display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
+    background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
+  }
+  [data-theme="raccoonmanor"] .rm-darkness-tune-label {
+    display: block; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.05em;
+    color: #5fd75f; text-transform: uppercase; margin-bottom: 0.25rem;
+  }
+  [data-theme="raccoonmanor"] .rm-darkness-tune input[type="range"] {
+    width: 90px; accent-color: #5fd75f; cursor: pointer; vertical-align: middle;
+  }
+
   [data-theme="raccoonmanor"].power-cut {
     --bg: #05070a; --surface: #12181c; --surface-2: #1a2226; --text: #c9d9dd; --muted: #5c6e73;
   }
@@ -505,10 +525,85 @@
   }
   [data-theme="raccoonmanor"].power-cut .boot,
   [data-theme="raccoonmanor"].power-cut .wrap {
-    filter: brightness(0.5) saturate(0.6);
+    /* Pushed well past "dimmed" -- the room should actually go dark,
+       squinting-at-content dark, with the moon (untouched by this filter,
+       since it lives on .rm-scene not .wrap/.boot) left as the dominant
+       light source. Reads the --rm-power-cut-brightness custom property
+       (live-tunable via the dev slider on the generator valve widget, see
+       #rmDarknessSlider) so the number can be dialed in without a code
+       change; 0.18 is just the fallback until the owner picks a final
+       value and it gets hardcoded here instead. */
+    filter: brightness(var(--rm-power-cut-brightness, 0.18)) contrast(1.25) saturate(0.55);
   }
   [data-theme="raccoonmanor"].power-cut .rm-moon {
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  /* UV stickers: the paper-label rule above (quest-tag/ready-badge) is
+     dark ink on cream paper -- reads fine in daylight, but a dim color
+     just gets scaled dimmer by the brightness() crush above, same as
+     everything else. Repainting it as a saturated violet/cyan glow
+     instead is what survives that filter: strong saturation still reads
+     as luminous by contrast with the now much-darker room, same trick as
+     a real blacklight poster. No need to exempt these from the parent
+     filter -- the glow just has to be vivid enough to punch through it. */
+  [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .quest-tag,
+  [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .ready-badge,
+  [data-theme="raccoonmanor"].power-cut #list-idea > .quest .quest-tag {
+    color: #0d0618;
+    background: rgba(18,8,28,0.94);
+    border-color: #c77dff;
+    text-shadow: 0 0 3px #00f5ff, 0 0 7px #c77dff;
+    box-shadow: 0 0 5px 1px #9d4edd, 0 0 14px 4px rgba(157,78,221,0.6), 0 0 24px 9px rgba(0,245,255,0.22);
+  }
+
+  /* Eyes in the dark: something peeking around the edge of the corkboard
+     from just off-panel. Absent entirely outside power-cut. The fade-in
+     and blink below are deliberately two separate animations on the same
+     property -- blink's delay is set to match fade-in's duration, so
+     fade-in's forwards fill holds the eyes visible in the gap before
+     blink takes over, with no visible seam between them. */
+  [data-theme="raccoonmanor"] .rm-critter-eyes { display: none; }
+  [data-theme="raccoonmanor"].power-cut .rm-critter-eyes {
+    display: flex; gap: 10px; position: absolute; z-index: 6; pointer-events: none;
+    opacity: 0;
+    animation: rm-eyes-fadein 2.5s ease-in forwards, rm-eyes-blink 6s ease-in-out 2.5s infinite;
+  }
+  [data-theme="raccoonmanor"] .panel-quests .rm-critter-eyes { top: 42%; right: -13px; }
+  [data-theme="raccoonmanor"] .panel-idea .rm-critter-eyes { top: 58%; left: -13px; }
+  [data-theme="raccoonmanor"] .rm-eye {
+    width: 8px; height: 13px; border-radius: 50%;
+    background: #c77dff;
+    box-shadow: 0 0 5px 2px #9d4edd, 0 0 12px 5px rgba(0,245,255,0.45);
+  }
+  @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
+  @keyframes rm-eyes-blink {
+    0%, 82%, 100% { opacity: 0.85; }
+    88% { opacity: 0.15; }
+    94% { opacity: 0.85; }
+  }
+
+  /* HELP smudge: someone traced it in the grime on the window glass with
+     a finger -- invisible residue until the blacklight-equivalent glow
+     below picks it out. Multiple soft-blurred offset text-shadow copies
+     stand in for smeared oil rather than solid ink; screen blending
+     keeps it looking like it's sitting on the glass instead of painted
+     over it. */
+  [data-theme="raccoonmanor"] .rm-help-smudge {
+    /* z-index above .rm-curtain (2) -- the curtains are semi-transparent
+       drapes at the window's edges, and letting them sit on top would
+       tint/dim the glow through their fabric right when it needs to read
+       clearly. */
+    position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%) rotate(-3deg);
+    font-family: var(--font-head); font-size: 1.3rem; letter-spacing: 0.14em;
+    color: transparent; opacity: 0; mix-blend-mode: screen; z-index: 3;
+    transition: opacity 1.3s ease, text-shadow 1.3s ease;
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-help-smudge {
+    opacity: 0.55;
+    text-shadow:
+      0 0 4px #00f5ff, 1px 1px 3px #9d4edd, -1px 0 3px #c77dff,
+      0 0 12px rgba(0,245,255,0.55), 0 0 22px rgba(157,78,221,0.4);
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
@@ -525,6 +620,7 @@
   @media (prefers-reduced-motion: reduce) {
     [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
     [data-theme="raccoonmanor"] .rm-lightning { animation: none !important; }
+    [data-theme="raccoonmanor"].power-cut .rm-critter-eyes { animation: none; opacity: 0.85; }
   }
 
   /* ---------- theme: Test Pattern (showcase/diagnostic, exercises every
@@ -1861,6 +1957,10 @@
   <div class="rm-valve-rig" id="rmValveRig">
     <div class="rm-valve-wheel" id="rmValveWheel"></div>
     <span class="rm-valve-label">GENERATOR</span>
+    <div class="rm-darkness-tune" id="rmDarknessTune">
+      <label class="rm-darkness-tune-label" for="rmDarknessSlider">Darkness (dev)</label>
+      <input type="range" id="rmDarknessSlider" min="0.05" max="0.5" step="0.01" value="0.18" aria-label="Power-cut darkness level">
+    </div>
   </div>
   <div class="rm-candle-rig on" id="rmCandleRig">
     <div class="rm-candle-plate">
@@ -2009,6 +2109,7 @@
     <div class="rm-window" id="rmWindow" aria-hidden="true">
       <div class="rm-moon"></div>
       <div class="rm-lightning" id="rmLightning"></div>
+      <div class="rm-help-smudge" aria-hidden="true">HELP</div>
       <div class="rm-sash"></div>
       <div class="rm-curtain rm-curtain-left"></div>
       <div class="rm-curtain rm-curtain-right"></div>
@@ -2024,12 +2125,14 @@
     <div class="layout-main">
       <section class="panel panel-quests" id="quests-panel">
         <div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="rm-critter-eyes" aria-hidden="true"><span class="rm-eye"></span><span class="rm-eye"></span></div>
         <h2>Quests <span class="count" id="count-quests"></span></h2>
         <div id="quest-tree"></div>
       </section>
 
       <section class="panel panel-idea add-panel">
         <div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="rm-critter-eyes" aria-hidden="true"><span class="rm-eye"></span><span class="rm-eye"></span></div>
         <h2>Idea Board <span class="count" id="count-idea"></span></h2>
         <div id="list-idea"></div>
         <form id="add-form" class="add-row" style="margin-top: 0.85rem;">

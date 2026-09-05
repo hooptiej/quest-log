@@ -278,6 +278,19 @@
       });
     }
 
+    // Dev-only live tuning for the power-cut darkness level: moves
+    // --rm-power-cut-brightness (read by the .power-cut .boot/.wrap filter
+    // in the CSS) so the owner can dial in a value in one sitting instead
+    // of many round-trips. The slider itself is hidden by CSS whenever
+    // power-cut isn't active, so this listener just needs to exist -- it's
+    // a no-op with no visible effect the rest of the time.
+    var darknessSlider = document.getElementById("rmDarknessSlider");
+    if (darknessSlider) {
+      darknessSlider.addEventListener("input", function () {
+        document.documentElement.style.setProperty("--rm-power-cut-brightness", darknessSlider.value);
+      });
+    }
+
     var candleRig = document.getElementById("rmCandleRig");
     var candleBtn = document.getElementById("rmCandleBtn");
     if (candleBtn && candleRig) {
