@@ -630,14 +630,27 @@
      silently swallow clicks meant for whatever's underneath it.
      Position is still a first-guess approximation of where the real
      ones sit and will likely need visual tuning once seen live. */
+  /* !important on every display toggle below is load-bearing, not
+     defensive styling: [data-theme="raccoonmanor"] .rm-scene > * {
+     display: block; } exists elsewhere in this file (written long before
+     today, to make the ORIGINAL always-on scene elements -- roach, drips,
+     HUD, valve -- visible without individual toggle logic) and has the
+     EXACT SAME specificity as a plain [data-theme="raccoonmanor"]
+     .rm-bolt-dupe { display: none; } rule. Being later in the file, it
+     silently won the cascade and forced every one of these elements
+     permanently visible regardless of power-cut/settings-mode -- which is
+     also why the bolt-dupe had no width/height applied (its sizing rule
+     is power-cut-scoped and never matched either) and rendered at an
+     unconstrained ~1100x3440px, which was the real "default to black"
+     wedge and scroll-height inflation this whole time. */
   [data-theme="raccoonmanor"] .rm-moon-dupe,
   [data-theme="raccoonmanor"] .rm-bolt-dupe,
   [data-theme="raccoonmanor"] .rm-eyes-dupe,
   [data-theme="raccoonmanor"] .rm-help-dupe {
-    display: none;
+    display: none !important;
   }
   [data-theme="raccoonmanor"].power-cut .rm-moon-dupe {
-    display: block;
+    display: block !important;
     position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
     width: 140px; height: 140px; border-radius: 50%; z-index: 45; pointer-events: none;
     background: radial-gradient(circle at 38% 34%, #f2f8f6, #a8d3dc 55%, #587278 100%);
@@ -645,7 +658,7 @@
     animation: rm-moonpulse 6s ease-in-out infinite;
   }
   [data-theme="raccoonmanor"].power-cut .rm-bolt-dupe {
-    display: block;
+    display: block !important;
     position: fixed; top: 100px; left: calc(50% + 55px);
     width: 45px; height: 110px; z-index: 45; pointer-events: none;
     fill: #eaf4ff; opacity: 0;
@@ -655,7 +668,7 @@
     animation: rm-lightning-flash 0.4s ease-out;
   }
   [data-theme="raccoonmanor"].power-cut .rm-eyes-dupe {
-    display: flex; gap: 10px; position: fixed; top: 420px; left: calc(50% - 380px);
+    display: flex !important; gap: 10px; position: fixed; top: 420px; left: calc(50% - 380px);
     z-index: 45; pointer-events: none; opacity: 0;
     animation: rm-eyes-fadein 2.5s ease-in forwards, rm-eyes-blink 6s ease-in-out 2.5s infinite;
   }
@@ -666,7 +679,7 @@
     filter: brightness(var(--rm-power-cut-glow, 1));
   }
   [data-theme="raccoonmanor"].power-cut .rm-help-dupe {
-    display: block;
+    display: block !important;
     position: fixed; top: 290px; left: 50%; transform: translateX(-50%) rotate(-3deg);
     z-index: 45; pointer-events: none;
     font-family: var(--font-head); font-size: 1.3rem; letter-spacing: 0.14em;
@@ -709,9 +722,9 @@
      since it's a debug HUD, not part of the scene -- always visible
      regardless of scroll. Plain text over a solid background, deliberately
      ugly/obvious so it never gets mistaken for part of the theme. */
-  [data-theme="raccoonmanor"] .rm-debug-readout { display: none; }
+  [data-theme="raccoonmanor"] .rm-debug-readout { display: none !important; }
   [data-theme="raccoonmanor"].settings-mode .rm-debug-readout {
-    display: block; position: fixed; top: 1.1rem; left: 50%; transform: translateX(-50%);
+    display: block !important; position: fixed; top: 1.1rem; left: 50%; transform: translateX(-50%);
     z-index: 999; background: #000; color: #5fd75f; border: 1px solid #5fd75f;
     font-family: var(--font-mono); font-size: 0.7rem; padding: 0.3rem 0.6rem;
     white-space: pre; pointer-events: none;
