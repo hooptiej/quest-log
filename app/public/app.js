@@ -291,6 +291,25 @@
       });
     }
 
+    // Dev-only live tuning for the power-cut UV glow intensity: moves
+    // --rm-power-cut-glow (read by the sticker/eyes/HELP-smudge shadow
+    // calc()s in the CSS), same pattern as the darkness slider above.
+    var glowSlider = document.getElementById("rmGlowSlider");
+    if (glowSlider) {
+      glowSlider.addEventListener("input", function () {
+        document.documentElement.style.setProperty("--rm-power-cut-glow", glowSlider.value);
+      });
+    }
+
+    // --rm-hud-boost (read by the EKG/ribbon HUD's power-cut brightness/glow
+    // rule in the CSS), same pattern as the two sliders above.
+    var hudBoostSlider = document.getElementById("rmHudBoostSlider");
+    if (hudBoostSlider) {
+      hudBoostSlider.addEventListener("input", function () {
+        document.documentElement.style.setProperty("--rm-hud-boost", hudBoostSlider.value);
+      });
+    }
+
     var candleRig = document.getElementById("rmCandleRig");
     var candleBtn = document.getElementById("rmCandleBtn");
     if (candleBtn && candleRig) {

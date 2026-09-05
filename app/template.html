@@ -471,6 +471,14 @@
   [data-theme="raccoonmanor"] .rm-ribbon-label { font-family: var(--font-head); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
   [data-theme="raccoonmanor"] .rm-ribbon-count { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700; color: var(--alarm); }
   [data-theme="raccoonmanor"] .rm-ribbon-count::after { content: "⁄3 ribbons"; font-size: 0.6rem; color: var(--muted); margin-left: 0.2rem; }
+  /* Battery-powered readouts get MORE prominent, not less, once the room
+     goes dark -- a brightness/contrast boost plus a stronger glow ring,
+     scaled by the tuning slider below instead of a guessed fixed value. */
+  [data-theme="raccoonmanor"].power-cut .rm-ekg-hud,
+  [data-theme="raccoonmanor"].power-cut .rm-ribbon-hud {
+    filter: brightness(var(--rm-hud-boost, 1.4)) contrast(1.1);
+    box-shadow: 0 0 0 3px #000, 0 0 calc(10px * var(--rm-hud-boost, 1.4)) calc(2px * var(--rm-hud-boost, 1.4)) color-mix(in srgb, var(--accent) 45%, transparent);
+  }
 
   /* Generator valve: turn it to cut the power -- the room cools toward
      moonlight instead of sounding an alarm, on the nose with the
@@ -507,6 +515,44 @@
     color: #5fd75f; text-transform: uppercase; margin-bottom: 0.25rem;
   }
   [data-theme="raccoonmanor"] .rm-darkness-tune input[type="range"] {
+    width: 90px; accent-color: #5fd75f; cursor: pointer; vertical-align: middle;
+  }
+
+  /* Dev-only tuning slider for the power-cut glow intensity
+     (--rm-power-cut-glow, read by the UV sticker/eyes/HELP-smudge shadow
+     calc()s below). Same rationale and same debug-widget look as the
+     darkness slider directly above -- hidden outright while power is on,
+     removed once the owner locks in a final multiplier. */
+  [data-theme="raccoonmanor"] .rm-glow-tune { display: none; }
+  [data-theme="raccoonmanor"].power-cut .rm-glow-tune {
+    display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
+    background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
+  }
+  [data-theme="raccoonmanor"] .rm-glow-tune-label {
+    display: block; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.05em;
+    color: #5fd75f; text-transform: uppercase; margin-bottom: 0.25rem;
+  }
+  [data-theme="raccoonmanor"] .rm-glow-tune input[type="range"] {
+    width: 90px; accent-color: #5fd75f; cursor: pointer; vertical-align: middle;
+  }
+
+  /* Dev-only tuning slider for the power-cut HUD boost (--rm-hud-boost, read
+     by the EKG/ribbon HUD rule below). The EKG and ink-ribbon counter are
+     meant to be in-fiction battery-powered readouts -- they were already
+     structurally untouched by the power-cut darkening (siblings of .rm-scene,
+     never dimmed), but "technically unchanged" isn't the same as "reads as
+     glowing all the more against a much darker room," which is the actual
+     ask. Same debug-widget look/lifecycle as the other two sliders above. */
+  [data-theme="raccoonmanor"] .rm-hud-tune { display: none; }
+  [data-theme="raccoonmanor"].power-cut .rm-hud-tune {
+    display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
+    background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
+  }
+  [data-theme="raccoonmanor"] .rm-hud-tune-label {
+    display: block; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.05em;
+    color: #5fd75f; text-transform: uppercase; margin-bottom: 0.25rem;
+  }
+  [data-theme="raccoonmanor"] .rm-hud-tune input[type="range"] {
     width: 90px; accent-color: #5fd75f; cursor: pointer; vertical-align: middle;
   }
 
@@ -553,8 +599,8 @@
     color: #0d0618;
     background: rgba(18,8,28,0.94);
     border-color: #c77dff;
-    text-shadow: 0 0 3px #00f5ff, 0 0 7px #c77dff;
-    box-shadow: 0 0 5px 1px #9d4edd, 0 0 14px 4px rgba(157,78,221,0.6), 0 0 24px 9px rgba(0,245,255,0.22);
+    text-shadow: 0 0 calc(3px * var(--rm-power-cut-glow, 1)) #00f5ff, 0 0 calc(7px * var(--rm-power-cut-glow, 1)) #c77dff;
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #9d4edd, 0 0 calc(14px * var(--rm-power-cut-glow, 1)) calc(4px * var(--rm-power-cut-glow, 1)) rgba(157,78,221,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 1)) calc(9px * var(--rm-power-cut-glow, 1)) rgba(0,245,255,0.22);
   }
 
   /* Eyes in the dark: something peeking around the edge of the corkboard
@@ -574,7 +620,7 @@
   [data-theme="raccoonmanor"] .rm-eye {
     width: 8px; height: 13px; border-radius: 50%;
     background: #c77dff;
-    box-shadow: 0 0 5px 2px #9d4edd, 0 0 12px 5px rgba(0,245,255,0.45);
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #9d4edd, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(0,245,255,0.45);
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -602,8 +648,8 @@
   [data-theme="raccoonmanor"].power-cut .rm-help-smudge {
     opacity: 0.55;
     text-shadow:
-      0 0 4px #00f5ff, 1px 1px 3px #9d4edd, -1px 0 3px #c77dff,
-      0 0 12px rgba(0,245,255,0.55), 0 0 22px rgba(157,78,221,0.4);
+      0 0 calc(4px * var(--rm-power-cut-glow, 1)) #00f5ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #9d4edd, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #c77dff,
+      0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(0,245,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(157,78,221,0.4);
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
@@ -1960,6 +2006,14 @@
     <div class="rm-darkness-tune" id="rmDarknessTune">
       <label class="rm-darkness-tune-label" for="rmDarknessSlider">Darkness (dev)</label>
       <input type="range" id="rmDarknessSlider" min="0.05" max="0.5" step="0.01" value="0.18" aria-label="Power-cut darkness level">
+    </div>
+    <div class="rm-glow-tune" id="rmGlowTune">
+      <label class="rm-glow-tune-label" for="rmGlowSlider">Glow (dev)</label>
+      <input type="range" id="rmGlowSlider" min="0.5" max="4" step="0.05" value="1" aria-label="Power-cut UV glow intensity">
+    </div>
+    <div class="rm-hud-tune" id="rmHudTune">
+      <label class="rm-hud-tune-label" for="rmHudBoostSlider">HUD boost (dev)</label>
+      <input type="range" id="rmHudBoostSlider" min="1" max="2.5" step="0.05" value="1.4" aria-label="Power-cut EKG/ribbon HUD brightness boost">
     </div>
   </div>
   <div class="rm-candle-rig on" id="rmCandleRig">
