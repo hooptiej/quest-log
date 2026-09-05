@@ -265,28 +265,37 @@
      uses -- transparent instead of filled, thicker border, rotated,
      case-file type instead of plain mono. */
   [data-theme="raccoonmanor"] .env-badge {
-    background: transparent;
+    background: rgba(10,6,4,0.82);
     border-width: 2px;
     border-radius: 3px;
     font-family: var(--font-head);
     letter-spacing: 0.1em;
     transform: rotate(-4deg);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
   }
   /* Case stamp/witness line: Hadley's Hope's trick (a real element JS
      fills with an actual open quest title, refreshed as quests change --
      not a static sample string) borrowed and re-skinned for this theme's
      own vocabulary. Stamp reuses the env-badge treatment above; the
      witness line is plain case-note type, not another stamp -- one
-     rubber stamp per strip is a rubber stamp, three is a sticker sheet. */
+     rubber stamp per strip is a rubber stamp, three is a sticker sheet.
+     Both stamps went unreadable against the corkboard's own busy texture
+     underneath them once real (often long) quest titles replaced the
+     mockup's short static sample text -- a transparent stamp with just a
+     colored border/text works fine against a plain backdrop, not a
+     patterned one. A solid dark backing plus a real drop shadow (not
+     just a glow) is what actually guarantees contrast regardless of
+     what's behind it. */
   [data-theme="raccoonmanor"] .rm-case-stamp {
     color: var(--alarm); border: 2px solid var(--alarm); border-radius: 3px;
+    background: rgba(10,6,4,0.82);
     padding: 0.05rem 0.5rem; transform: rotate(-4deg);
     font-family: var(--font-head); text-transform: uppercase; letter-spacing: 0.1em;
-    box-shadow: 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
   }
   [data-theme="raccoonmanor"] .rm-witness-line {
     font-style: italic; color: var(--muted); text-transform: none; letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
   }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
