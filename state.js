@@ -364,6 +364,20 @@ export function setMaintenance(state, { active, note }) {
   return state._maintenance;
 }
 
+// Machine-agnostic on/off switch for the checked-in UserPromptSubmit hook
+// (see .claude/hooks/) that reminds an active session to log a new ask into
+// quest-log before scoping/implementing it. Lives on shared state rather
+// than a local file so flipping it from any one of the owner's machines
+// takes effect everywhere the hook runs, without per-machine setup.
+export function getAutoLog(state) {
+  return state._autoLog ?? { enabled: false };
+}
+
+export function setAutoLog(state, { enabled }) {
+  state._autoLog = { enabled: !!enabled };
+  return state._autoLog;
+}
+
 // The level directly above/below each tier, for promote (up) and recruit
 // (down). There's no entry for the ends (promoting a quest, recruiting a
 // task) -- callers check for that themselves and reject with a clearer
