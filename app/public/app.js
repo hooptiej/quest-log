@@ -55,6 +55,14 @@
       titleSuffix: "Channel Log",
       subtitlePrefix: "Please Stand By",
       designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
+    },
+    hadleyshope: {
+      orgLine: "USS SULACO // COLONIAL MARINE OPERATIONS",
+      terminalName: "APC MOTION TRACKER LINK",
+      titlePrefix: "Hadley's Hope",
+      titleSuffix: "Ops Terminal",
+      subtitlePrefix: "It's A Bug Hunt",
+      designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
     }
   };
   var NAME_KEY = "questlog-name";
@@ -67,6 +75,142 @@
   function currentDesignationName() {
     if (SERVER_DESIGNATION) return SERVER_DESIGNATION;
     try { return (localStorage.getItem(NAME_KEY) || "").trim(); } catch (e) { return ""; }
+  }
+
+  // Hadley's Hope ambient scene: fog/light-grid population and the fixed
+  // HUD widgets (tracker, ammo counter, beacon, lever, switch, facehugger)
+  // that come with that theme. The markup exists in the DOM for every
+  // theme (hidden via CSS unless data-theme="hadleyshope" is active) so
+  // this only needs to run once, ever -- it's harmless to populate while
+  // hidden, and interval callbacks check the live theme before doing
+  // anything so they're inert (not just invisible) while another theme
+  // is showing.
+  var hhInitialized = false;
+  function isHadleysHope() { return document.documentElement.dataset.theme === "hadleyshope"; }
+  function initHadleysHopeEffects() {
+    if (hhInitialized) return;
+    hhInitialized = true;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var fogLayer = document.getElementById("hhFogLayer");
+    if (!reduce && fogLayer) {
+      for (var i = 0; i < 5; i++) {
+        var f = document.createElement("div");
+        f.className = "hh-fog";
+        var size = 200 + Math.random() * 220;
+        f.style.width = size + "px";
+        f.style.height = (size * 0.5) + "px";
+        f.style.top = (Math.random() * 90) + "vh";
+        var dur = 30 + Math.random() * 30;
+        f.style.animationDuration = dur + "s";
+        f.style.animationDelay = (-Math.random() * dur) + "s";
+        fogLayer.appendChild(f);
+      }
+    }
+
+    ["hhLightLeft", "hhLightRight"].forEach(function (id) {
+      var grid = document.getElementById(id);
+      if (!grid) return;
+      for (var j = 0; j < 32; j++) {
+        var lamp = document.createElement("span");
+        lamp.className = "hh-lamp";
+        var dur2 = 1.6 + Math.random() * 6;
+        lamp.style.animationDuration = dur2 + "s";
+        lamp.style.animationDelay = (-Math.random() * dur2) + "s";
+        grid.appendChild(lamp);
+      }
+    });
+
+    var blipsGroup = document.getElementById("hhBlips");
+    var counterEl = document.getElementById("hhTrackerCount");
+    var ammoEl = document.getElementById("hhAmmoCount");
+    var ammo = 95;
+    if (!reduce && blipsGroup) {
+      setInterval(function () {
+        if (!isHadleysHope()) return;
+        var angle = Math.random() * Math.PI * 2;
+        var r = 16 + Math.random() * 36;
+        var x = 60 + Math.cos(angle) * r;
+        var y = 60 + Math.sin(angle) * r;
+        var dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("cx", x.toFixed(1));
+        dot.setAttribute("cy", y.toFixed(1));
+        dot.setAttribute("r", "2.6");
+        dot.setAttribute("class", "hh-tracker-blip");
+        blipsGroup.appendChild(dot);
+        if (counterEl) counterEl.textContent = Math.round(56 - r);
+        setTimeout(function () { dot.remove(); }, 2400);
+        if (r < 28 && ammoEl) {
+          ammo = Math.max(0, ammo - Math.ceil(Math.random() * 6));
+          if (ammo === 0) ammo = 95;
+          ammoEl.textContent = ammo;
+        }
+      }, 1450);
+    }
+
+    var dripLayer = document.getElementById("hhDripLayer");
+    if (!reduce && dripLayer) {
+      var drips = dripLayer.querySelectorAll(".hh-drip");
+      drips.forEach(function (d) {
+        var left = d.style.left;
+        var startHeight = parseInt(d.style.height, 10) || 34;
+        setInterval(function () {
+          if (!isHadleysHope()) return;
+          var drop = document.createElement("div");
+          drop.className = "hh-goo-drop";
+          drop.style.left = left;
+          drop.style.top = startHeight + "px";
+          drop.style.animationDuration = (2.2 + Math.random() * 1.4) + "s";
+          document.body.appendChild(drop);
+          setTimeout(function () { drop.remove(); }, 4000);
+        }, 3200 + Math.random() * 3000);
+      });
+    }
+
+    var hugger = document.getElementById("hhFacehugger");
+    if (!reduce && hugger) {
+      function skitterTo() {
+        if (!isHadleysHope()) return;
+        hugger.style.left = (8 + Math.random() * 78) + "vw";
+        hugger.style.top = (20 + Math.random() * 64) + "vh";
+      }
+      var skitterTimer = setInterval(skitterTo, 3200 + Math.random() * 2000);
+      hugger.addEventListener("click", function () {
+        clearInterval(skitterTimer);
+        skitterTo();
+        skitterTimer = setInterval(skitterTo, 3200 + Math.random() * 2000);
+      });
+    }
+
+    var leverRig = document.getElementById("hhLeverRig");
+    var leverBtn = document.getElementById("hhLeverBtn");
+    if (leverBtn && leverRig) {
+      leverBtn.addEventListener("click", function () {
+        var armed = leverRig.classList.toggle("armed");
+        document.documentElement.classList.toggle("alert-mode", armed);
+      });
+    }
+
+    var switchRig = document.getElementById("hhSwitchRig");
+    var switchBtn = document.getElementById("hhSwitchBtn");
+    if (switchBtn && switchRig) {
+      switchRig.classList.add("on");
+      var fogEl = document.getElementById("hhFogLayer");
+      switchBtn.addEventListener("click", function () {
+        var on = switchRig.classList.toggle("on");
+        if (fogEl) fogEl.style.opacity = on ? "" : "0";
+      });
+    }
+
+    if (!reduce && window.matchMedia("(hover: hover)").matches) {
+      document.addEventListener("mousemove", function (e) {
+        if (!isHadleysHope()) return;
+        var x = (e.clientX / window.innerWidth - 0.5);
+        var y = (e.clientY / window.innerHeight - 0.5);
+        var q = document.querySelector(".hh-queen-lurker");
+        if (q) q.style.transform = "translate(" + (x * -8) + "px," + (y * -5) + "px)";
+      });
+    }
   }
 
   function applyFlavor() {
@@ -774,4 +918,5 @@
   }
 
   render(STATE);
+  initHadleysHopeEffects();
 })();
