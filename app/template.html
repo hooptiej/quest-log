@@ -615,10 +615,16 @@
      scoped, so no need to redefine rm-moonpulse/rm-lightning-flash/
      rm-eyes-fadein/rm-eyes-blink here). position:absolute (not fixed) so
      these scroll naturally with the page instead of staying pinned to
-     the viewport while the real, darkened content scrolls away under
-     them -- .rm-scene has no position of its own, so absolute here
-     resolves against the document itself, same coordinate space normal
-     page content scrolls in. pointer-events:none on all four: purely
+     the viewport. Tried position:absolute here at one point to make them
+     scroll with page content, but that turned out to make things much
+     worse: it inflated the whole document's scroll height by roughly a
+     full page, pushing all real content down and leaving a huge dark
+     empty gap (the page's own plain background) above it -- exactly the
+     "default to black" reports that turned out to have nothing to do
+     with the power-cut filter at all. position:fixed doesn't have that
+     failure mode (fixed elements are categorically excluded from
+     contributing to document scroll height), so that's worth losing the
+     scroll-tracking for. pointer-events:none on all four: purely
      decorative and aria-hidden like their real counterparts, and
      without it the moon's 140px circle sitting at z-index:45 could
      silently swallow clicks meant for whatever's underneath it.
@@ -632,7 +638,7 @@
   }
   [data-theme="raccoonmanor"].power-cut .rm-moon-dupe {
     display: block;
-    position: absolute; top: 130px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
     width: 140px; height: 140px; border-radius: 50%; z-index: 45; pointer-events: none;
     background: radial-gradient(circle at 38% 34%, #f2f8f6, #a8d3dc 55%, #587278 100%);
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
@@ -640,7 +646,7 @@
   }
   [data-theme="raccoonmanor"].power-cut .rm-bolt-dupe {
     display: block;
-    position: absolute; top: 100px; left: calc(50% + 55px);
+    position: fixed; top: 100px; left: calc(50% + 55px);
     width: 45px; height: 110px; z-index: 45; pointer-events: none;
     fill: #eaf4ff; opacity: 0;
     filter: drop-shadow(0 0 4px #cfe6ff) drop-shadow(0 0 10px #8fc4ff);
@@ -649,7 +655,7 @@
     animation: rm-lightning-flash 0.4s ease-out;
   }
   [data-theme="raccoonmanor"].power-cut .rm-eyes-dupe {
-    display: flex; gap: 10px; position: absolute; top: 420px; left: calc(50% - 380px);
+    display: flex; gap: 10px; position: fixed; top: 420px; left: calc(50% - 380px);
     z-index: 45; pointer-events: none; opacity: 0;
     animation: rm-eyes-fadein 2.5s ease-in forwards, rm-eyes-blink 6s ease-in-out 2.5s infinite;
   }
@@ -661,7 +667,7 @@
   }
   [data-theme="raccoonmanor"].power-cut .rm-help-dupe {
     display: block;
-    position: absolute; top: 290px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+    position: fixed; top: 290px; left: 50%; transform: translateX(-50%) rotate(-3deg);
     z-index: 45; pointer-events: none;
     font-family: var(--font-head); font-size: 1.3rem; letter-spacing: 0.14em;
     color: transparent; opacity: 0.55; mix-blend-mode: screen;
