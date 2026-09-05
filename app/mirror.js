@@ -178,9 +178,13 @@ function completedGroupHtml(doneItems, byParent, allQuests) {
 // since it isn't a real quest -- rather than a distinct wrapper style.
 // Kept in sync with the identical app/public/app.js function
 // (which additionally applies jitter/card-decoration hooks the mirror
-// doesn't use, since it never sets data-theme).
+// doesn't use, since it never sets data-theme). Always rendered, even with
+// zero done Quests -- a permanent fixture, not something that pops in and
+// out of existence.
 function completedRootCard(doneRoots, byParent, allQuests) {
-  if (!doneRoots.length) return "";
+  const childrenHtml = doneRoots.length
+    ? doneRoots.map((q) => treeNode(q, byParent, allQuests)).join("")
+    : '<div class="empty-row">// none yet</div>';
   return (
     `<div class="tree-node" data-id="completed-quests-root">` +
     `<div class="tree-row"><span class="tree-title-group">` +
@@ -188,7 +192,7 @@ function completedRootCard(doneRoots, byParent, allQuests) {
     `<span class="child-count">(${doneRoots.length} ${doneRoots.length === 1 ? "quest" : "quests"})</span>` +
     `<span class="tree-title">Completed Quests</span></span>` +
     `<span class="tree-actions"><span class="quest-tag">DONE</span></span></div>` +
-    `<div class="tree-children collapsed">${doneRoots.map((q) => treeNode(q, byParent, allQuests)).join("")}</div>` +
+    `<div class="tree-children collapsed">${childrenHtml}</div>` +
     "</div>"
   );
 }

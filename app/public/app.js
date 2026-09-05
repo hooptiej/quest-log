@@ -797,10 +797,11 @@
   // > .tree-children) already handles it with no code changes there either.
   // A fixed synthetic id (not a real quest id) gives it a stable, un-
   // reshuffling jitter look like everything else jitterClass/jitterStyle key
-  // off an id for.
+  // off an id for. Always rendered, even with zero done Quests -- a
+  // permanent fixture at the bottom of the list, not something that pops
+  // in and out of existence.
   var COMPLETED_ROOT_ID = "completed-quests-root";
   function completedRootCard(doneRoots, byParent, allQuests) {
-    if (!doneRoots.length) return "";
     var expanded = false;
     return (
       '<div class="tree-node ' + jitterClass(COMPLETED_ROOT_ID) + '" data-id="' + COMPLETED_ROOT_ID + '"' + jitterStyle(COMPLETED_ROOT_ID) + '>' +
@@ -814,7 +815,9 @@
           '<span class="tree-actions"><span class="quest-tag">DONE</span></span>' +
         '</div>' +
         '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' +
-          doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("") +
+          (doneRoots.length
+            ? doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("")
+            : '<div class="empty-row">// none yet</div>') +
         '</div>' +
       '</div>'
     );
