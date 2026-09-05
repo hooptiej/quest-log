@@ -39,6 +39,14 @@
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
+    },
+    raccoonmanor: {
+      orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
+      terminalName: "R.P.D. DISPATCH-7",
+      titlePrefix: "Raccoon Manor",
+      titleSuffix: "Evidence Log",
+      subtitlePrefix: "Survive The Night",
+      designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     }
   };
   var NAME_KEY = "questlog-name";

@@ -6,7 +6,7 @@
 <title>Questlog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=MedievalSharp&family=IM+Fell+English:ital@0;1&family=Nosifer&family=Special+Elite&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <script>
   // Applied before first paint to avoid a flash of the wrong theme.
   try {
@@ -121,6 +121,80 @@
     box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent), 0 1px 1px rgba(0,0,0,0.6);
   }
   [data-theme="wow"] .add-btn { color: #241407; }
+
+  /* ---------- theme: Raccoon Manor (shabby gothic horror) ---------- */
+  [data-theme="raccoonmanor"] {
+    --bg: #0b0d09;
+    --surface: #1c1f16;
+    --surface-2: #262b1e;
+    --border: #4a5138;
+    --text: #d9dcc6;
+    --muted: #82896e;
+    --accent: #a8d3dc;
+    --accent-dim: #587278;
+    --accent2: #85c93f;
+    --alarm: #c2394a;
+    --idea: #b8935a;
+
+    --font-display: 'Nosifer', 'Times New Roman', serif;
+    --font-head: 'Special Elite', 'Courier New', monospace;
+    --font-mono: 'Courier Prime', 'Special Elite', ui-monospace, Consolas, monospace;
+    --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+
+    --body-bg-image:
+      radial-gradient(ellipse 50% 35% at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      radial-gradient(ellipse 45% 55% at 4% 100%, rgba(30,35,20,0.6), transparent 70%),
+      radial-gradient(ellipse 40% 45% at 100% 100%, rgba(20,25,15,0.55), transparent 70%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.4  0 0 0 0 0.45  0 0 0 0 0.3  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
+      radial-gradient(ellipse 85% 70% at 50% 35%, transparent 40%, rgba(0,0,0,0.6) 100%);
+  }
+  [data-theme="raccoonmanor"] h1 {
+    letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #e0838f, var(--alarm) 55%, #5e1620);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--alarm) 45%, transparent));
+    animation: raccoonmanor-flicker 5s linear infinite;
+  }
+  @keyframes raccoonmanor-flicker {
+    0%, 100% { opacity: 1; }
+    4% { opacity: 0.86; }
+    6% { opacity: 1; }
+    41% { opacity: 0.94; }
+    43% { opacity: 1; }
+    78% { opacity: 0.9; }
+    80% { opacity: 1; }
+  }
+  [data-theme="raccoonmanor"] .boot,
+  [data-theme="raccoonmanor"] .status-panel,
+  [data-theme="raccoonmanor"] .panel {
+    border-color: var(--border);
+    box-shadow: inset 0 0 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03), 0 3px 12px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .boot {
+    background-image:
+      radial-gradient(ellipse 60% 140% at 100% 0%, rgba(20,25,15,0.5), transparent),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='none' stroke='%23cdd4bd' stroke-width='0.7' opacity='0.35'><line x1='0' y1='0' x2='60' y2='60'/><line x1='0' y1='0' x2='40' y2='0'/><line x1='0' y1='0' x2='0' y2='40'/><path d='M8,2 Q10,10 2,8'/><path d='M18,5 Q21,20 5,18'/><path d='M30,10 Q34,34 10,30'/></g></svg>"),
+      var(--surface);
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-position: top left, top left, top left;
+  }
+  [data-theme="raccoonmanor"] .panel::before,
+  [data-theme="raccoonmanor"] .panel::after,
+  [data-theme="raccoonmanor"] .panel .corner-bl,
+  [data-theme="raccoonmanor"] .panel .corner-br {
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--panel-accent, var(--accent)) 60%, white), transparent 60%), var(--panel-accent, var(--accent));
+    box-shadow: 0 0 6px color-mix(in srgb, var(--panel-accent, var(--accent)) 55%, transparent), 0 1px 1px rgba(0,0,0,0.7);
+    opacity: 0.7;
+  }
+  [data-theme="raccoonmanor"] .subtitle { font-style: italic; }
+  [data-theme="raccoonmanor"] .quest-title,
+  [data-theme="raccoonmanor"] .tree-title { font-weight: 500; }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
+  }
 
   * { box-sizing: border-box; }
 
@@ -854,6 +928,7 @@
           <option value="muthur">MU/TH/UR-6000</option>
           <option value="terminal">FIELD TERMINAL</option>
           <option value="wow">GUILD CHARTER</option>
+          <option value="raccoonmanor">RACCOON MANOR</option>
         </select>
       </div>
       <div class="switcher-row">
