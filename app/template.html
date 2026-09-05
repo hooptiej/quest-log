@@ -438,9 +438,9 @@
   /* Full-viewport lightning wash. Deliberately placed in .rm-scene (a
      sibling of .wrap/.boot under <body>, not a descendant) rather than
      inside .rm-window -- lightning is outdoor weather, unrelated to the
-     room's own generator, and a sibling of .wrap is structurally outside
-     reach of .wrap's power-cut brightness filter, so no reciprocal-filter
-     math is needed here the way .rm-moon and .rm-lightning-bolt need it.
+     room's own generator, and a sibling of .wrap was never darkened
+     (darkening now lives on .boot and each card individually, not on
+     .wrap as a whole -- see the note by .power-cut .boot further down).
      fixed+inset:0 covers the real viewport, not just the window's bounds. */
   [data-theme="raccoonmanor"] .rm-storm-flash {
     position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: 0;
@@ -521,7 +521,8 @@
   [data-theme="raccoonmanor"] .rm-valve-label { display: block; margin-top: 0.3rem; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
 
   /* Tuning slider for the power-cut darkness level (--rm-power-cut-brightness,
-     read by the .power-cut .boot/.wrap filter rule below). Styled as an
+     read by .boot's filter and by each card's darkening overlay further
+     below). Styled as an
      obvious debug control, not a themed widget -- lime/mono, dashed border --
      so it reads as a settings-panel tool, not part of the theme itself.
      Requires BOTH settings-mode (a permanent feature now, toggled only via
@@ -582,73 +583,61 @@
   [data-theme="raccoonmanor"].power-cut {
     --bg: #05070a; --surface: #12181c; --surface-2: #1a2226; --text: #c9d9dd; --muted: #5c6e73;
   }
-  /* Almost everything in this theme is hardcoded hex/rgba rather than
-     var()-driven, so remapping the custom properties above only dims the
-     handful of elements that actually read them -- barely the titlebar.
-     A filter on the two real content containers (.boot and .wrap --
-     siblings of .rm-scene under body, not nested inside it) darkens
-     everything else at once, transitioning smoothly either direction. */
-  [data-theme="raccoonmanor"] .boot,
-  [data-theme="raccoonmanor"] .wrap {
-    transition: filter 1.3s ease;
-  }
-  [data-theme="raccoonmanor"].power-cut .boot,
-  [data-theme="raccoonmanor"].power-cut .wrap {
-    /* Pushed well past "dimmed" -- the room should actually go dark,
-       squinting-at-content dark, with the moon (untouched by this filter,
-       since it lives on .rm-scene not .wrap/.boot) left as the dominant
-       light source. Reads the --rm-power-cut-brightness custom property
-       (live-tunable via the dev slider on the generator valve widget, see
-       #rmDarknessSlider) so the number can be dialed in without a code
-       change; 0.18 is just the fallback until the owner picks a final
-       value and it gets hardcoded here instead. */
-    filter: brightness(var(--rm-power-cut-brightness, 0.18)) contrast(1.25) saturate(0.55);
+  /* Darkening no longer lives on .wrap as one ancestor-level filter. It
+     looked simple, but a filter on an ancestor cannot be selectively
+     un-done for one descendant short of exactly cancelling its whole
+     chain -- and that reciprocal-math approach (still visible in git
+     history) turned out to not reliably survive real rendering, and
+     compounds badly with the UV-glow elements' OWN filters (their glow
+     kept reading as a saturation/color shift instead of brightness,
+     because contrast()/saturate() from the ancestor still landed on top
+     of whatever they did). Simpler and actually reliable: darken .boot
+     directly (nothing inside it needs to stay lit), and darken each card
+     via its own semi-transparent ::after overlay instead of a filter --
+     an overlay just needs a higher z-index to be exempt, no cancellation
+     math anywhere. Everything that should stay lit (moon, lightning bolt,
+     HELP smudge, the corkboard's peeking eyes) simply never sits inside
+     anything darkened in the first place now. */
+  [data-theme="raccoonmanor"] .boot { transition: filter 1.3s ease; }
+  [data-theme="raccoonmanor"].power-cut .boot {
+    filter: brightness(var(--rm-power-cut-brightness, 0.18));
   }
   [data-theme="raccoonmanor"].power-cut .rm-moon {
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
   }
-  /* The moon doesn't need the generator -- it's not lit by the room. But
-     .rm-moon lives inside .wrap for layout reasons (the window shares the
-     header's vertical footprint), so .wrap's darkness filter above still
-     applies to it; filter has no "exempt this descendant" escape hatch,
-     only composition. Window frame/sash/curtains are left to darken
-     normally -- only the moon itself is exempt, so it reads as the one
-     surviving light source in an otherwise dark window, not a hole to an
-     undarkened outside. brightness/contrast/saturate are each exactly
-     self-inverting via their reciprocal (contrast(1/C) and saturate(1/S)
-     undo contrast(C)/saturate(S) precisely, same as brightness(1/B) undoes
-     brightness(B)), so applying that reciprocal chain here -- in reverse
-     order, since the parent's filter re-applies on top of whatever this
-     element already rendered -- cancels the parent's effect exactly
-     rather than approximating it. Only the brightness term needs var()
-     since contrast/saturate above are fixed constants, not slider-driven. */
-  [data-theme="raccoonmanor"].power-cut .rm-moon {
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18)));
-  }
 
-  /* .rm-lightning-bolt has the exact same problem the moon has, for the
-     exact same reason: it has to live inside .rm-window for positioning,
-     which puts it under .wrap's power-cut darkness filter, but a lightning
-     bolt isn't lit by the room's generator either. Same reciprocal-chain
-     fix as .rm-moon above (see that comment for the math). The difference
-     here is the element also carries its OWN filter (the drop-shadow glow
-     from the base rule) -- filter values in one declaration compose as a
-     list, so the reciprocal chain and the glow both need to live in this
-     one property, reciprocal first since only that part needs to cancel
-     the parent; drop-shadow just layers on top afterward. */
-  [data-theme="raccoonmanor"].power-cut .rm-lightning-bolt {
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18)))
-      drop-shadow(0 0 4px #cfe6ff) drop-shadow(0 0 10px #8fc4ff);
+  /* Card darkening: an overlay inside each card, not a filter on an
+     ancestor. #quest-tree > .tree-node already has z-index:0 (see the
+     folder-tab comment above) establishing its own stacking context, so
+     this ::after (z-index:1) darkens everything else in the card by
+     default -- title, notes, anything without an explicit higher
+     z-index -- while .quest-tag/.ready-badge/.card-pin (already z-index:2)
+     and .quest-progress (bumped below) simply paint above it, no
+     cancellation needed. Opacity, not a background filter, so it composes
+     with the --rm-power-cut-brightness slider via a plain calc(). */
+  [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node::after,
+  [data-theme="raccoonmanor"].power-cut #list-idea > .quest::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: #000; border-radius: inherit;
+    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
+    transition: opacity 1.3s ease;
+  }
+  [data-theme="raccoonmanor"] .quest-progress {
+    position: relative; z-index: 2;
   }
 
   /* UV stickers: the paper-label rule above (quest-tag/ready-badge) is
      dark ink on cream paper -- reads fine in daylight, but a dim color
-     just gets scaled dimmer by the brightness() crush above, same as
-     everything else. Repainting it as a saturated violet/cyan glow
-     instead is what survives that filter: strong saturation still reads
-     as luminous by contrast with the now much-darker room, same trick as
-     a real blacklight poster. No need to exempt these from the parent
-     filter -- the glow just has to be vivid enough to punch through it. */
+     would just vanish against a dark card, same as everything else in it.
+     Repainting it as a saturated violet/cyan glow is what survives: strong
+     saturation reads as luminous by contrast with the darkened card behind
+     it, same trick as a real blacklight poster. These sit at z-index:2,
+     above the card's own darkening overlay (z-index:1, see above), so
+     there's no ancestor filter to fight or cancel -- brightness(glow) is a
+     clean, direct control. Untempered (not 0.5+0.5x) so the slider's wide
+     0.1-6 range has real visible range from barely-lit to blown-out, since
+     these colors are already fairly saturated/light and a narrower
+     multiplier range clips into "looks about the same" too easily. */
   [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .quest-tag,
   [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .ready-badge,
   [data-theme="raccoonmanor"].power-cut #list-idea > .quest .quest-tag {
@@ -657,43 +646,17 @@
     border-color: #4fa8ff;
     text-shadow: 0 0 calc(3px * var(--rm-power-cut-glow, 1)) #6fd8ff, 0 0 calc(7px * var(--rm-power-cut-glow, 1)) #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(14px * var(--rm-power-cut-glow, 1)) calc(4px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 1)) calc(9px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.25);
-    /* Blur radius alone controls spread, not perceived brightness -- a
-       bigger halo spread over more area can even read as dimmer. Scaling
-       the element's own brightness() directly by the same slider value is
-       what actually makes it feel like "brighter," not just "wider" --
-       untempered (not 0.5+0.5x) so the slider's wide 0.1-6 range has real
-       visible range from barely-lit to blown-out, since these colors are
-       already fairly saturated/light and a narrower multiplier range
-       clips into "looks about the same" territory too easily. */
-    /* brightness(glow) alone isn't enough: the parent .wrap filter's
-       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
-       regardless of how high glow goes -- that's why turning the slider up
-       was only shifting color (grey <-> blue) while staying dark, not
-       actually brightening. Cancel the parent's whole chain first (the same
-       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
-       layer the glow slider's own brightness on top of that canceled
-       baseline -- so glow is a clean, independent control, unaffected by
-       wherever the darkness slider happens to be set. */
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* Progress bars get the same UV treatment as the stickers, same reason:
-     the theme accent color would just get scaled dimmer by .wrap's crush
-     otherwise. Track stays as-is (it's not evidence, just the groove the
-     fill sits in); only the fill itself glows blue. */
+     the theme accent color would otherwise just vanish into the card's
+     darkening overlay. .quest-progress is bumped to z-index:2 above (same
+     tier as the stickers), so this is a direct, uncancelled control too. */
   [data-theme="raccoonmanor"].power-cut .bar-fill {
     background: linear-gradient(90deg, #2f6fed, #6fd8ff);
     box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 1)) calc(3px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6);
-    /* brightness(glow) alone isn't enough: the parent .wrap filter's
-       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
-       regardless of how high glow goes -- that's why turning the slider up
-       was only shifting color (grey <-> blue) while staying dark, not
-       actually brightening. Cancel the parent's whole chain first (the same
-       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
-       layer the glow slider's own brightness on top of that canceled
-       baseline -- so glow is a clean, independent control, unaffected by
-       wherever the darkness slider happens to be set. */
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* Eyes in the dark: something peeking around the edge of the corkboard
@@ -714,16 +677,10 @@
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
-    /* brightness(glow) alone isn't enough: the parent .wrap filter's
-       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
-       regardless of how high glow goes -- that's why turning the slider up
-       was only shifting color (grey <-> blue) while staying dark, not
-       actually brightening. Cancel the parent's whole chain first (the same
-       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
-       layer the glow slider's own brightness on top of that canceled
-       baseline -- so glow is a clean, independent control, unaffected by
-       wherever the darkness slider happens to be set. */
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
+    /* Lives on .panel-quests/.panel-idea, which was never part of the
+       darkened scope (see the note by .power-cut .boot above) -- nothing
+       to cancel, glow scales directly. */
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -753,16 +710,9 @@
     text-shadow:
       0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
       0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
-    /* brightness(glow) alone isn't enough: the parent .wrap filter's
-       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
-       regardless of how high glow goes -- that's why turning the slider up
-       was only shifting color (grey <-> blue) while staying dark, not
-       actually brightening. Cancel the parent's whole chain first (the same
-       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
-       layer the glow slider's own brightness on top of that canceled
-       baseline -- so glow is a clean, independent control, unaffected by
-       wherever the darkness slider happens to be set. */
-    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
+    /* Lives inside .rm-window/header.masthead, never part of the darkened
+       scope (see the note by .power-cut .boot above) -- nothing to cancel. */
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
