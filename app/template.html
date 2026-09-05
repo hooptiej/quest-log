@@ -334,15 +334,21 @@
         rgba(0,0,224,0.05) 75% 87.5%, rgba(0,0,0,0.05) 87.5% 100%),
       radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);
   }
+  [data-theme="testpattern"] {
+    --tp-conv: 1; /* unitless -- multiplies the px offsets below via calc() */
+  }
   [data-theme="testpattern"] h1 {
     letter-spacing: 0.05em;
     animation: tp-glitch 4s steps(1) infinite;
   }
+  /* RGB convergence: the CONVERGENCE knob scales --tp-conv, which scales
+     every offset here -- turn it up and the channel split widens even at
+     rest, not just during the periodic glitch spikes. */
   @keyframes tp-glitch {
-    0%, 92%, 100% { text-shadow: -1px 0 var(--accent), 1px 0 var(--alarm); transform: translate(0, 0); }
-    93% { text-shadow: 2px 0 var(--accent), -2px 0 var(--alarm); transform: translate(-1px, 0); }
-    95% { text-shadow: -2px 0 var(--accent), 2px 0 var(--alarm); transform: translate(1px, 0); }
-    97% { text-shadow: 1px 0 var(--accent), -1px 0 var(--alarm); transform: translate(0, -1px); }
+    0%, 92%, 100% { text-shadow: calc(var(--tp-conv) * -1px) 0 var(--accent), calc(var(--tp-conv) * 1px) 0 var(--alarm); transform: translate(0, 0); }
+    93% { text-shadow: calc(var(--tp-conv) * 2px) 0 var(--accent), calc(var(--tp-conv) * -2px) 0 var(--alarm); transform: translate(-1px, 0); }
+    95% { text-shadow: calc(var(--tp-conv) * -2px) 0 var(--accent), calc(var(--tp-conv) * 2px) 0 var(--alarm); transform: translate(1px, 0); }
+    97% { text-shadow: calc(var(--tp-conv) * 1px) 0 var(--accent), calc(var(--tp-conv) * -1px) 0 var(--alarm); transform: translate(0, -1px); }
   }
   [data-theme="testpattern"] .panel h2 { letter-spacing: 0.16em; }
   /* Rolling scanline (moving, unlike MU/TH/UR's static one) -- own rule
@@ -431,6 +437,48 @@
   @media (prefers-reduced-motion: reduce) {
     [data-theme="testpattern"] h1 { animation: none; text-shadow: none; }
     [data-theme="testpattern"] body::after { animation: none; }
+  }
+
+  /* ---------- Test Pattern accessories: not reused from another theme,
+     each fits the CRT-calibration bit specifically ---------- */
+
+  /* Background: a faint EBU-style test-card graticule sitting behind
+     everything -- concentric circles + crosshair, the thing this whole
+     theme is named after. */
+  [data-theme="testpattern"] .tp-testcard {
+    display: block; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 62vmin; height: 62vmin; z-index: 1; opacity: 0.07; color: var(--accent); pointer-events: none;
+  }
+  [data-theme="testpattern"] .tp-testcard svg { width: 100%; height: 100%; }
+
+  /* Floatie: a signal chip that drifts and bounces off the screen edges on
+     its own (JS-driven), and can be picked up and dragged around. */
+  [data-theme="testpattern"] .tp-floatie {
+    display: flex; position: fixed; z-index: 47; width: 34px; height: 34px; border-radius: 4px;
+    align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 0.55rem; letter-spacing: 0.03em; color: #000;
+    background: var(--accent2); box-shadow: 0 0 10px rgba(229,0,229,0.5); cursor: grab; user-select: none;
+  }
+  [data-theme="testpattern"] .tp-floatie.dragging { cursor: grabbing; box-shadow: 0 0 16px rgba(229,0,229,0.8); }
+
+  /* Convergence knob: drag to scale --tp-conv, which the glitch keyframe
+     above reads -- a real CRT calibration control for this theme's own
+     glitch effect, not a reskinned lever/switch from elsewhere. */
+  [data-theme="testpattern"] .tp-knob-rig { position: fixed; bottom: 1.1rem; left: 1.1rem; z-index: 50; text-align: center; }
+  [data-theme="testpattern"] .tp-knob {
+    width: 46px; height: 46px; border-radius: 50%; position: relative; cursor: grab; touch-action: none;
+    background: radial-gradient(circle at 35% 30%, #3a3a3a, #141414 70%); border: 2px solid var(--border);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  }
+  [data-theme="testpattern"] .tp-knob.dragging { cursor: grabbing; }
+  [data-theme="testpattern"] .tp-knob-pointer {
+    position: absolute; top: 3px; left: 50%; width: 3px; height: 16px; border-radius: 2px;
+    background: var(--accent); transform-origin: 50% 20px; transform: translateX(-50%);
+    box-shadow: 0 0 4px var(--accent);
+  }
+  [data-theme="testpattern"] .tp-knob-label {
+    display: block; margin-top: 0.35rem; font-family: var(--font-mono); font-size: 0.55rem;
+    letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase;
   }
 
   /* ---------- theme: Hadley's Hope (dieselpunk marine ops, half-hive) ---------- */
@@ -1074,6 +1122,7 @@
      theme opts in (a theme styles them via its own [data-theme="X"]
      selectors); absent that they render as literally nothing. */
   .card-pin, .card-edge, .card-fold { display: none; }
+  .tp-testcard, .tp-floatie, .tp-knob-rig { display: none; }
   .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
@@ -1561,6 +1610,21 @@
       <ellipse cx="17" cy="11" rx="6" ry="4.5" fill="#12100a"/>
     </svg>
   </div>
+</div>
+
+<div class="tp-testcard" aria-hidden="true">
+  <svg viewBox="0 0 400 400">
+    <circle cx="200" cy="200" r="180" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+    <circle cx="200" cy="200" r="120" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+    <circle cx="200" cy="200" r="60" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+    <line x1="200" y1="0" x2="200" y2="400" stroke="currentColor" stroke-width="1.5"></line>
+    <line x1="0" y1="200" x2="400" y2="200" stroke="currentColor" stroke-width="1.5"></line>
+  </svg>
+</div>
+<div class="tp-floatie" id="tpFloatie" aria-hidden="true">SIG</div>
+<div class="tp-knob-rig" id="tpKnobRig">
+  <div class="tp-knob" id="tpKnob"><div class="tp-knob-pointer"></div></div>
+  <span class="tp-knob-label">Convergence</span>
 </div>
 
 <div class="boot">

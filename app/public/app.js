@@ -219,6 +219,88 @@
     }
   }
 
+  // Test Pattern accessories: a floatie that drifts/bounces like a DVD
+  // logo and can be picked up and dragged, plus a convergence knob that
+  // drives --tp-conv (read by the h1 glitch keyframe in template.html) --
+  // this theme's own fidget, not reused from the other two.
+  var tpInitialized = false;
+  function isTestPattern() { return document.documentElement.dataset.theme === "testpattern"; }
+  function initTestPatternEffects() {
+    if (tpInitialized) return;
+    tpInitialized = true;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var floatie = document.getElementById("tpFloatie");
+    if (floatie) {
+      var fx = window.innerWidth * 0.3, fy = window.innerHeight * 0.3;
+      var fvx = 1.1, fvy = 0.8;
+      var floatDragging = false;
+      floatie.style.left = fx + "px";
+      floatie.style.top = fy + "px";
+      function floatTick() {
+        if (isTestPattern() && !floatDragging && !reduce) {
+          fx += fvx; fy += fvy;
+          var w = floatie.offsetWidth, h = floatie.offsetHeight;
+          if (fx <= 0 || fx >= window.innerWidth - w) { fvx *= -1; fx = Math.max(0, Math.min(fx, window.innerWidth - w)); }
+          if (fy <= 0 || fy >= window.innerHeight - h) { fvy *= -1; fy = Math.max(0, Math.min(fy, window.innerHeight - h)); }
+          floatie.style.left = fx + "px";
+          floatie.style.top = fy + "px";
+        }
+        requestAnimationFrame(floatTick);
+      }
+      requestAnimationFrame(floatTick);
+
+      floatie.addEventListener("mousedown", function (e) {
+        floatDragging = true;
+        floatie.classList.add("dragging");
+        e.preventDefault();
+      });
+      document.addEventListener("mousemove", function (e) {
+        if (!floatDragging) return;
+        fx = e.clientX - floatie.offsetWidth / 2;
+        fy = e.clientY - floatie.offsetHeight / 2;
+        floatie.style.left = fx + "px";
+        floatie.style.top = fy + "px";
+      });
+      document.addEventListener("mouseup", function () {
+        if (!floatDragging) return;
+        floatDragging = false;
+        floatie.classList.remove("dragging");
+        fvx = (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random() * 0.8);
+        fvy = (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random() * 0.8);
+      });
+    }
+
+    var knob = document.getElementById("tpKnob");
+    var pointer = knob ? knob.querySelector(".tp-knob-pointer") : null;
+    if (knob) {
+      var conv = 1;
+      function applyConv(v) {
+        conv = Math.max(0, Math.min(4, v));
+        document.documentElement.style.setProperty("--tp-conv", conv);
+        if (pointer) pointer.style.transform = "translateX(-50%) rotate(" + (conv / 4 * 270 - 135) + "deg)";
+      }
+      applyConv(1);
+      var knobDragging = false;
+      var startY = 0, startConv = 1;
+      knob.addEventListener("mousedown", function (e) {
+        knobDragging = true;
+        knob.classList.add("dragging");
+        startY = e.clientY;
+        startConv = conv;
+        e.preventDefault();
+      });
+      document.addEventListener("mousemove", function (e) {
+        if (!knobDragging) return;
+        applyConv(startConv + (startY - e.clientY) / 30);
+      });
+      document.addEventListener("mouseup", function () {
+        knobDragging = false;
+        knob.classList.remove("dragging");
+      });
+    }
+  }
+
   function applyFlavor() {
     var theme = document.documentElement.dataset.theme || "muthur";
     var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
