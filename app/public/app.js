@@ -1182,6 +1182,11 @@
     proModeInput.checked = SERVER_PRO_MODE;
     proModeInput.addEventListener("change", function () {
       STATE._proMode = proModeInput.checked;
+      // The .pro-mode class (gates the ticket-tracking panels via CSS) is
+      // otherwise only ever set once at initial page load -- flip it here
+      // too so the toggle takes effect immediately in both directions,
+      // no reload required.
+      document.documentElement.classList.toggle("pro-mode", proModeInput.checked);
       persist();
     });
   }
