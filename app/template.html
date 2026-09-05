@@ -483,7 +483,7 @@
      top offset, not the tracker's viewport-relative one -- reusing that
      value here double-counted the boot bar's height and pushed it down
      into the subtitle row instead. */
-  [data-theme="hadleyshope"] .theme-switcher { top: 0.5rem; right: 140px; }
+  [data-theme="hadleyshope"] .theme-switcher { top: 2rem; right: 140px; }
   [data-theme="hadleyshope"] .subtitle::after {
     content:"Biohazard \2014  Area Sealed";
     display:inline-block; margin-top:0.6rem; font-family:var(--font-display); font-size:0.65rem;
@@ -578,6 +578,12 @@
   .hh-scene > * { display:none; }
   [data-theme="hadleyshope"] .hh-scene > * { display:block; }
   [data-theme="hadleyshope"] .hh-scene { pointer-events:none; }
+  /* pointer-events:none above cascades to descendants -- re-enable it for
+     the actually-interactive widgets (lever, switch, facehugger), or
+     nothing in the ambient scene is clickable at all. */
+  [data-theme="hadleyshope"] .hh-lever-rig,
+  [data-theme="hadleyshope"] .hh-switch-rig,
+  [data-theme="hadleyshope"] .hh-facehugger { pointer-events:auto; }
 
   [data-theme="hadleyshope"] .hh-grate-floor{
     position:fixed; inset:0; z-index:1; pointer-events:none;
