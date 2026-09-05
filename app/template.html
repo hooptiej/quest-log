@@ -498,8 +498,8 @@
      scaled by the tuning slider below instead of a guessed fixed value. */
   [data-theme="raccoonmanor"].power-cut .rm-ekg-hud,
   [data-theme="raccoonmanor"].power-cut .rm-ribbon-hud {
-    filter: brightness(var(--rm-hud-boost, 1.4)) contrast(1.1);
-    box-shadow: 0 0 0 3px #000, 0 0 calc(10px * var(--rm-hud-boost, 1.4)) calc(2px * var(--rm-hud-boost, 1.4)) color-mix(in srgb, var(--accent) 45%, transparent);
+    filter: brightness(var(--rm-hud-boost, 1.65)) contrast(1.1);
+    box-shadow: 0 0 0 3px #000, 0 0 calc(10px * var(--rm-hud-boost, 1.65)) calc(2px * var(--rm-hud-boost, 1.65)) color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   /* Generator valve: turn it to cut the power -- the room cools toward
@@ -603,7 +603,7 @@
   }
   [data-theme="raccoonmanor"].power-cut .boot,
   [data-theme="raccoonmanor"].power-cut .wrap {
-    filter: brightness(var(--rm-power-cut-brightness, 0.18)) contrast(1.25) saturate(0.55);
+    filter: brightness(var(--rm-power-cut-brightness, 0.28)) contrast(1.25) saturate(0.55);
   }
 
   /* power-cut duplicates: real, separate elements living in .rm-scene
@@ -675,8 +675,8 @@
   [data-theme="raccoonmanor"].power-cut .rm-eyes-dupe .rm-eye {
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
-    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 2.65)) calc(2px * var(--rm-power-cut-glow, 2.65)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 2.65)) calc(5px * var(--rm-power-cut-glow, 2.65)) rgba(111,216,255,0.45);
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
   [data-theme="raccoonmanor"].power-cut .rm-help-dupe {
     display: block !important;
@@ -685,9 +685,9 @@
     font-family: var(--font-head); font-size: 1.3rem; letter-spacing: 0.14em;
     color: transparent; opacity: 0.55; mix-blend-mode: screen;
     text-shadow:
-      0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
-      0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+      0 0 calc(4px * var(--rm-power-cut-glow, 2.65)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 2.65)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 2.65)) #4fa8ff,
+      0 0 calc(12px * var(--rm-power-cut-glow, 2.65)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 2.65)) rgba(47,111,237,0.4);
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
 
   /* UV stickers: repainted as a saturated blue glow instead of their
@@ -704,17 +704,17 @@
     color: #061020;
     background: rgba(6,12,28,0.94);
     border-color: #4fa8ff;
-    text-shadow: 0 0 calc(3px * var(--rm-power-cut-glow, 1)) #6fd8ff, 0 0 calc(7px * var(--rm-power-cut-glow, 1)) #4fa8ff;
-    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(14px * var(--rm-power-cut-glow, 1)) calc(4px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 1)) calc(9px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.25);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    text-shadow: 0 0 calc(3px * var(--rm-power-cut-glow, 2.65)) #6fd8ff, 0 0 calc(7px * var(--rm-power-cut-glow, 2.65)) #4fa8ff;
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 2.65)) calc(1px * var(--rm-power-cut-glow, 2.65)) #2f6fed, 0 0 calc(14px * var(--rm-power-cut-glow, 2.65)) calc(4px * var(--rm-power-cut-glow, 2.65)) rgba(47,111,237,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 2.65)) calc(9px * var(--rm-power-cut-glow, 2.65)) rgba(111,216,255,0.25);
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
 
   /* Progress bars get the same treatment, and the same caveat, as the
      stickers directly above -- deliberately not duplicated (one per card). */
   [data-theme="raccoonmanor"].power-cut .bar-fill {
     background: linear-gradient(90deg, #2f6fed, #6fd8ff);
-    box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 1)) calc(3px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 2.65)) calc(1px * var(--rm-power-cut-glow, 2.65)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 2.65)) calc(3px * var(--rm-power-cut-glow, 2.65)) rgba(47,111,237,0.6);
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
 
   /* Temp debug readout -- settings-mode only, remove once done tuning the
@@ -747,11 +747,11 @@
   [data-theme="raccoonmanor"] .rm-eye {
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
-    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 2.65)) calc(2px * var(--rm-power-cut-glow, 2.65)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 2.65)) calc(5px * var(--rm-power-cut-glow, 2.65)) rgba(111,216,255,0.45);
     /* Lives on .panel-quests/.panel-idea, which was never part of the
        darkened scope (see the note by .power-cut .boot above) -- nothing
        to cancel, glow scales directly. */
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -779,11 +779,11 @@
   [data-theme="raccoonmanor"].power-cut .rm-help-smudge {
     opacity: 0.55;
     text-shadow:
-      0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
-      0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
+      0 0 calc(4px * var(--rm-power-cut-glow, 2.65)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 2.65)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 2.65)) #4fa8ff,
+      0 0 calc(12px * var(--rm-power-cut-glow, 2.65)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 2.65)) rgba(47,111,237,0.4);
     /* Lives inside .rm-window/header.masthead, never part of the darkened
        scope (see the note by .power-cut .boot above) -- nothing to cancel. */
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    filter: brightness(var(--rm-power-cut-glow, 2.65));
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
@@ -2155,15 +2155,15 @@
     <span class="rm-valve-label">GENERATOR</span>
     <div class="rm-darkness-tune" id="rmDarknessTune">
       <label class="rm-darkness-tune-label" for="rmDarknessSlider">Darkness (dev)</label>
-      <input type="range" id="rmDarknessSlider" min="0.05" max="0.5" step="0.01" value="0.18" aria-label="Power-cut darkness level">
+      <input type="range" id="rmDarknessSlider" min="0.05" max="0.5" step="0.01" value="0.28" aria-label="Power-cut darkness level">
     </div>
     <div class="rm-glow-tune" id="rmGlowTune">
       <label class="rm-glow-tune-label" for="rmGlowSlider">Glow (dev)</label>
-      <input type="range" id="rmGlowSlider" min="0.1" max="6" step="0.05" value="1" aria-label="Power-cut UV glow intensity">
+      <input type="range" id="rmGlowSlider" min="0.1" max="6" step="0.05" value="2.65" aria-label="Power-cut UV glow intensity">
     </div>
     <div class="rm-hud-tune" id="rmHudTune">
       <label class="rm-hud-tune-label" for="rmHudBoostSlider">HUD boost (dev)</label>
-      <input type="range" id="rmHudBoostSlider" min="1" max="2.5" step="0.05" value="1.4" aria-label="Power-cut EKG/ribbon HUD brightness boost">
+      <input type="range" id="rmHudBoostSlider" min="1" max="2.5" step="0.05" value="1.65" aria-label="Power-cut EKG/ribbon HUD brightness boost">
     </div>
   </div>
   <div class="rm-candle-rig on" id="rmCandleRig">
