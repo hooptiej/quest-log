@@ -40,6 +40,19 @@ const WRITE_TOKEN = loadOrCreateWriteToken();
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
+// No caching, anywhere -- this is a low-traffic personal LAN app, not a
+// site where caching buys anything worth the cost. That cost showed up
+// concretely during active theme work: express.static's default headers
+// (ETag + ~Cache-Control: max-age=0) still leave room for a browser's own
+// heuristics to serve a stale app.js on a plain reload while a hard
+// refresh forces revalidation -- exactly the "hard refresh looks right,
+// normal reload doesn't" symptom that cost real time to track down. The
+// rendered "/" page is dynamic (reflects live state) and was never
+// correct to cache regardless.
+app.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 app.use(express.static(join(__dirname, "public")));
 
 app.get("/", async (_req, res, next) => {
