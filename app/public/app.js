@@ -1016,8 +1016,10 @@
       }
     }
 
-    // Pro-mode: ticket tracking UI
-    if (SERVER_PRO_MODE) {
+    // Pro-mode: ticket tracking UI. Reads live state, not the load-time
+    // SERVER_PRO_MODE snapshot -- unlike Designation, this is meant to take
+    // effect immediately when flipped, no reload required.
+    if (state._proMode) {
       var stats = ticketStats(state);
       var touchedEl = document.getElementById("stat-touched");
       if (touchedEl) touchedEl.textContent = fmtStat(stats.touched);

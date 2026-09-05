@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState, bumpArtifactChangeCounter, nowISO } from "../state.js";
+import { readState, mutateState, validateState, bumpArtifactChangeCounter, nowISO, setProMode } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import pkg from "../package.json" with { type: "json" };
@@ -121,6 +121,12 @@ app.post("/api/state", async (req, res, next) => {
         // field locks itself read-only once a name exists.
         if (typeof incoming.designation === "string" && incoming.designation.trim()) {
           state.designation = incoming.designation.trim();
+        }
+        // Pro Mode's settings-panel checkbox rides along on this same
+        // wholesale save too -- same reasoning as designation above, just
+        // without the one-time lock (it's a live, flippable switch).
+        if (typeof incoming._proMode === "boolean") {
+          setProMode(state, { enabled: incoming._proMode });
         }
         // Wholesale write from the browser UI -- it only ever toggles/cycles
         // status or adds a new quest (no log-only edits exposed there), so
