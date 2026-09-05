@@ -191,11 +191,19 @@
     0%,100%{ box-shadow: 0 0 40px 18px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 90px 40px color-mix(in srgb, var(--accent) 12%, transparent); }
     50%{ box-shadow: 0 0 30px 10px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 70px 30px color-mix(in srgb, var(--accent) 8%, transparent); }
   }
-  [data-theme="raccoonmanor"] .rm-lightning {
-    position:absolute; inset:0; z-index:1; pointer-events:none; opacity:0;
-    background: radial-gradient(circle at 50% 40%, rgba(225,235,255,0.95), rgba(200,215,240,0.4) 55%, transparent 85%);
+  /* The actual bolt shape seen through the glass -- a filled zigzag SVG,
+     not just a glow wash (the full-viewport wash lives separately as
+     .rm-storm-flash, in .rm-scene; see the comment there for why). Sized
+     and rotated to read as a streak of sky cutting across the upper-right
+     pane. Normally invisible; .flash (added by the same strike() JS that
+     drives .rm-storm-flash) plays the shared opacity keyframe below. */
+  [data-theme="raccoonmanor"] .rm-lightning-bolt {
+    position:absolute; top:6%; left:56%; width:26%; height:64%; z-index:1;
+    pointer-events:none; opacity:0; transform: rotate(6deg);
+    fill: #eaf4ff;
+    filter: drop-shadow(0 0 4px #cfe6ff) drop-shadow(0 0 10px #8fc4ff);
   }
-  [data-theme="raccoonmanor"] .rm-lightning.flash { animation: rm-lightning-flash 0.4s ease-out; }
+  [data-theme="raccoonmanor"] .rm-lightning-bolt.flash { animation: rm-lightning-flash 0.4s ease-out; }
   @keyframes rm-lightning-flash { 0%{opacity:0;} 8%{opacity:1;} 18%{opacity:0.15;} 28%{opacity:0.85;} 45%,100%{opacity:0;} }
   [data-theme="raccoonmanor"] .rm-curtain {
     position:absolute; top:0; bottom:0; width:46%; z-index:2;
@@ -426,6 +434,20 @@
   /* ---- Ambient scene: roach, ceiling drips, EKG/ribbon HUD, the
      generator valve, and the FX kill switch. All live in .rm-scene,
      added straight after <body> -- zero footprint for every other theme. ---- */
+
+  /* Full-viewport lightning wash. Deliberately placed in .rm-scene (a
+     sibling of .wrap/.boot under <body>, not a descendant) rather than
+     inside .rm-window -- lightning is outdoor weather, unrelated to the
+     room's own generator, and a sibling of .wrap is structurally outside
+     reach of .wrap's power-cut brightness filter, so no reciprocal-filter
+     math is needed here the way .rm-moon and .rm-lightning-bolt need it.
+     fixed+inset:0 covers the real viewport, not just the window's bounds. */
+  [data-theme="raccoonmanor"] .rm-storm-flash {
+    position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at 50% 35%, rgba(225,235,255,0.95), rgba(200,215,240,0.35) 55%, transparent 85%);
+  }
+  [data-theme="raccoonmanor"] .rm-storm-flash.flash { animation: rm-lightning-flash 0.4s ease-out; }
+
   [data-theme="raccoonmanor"] .rm-roach { position: fixed; z-index: 2; bottom: 1.5%; pointer-events: none; animation: rm-roach-skitter 15s linear infinite; }
   [data-theme="raccoonmanor"] .rm-roach svg { width: 24px; height: 13px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.9)); }
   @keyframes rm-roach-skitter {
@@ -498,15 +520,16 @@
   @keyframes rm-valve-prompt { 0%,100%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6); } 50%{ box-shadow: 0 4px 10px rgba(0,0,0,0.6), 0 0 14px 5px color-mix(in srgb, var(--alarm) 55%, transparent); } }
   [data-theme="raccoonmanor"] .rm-valve-label { display: block; margin-top: 0.3rem; font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
 
-  /* Dev-only tuning slider for the power-cut darkness level (--rm-power-cut-brightness,
-     read by the .power-cut .boot/.wrap filter rule below). Deliberately styled as an
-     obvious debug control, not a themed widget -- lime/mono, dashed border -- so it
-     reads as "temporary tool" rather than a permanent feature. Irrelevant while power
-     is on: hidden outright rather than just dimmed, so it can't be fiddled with or
-     mistaken for a live control when it has no effect. Remove (or hide behind a flag)
-     once the owner locks in a final default and it gets hardcoded above instead. */
+  /* Tuning slider for the power-cut darkness level (--rm-power-cut-brightness,
+     read by the .power-cut .boot/.wrap filter rule below). Styled as an
+     obvious debug control, not a themed widget -- lime/mono, dashed border --
+     so it reads as a settings-panel tool, not part of the theme itself.
+     Requires BOTH settings-mode (a permanent feature now, toggled only via
+     the set_settings_mode MCP tool -- see state.js/questhelper.js -- not an
+     in-page control) AND power-cut (irrelevant otherwise, so hidden outright
+     rather than just dimmed while it'd have no visible effect). */
   [data-theme="raccoonmanor"] .rm-darkness-tune { display: none; }
-  [data-theme="raccoonmanor"].power-cut .rm-darkness-tune {
+  [data-theme="raccoonmanor"].power-cut.settings-mode .rm-darkness-tune {
     display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
     background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
   }
@@ -524,7 +547,7 @@
      darkness slider directly above -- hidden outright while power is on,
      removed once the owner locks in a final multiplier. */
   [data-theme="raccoonmanor"] .rm-glow-tune { display: none; }
-  [data-theme="raccoonmanor"].power-cut .rm-glow-tune {
+  [data-theme="raccoonmanor"].power-cut.settings-mode .rm-glow-tune {
     display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
     background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
   }
@@ -544,7 +567,7 @@
      glowing all the more against a much darker room," which is the actual
      ask. Same debug-widget look/lifecycle as the other two sliders above. */
   [data-theme="raccoonmanor"] .rm-hud-tune { display: none; }
-  [data-theme="raccoonmanor"].power-cut .rm-hud-tune {
+  [data-theme="raccoonmanor"].power-cut.settings-mode .rm-hud-tune {
     display: block; margin-top: 0.5rem; padding: 0.3rem 0.4rem;
     background: #0a0a08; border: 1px dashed #5fd75f; border-radius: 4px;
   }
@@ -603,6 +626,21 @@
     filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18)));
   }
 
+  /* .rm-lightning-bolt has the exact same problem the moon has, for the
+     exact same reason: it has to live inside .rm-window for positioning,
+     which puts it under .wrap's power-cut darkness filter, but a lightning
+     bolt isn't lit by the room's generator either. Same reciprocal-chain
+     fix as .rm-moon above (see that comment for the math). The difference
+     here is the element also carries its OWN filter (the drop-shadow glow
+     from the base rule) -- filter values in one declaration compose as a
+     list, so the reciprocal chain and the glow both need to live in this
+     one property, reciprocal first since only that part needs to cancel
+     the parent; drop-shadow just layers on top afterward. */
+  [data-theme="raccoonmanor"].power-cut .rm-lightning-bolt {
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18)))
+      drop-shadow(0 0 4px #cfe6ff) drop-shadow(0 0 10px #8fc4ff);
+  }
+
   /* UV stickers: the paper-label rule above (quest-tag/ready-badge) is
      dark ink on cream paper -- reads fine in daylight, but a dim color
      just gets scaled dimmer by the brightness() crush above, same as
@@ -621,10 +659,23 @@
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(14px * var(--rm-power-cut-glow, 1)) calc(4px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 1)) calc(9px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.25);
     /* Blur radius alone controls spread, not perceived brightness -- a
        bigger halo spread over more area can even read as dimmer. Scaling
-       the element's own brightness() is what actually makes the slider
-       feel like "brighter," not just "wider." Tempered (0.5 + 0.5x) rather
-       than a raw multiplier so the 0.5-4 slider range doesn't blow out. */
-    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
+       the element's own brightness() directly by the same slider value is
+       what actually makes it feel like "brighter," not just "wider" --
+       untempered (not 0.5+0.5x) so the slider's wide 0.1-6 range has real
+       visible range from barely-lit to blown-out, since these colors are
+       already fairly saturated/light and a narrower multiplier range
+       clips into "looks about the same" territory too easily. */
+    filter: brightness(var(--rm-power-cut-glow, 1));
+  }
+
+  /* Progress bars get the same UV treatment as the stickers, same reason:
+     the theme accent color would just get scaled dimmer by .wrap's crush
+     otherwise. Track stays as-is (it's not evidence, just the groove the
+     fill sits in); only the fill itself glows blue. */
+  [data-theme="raccoonmanor"].power-cut .bar-fill {
+    background: linear-gradient(90deg, #2f6fed, #6fd8ff);
+    box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 1)) calc(3px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6);
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* Eyes in the dark: something peeking around the edge of the corkboard
@@ -645,7 +696,7 @@
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
-    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -675,7 +726,7 @@
     text-shadow:
       0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
       0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
-    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
@@ -691,7 +742,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
-    [data-theme="raccoonmanor"] .rm-lightning { animation: none !important; }
+    [data-theme="raccoonmanor"] .rm-storm-flash,
+    [data-theme="raccoonmanor"] .rm-lightning-bolt { animation: none !important; }
     [data-theme="raccoonmanor"].power-cut .rm-critter-eyes { animation: none; opacity: 0.85; }
   }
 
@@ -2000,6 +2052,7 @@
 </head>
 <body>
 <div class="rm-scene" id="rmScene" aria-hidden="true">
+  <div class="rm-storm-flash" id="rmStormFlash"></div>
   <div class="rm-roach"><svg viewBox="0 0 24 13"><ellipse cx="12" cy="6.5" rx="11" ry="4" fill="#050705"/><ellipse cx="3.5" cy="6.5" rx="2.6" ry="2.3" fill="#050705"/><circle cx="2" cy="5.5" r="0.6" fill="#a8d3dc"/></svg></div>
 
   <div id="rmDripLayer">
@@ -2035,7 +2088,7 @@
     </div>
     <div class="rm-glow-tune" id="rmGlowTune">
       <label class="rm-glow-tune-label" for="rmGlowSlider">Glow (dev)</label>
-      <input type="range" id="rmGlowSlider" min="0.5" max="4" step="0.05" value="1" aria-label="Power-cut UV glow intensity">
+      <input type="range" id="rmGlowSlider" min="0.1" max="6" step="0.05" value="1" aria-label="Power-cut UV glow intensity">
     </div>
     <div class="rm-hud-tune" id="rmHudTune">
       <label class="rm-hud-tune-label" for="rmHudBoostSlider">HUD boost (dev)</label>
@@ -2188,7 +2241,9 @@
     </div>
     <div class="rm-window" id="rmWindow" aria-hidden="true">
       <div class="rm-moon"></div>
-      <div class="rm-lightning" id="rmLightning"></div>
+      <svg class="rm-lightning-bolt" id="rmLightningBolt" viewBox="0 0 40 100" aria-hidden="true">
+        <path d="M22 0 L4 55 L16 55 L10 100 L36 40 L20 40 Z"></path>
+      </svg>
       <div class="rm-help-smudge" aria-hidden="true">HELP</div>
       <div class="rm-sash"></div>
       <div class="rm-curtain rm-curtain-left"></div>

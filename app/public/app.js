@@ -278,37 +278,37 @@
       });
     }
 
-    // Dev-only live tuning for the power-cut darkness level: moves
-    // --rm-power-cut-brightness (read by the .power-cut .boot/.wrap filter
-    // in the CSS) so the owner can dial in a value in one sitting instead
-    // of many round-trips. The slider itself is hidden by CSS whenever
-    // power-cut isn't active, so this listener just needs to exist -- it's
-    // a no-op with no visible effect the rest of the time.
-    var darknessSlider = document.getElementById("rmDarknessSlider");
-    if (darknessSlider) {
-      darknessSlider.addEventListener("input", function () {
-        document.documentElement.style.setProperty("--rm-power-cut-brightness", darknessSlider.value);
+    // Settings-mode tuning sliders (darkness/glow/HUD boost) -- each moves a
+    // CSS custom property live on "input" for instant feedback while
+    // dragging, and saves to STATE._themeTuning.raccoonmanor on "change"
+    // (once per interaction, not per drag-tick) through the same
+    // persist()/write-token path every other mutation in this app already
+    // uses -- "saved with the site," not per-browser localStorage, so the
+    // chosen values show up the same on any machine that loads the page.
+    // Only visible at all under settings-mode (see the settings-mode class
+    // applied near the bottom of this file); wiring one up while hidden is
+    // harmless, just a no-op with no visible effect.
+    function wireTunedSlider(elementId, cssVarName, tuningKey) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var saved = (STATE._themeTuning && STATE._themeTuning.raccoonmanor && STATE._themeTuning.raccoonmanor[tuningKey]);
+      if (saved !== undefined && saved !== null) {
+        el.value = saved;
+        document.documentElement.style.setProperty(cssVarName, saved);
+      }
+      el.addEventListener("input", function () {
+        document.documentElement.style.setProperty(cssVarName, el.value);
+      });
+      el.addEventListener("change", function () {
+        STATE._themeTuning = STATE._themeTuning || {};
+        STATE._themeTuning.raccoonmanor = STATE._themeTuning.raccoonmanor || {};
+        STATE._themeTuning.raccoonmanor[tuningKey] = el.value;
+        persist();
       });
     }
-
-    // Dev-only live tuning for the power-cut UV glow intensity: moves
-    // --rm-power-cut-glow (read by the sticker/eyes/HELP-smudge shadow
-    // calc()s in the CSS), same pattern as the darkness slider above.
-    var glowSlider = document.getElementById("rmGlowSlider");
-    if (glowSlider) {
-      glowSlider.addEventListener("input", function () {
-        document.documentElement.style.setProperty("--rm-power-cut-glow", glowSlider.value);
-      });
-    }
-
-    // --rm-hud-boost (read by the EKG/ribbon HUD's power-cut brightness/glow
-    // rule in the CSS), same pattern as the two sliders above.
-    var hudBoostSlider = document.getElementById("rmHudBoostSlider");
-    if (hudBoostSlider) {
-      hudBoostSlider.addEventListener("input", function () {
-        document.documentElement.style.setProperty("--rm-hud-boost", hudBoostSlider.value);
-      });
-    }
+    wireTunedSlider("rmDarknessSlider", "--rm-power-cut-brightness", "darkness");
+    wireTunedSlider("rmGlowSlider", "--rm-power-cut-glow", "glow");
+    wireTunedSlider("rmHudBoostSlider", "--rm-hud-boost", "hudBoost");
 
     var candleRig = document.getElementById("rmCandleRig");
     var candleBtn = document.getElementById("rmCandleBtn");
@@ -319,13 +319,25 @@
       });
     }
 
-    var lightning = document.getElementById("rmLightning");
-    if (!reduce && lightning) {
+    // Two elements flash together on every strike: #rmStormFlash (a fixed,
+    // full-viewport wash living in .rm-scene -- see the CSS comment there
+    // for why that placement sidesteps the power-cut filter entirely) and
+    // #rmLightningBolt (the actual bolt shape seen through the window,
+    // living in .rm-window with its own reciprocal-filter immunity). Both
+    // just toggle the same .flash class/restart trick the old single
+    // #rmLightning div used.
+    var stormFlash = document.getElementById("rmStormFlash");
+    var lightningBolt = document.getElementById("rmLightningBolt");
+    if (!reduce && stormFlash && lightningBolt) {
+      function flashEl(el) {
+        el.classList.remove("flash");
+        void el.offsetWidth; // restart the CSS animation
+        el.classList.add("flash");
+      }
       function strike() {
         if (!isRaccoonManor()) return;
-        lightning.classList.remove("flash");
-        void lightning.offsetWidth; // restart the CSS animation
-        lightning.classList.add("flash");
+        flashEl(stormFlash);
+        flashEl(lightningBolt);
         if (Math.random() < 0.3) setTimeout(strike, 220 + Math.random() * 180);
         // ~10% of strikes trip the generator -- same power-cut state the
         // valve wheel toggles manually, so turning it back on afterward
@@ -1160,6 +1172,12 @@
       persist();
     });
   }
+
+  // Settings mode (Raccoon Manor's power-cut tuning sliders, currently the
+  // only thing gated on it) has no in-page toggle by design -- flipped only
+  // via the set_settings_mode MCP tool, read here from the server-rendered
+  // state the same way SERVER_DESIGNATION is above.
+  document.documentElement.classList.toggle("settings-mode", !!STATE._settingsMode);
 
   render(STATE);
   initHadleysHopeEffects();

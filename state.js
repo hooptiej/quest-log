@@ -364,6 +364,22 @@ export function setMaintenance(state, { active, note }) {
   return state._maintenance;
 }
 
+// Reveals per-theme dev/tuning controls (currently: Raccoon Manor's
+// power-cut darkness/glow/HUD-boost sliders) in the UI. Deliberately has no
+// in-page toggle -- flipped only via the set_settings_mode MCP tool, same
+// "ask Claude to change it, no code change needed" pattern as setDesignation
+// below, so the owner can turn it on/off from any machine without touching
+// a repo. Named "settings mode" rather than "dev mode" to keep it out of
+// the way of this project's actual dev/prod branch and environment naming.
+export function getSettingsMode(state) {
+  return state._settingsMode ?? false;
+}
+
+export function setSettingsMode(state, { enabled }) {
+  state._settingsMode = !!enabled;
+  return state._settingsMode;
+}
+
 // The level directly above/below each tier, for promote (up) and recruit
 // (down). There's no entry for the ends (promoting a quest, recruiting a
 // task) -- callers check for that themselves and reject with a clearer
