@@ -665,7 +665,16 @@
        visible range from barely-lit to blown-out, since these colors are
        already fairly saturated/light and a narrower multiplier range
        clips into "looks about the same" territory too easily. */
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    /* brightness(glow) alone isn't enough: the parent .wrap filter's
+       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
+       regardless of how high glow goes -- that's why turning the slider up
+       was only shifting color (grey <-> blue) while staying dark, not
+       actually brightening. Cancel the parent's whole chain first (the same
+       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
+       layer the glow slider's own brightness on top of that canceled
+       baseline -- so glow is a clean, independent control, unaffected by
+       wherever the darkness slider happens to be set. */
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* Progress bars get the same UV treatment as the stickers, same reason:
@@ -675,7 +684,16 @@
   [data-theme="raccoonmanor"].power-cut .bar-fill {
     background: linear-gradient(90deg, #2f6fed, #6fd8ff);
     box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 1)) calc(3px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    /* brightness(glow) alone isn't enough: the parent .wrap filter's
+       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
+       regardless of how high glow goes -- that's why turning the slider up
+       was only shifting color (grey <-> blue) while staying dark, not
+       actually brightening. Cancel the parent's whole chain first (the same
+       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
+       layer the glow slider's own brightness on top of that canceled
+       baseline -- so glow is a clean, independent control, unaffected by
+       wherever the darkness slider happens to be set. */
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* Eyes in the dark: something peeking around the edge of the corkboard
@@ -696,7 +714,16 @@
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    /* brightness(glow) alone isn't enough: the parent .wrap filter's
+       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
+       regardless of how high glow goes -- that's why turning the slider up
+       was only shifting color (grey <-> blue) while staying dark, not
+       actually brightening. Cancel the parent's whole chain first (the same
+       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
+       layer the glow slider's own brightness on top of that canceled
+       baseline -- so glow is a clean, independent control, unaffected by
+       wherever the darkness slider happens to be set. */
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -726,7 +753,16 @@
     text-shadow:
       0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
       0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
-    filter: brightness(var(--rm-power-cut-glow, 1));
+    /* brightness(glow) alone isn't enough: the parent .wrap filter's
+       contrast(1.25)/saturate(0.55) still apply AFTER this element renders,
+       regardless of how high glow goes -- that's why turning the slider up
+       was only shifting color (grey <-> blue) while staying dark, not
+       actually brightening. Cancel the parent's whole chain first (the same
+       exact reciprocal trick used on .rm-moon/.rm-lightning-bolt), then
+       layer the glow slider's own brightness on top of that canceled
+       baseline -- so glow is a clean, independent control, unaffected by
+       wherever the darkness slider happens to be set. */
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18))) brightness(var(--rm-power-cut-glow, 1));
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
