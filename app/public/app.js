@@ -213,6 +213,23 @@
     return '<button type="button" class="note-btn attention-btn" data-action="toggle-attention" data-id="' + escapeHtml(q.id) + '">' + (q.attention ? "unmark" : "🔔 mark") + '</button>';
   }
 
+  // Real per-row decoration hooks (not CSS pseudo-elements) so a theme can
+  // give a row its own pin/tear/seal/whatever without fighting the shared
+  // .quest/.tree-node markup every theme renders through. Empty and
+  // zero-footprint by default (see .card-pin/.card-edge base rules) -- a
+  // theme opts in by styling them, nothing changes for one that doesn't.
+  // Jitter is derived from the item's own id (a stable hash), not DOM
+  // position, so a given card's rotation doesn't shift as siblings are
+  // added/removed/filtered around it.
+  function jitterClass(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return "card-jitter-" + "abc"[h % 3];
+  }
+  function cardDecoration() {
+    return '<span class="card-pin" aria-hidden="true"></span><span class="card-edge" aria-hidden="true"></span>';
+  }
+
   function questRow(q) {
     var checked = q.status === "done";
     var childLevel = childLevelFor(q.level);
@@ -221,7 +238,8 @@
     // always safe here -- the only gate is not already being a Quest.
     var canPromote = q.level !== "quest";
     return (
-      '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="quest ' + jitterClass(q.id) + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+        cardDecoration() +
         '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
           (checked ? "[x]" : "[ ]") +
         '</button>' +
@@ -305,7 +323,8 @@
     var hasChildren = allChildren.length > 0;
 
     return (
-      '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="tree-node ' + jitterClass(q.id) + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+        cardDecoration() +
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren

@@ -189,8 +189,114 @@
     opacity: 0.7;
   }
   [data-theme="raccoonmanor"] .subtitle { font-style: italic; }
-  [data-theme="raccoonmanor"] .quest-title,
-  [data-theme="raccoonmanor"] .tree-title { font-weight: 500; }
+
+  /* ---- Corkboard: the Quests + Idea Board panels become an actual board ---- */
+  [data-theme="raccoonmanor"] .panel-quests,
+  [data-theme="raccoonmanor"] .panel-idea {
+    background:
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0 2px, transparent 2px 6px),
+      radial-gradient(ellipse at 30% 20%, #2c2318, #1a140d 70%);
+    border-color: #14100a;
+  }
+
+  /* Paper-card base: every row under the board becomes a scrap of paper,
+     at any nesting depth (a sub-task pinned under its mission still reads
+     as paper, not a dark box floating inside a light one). */
+  [data-theme="raccoonmanor"] .panel-quests .tree-node,
+  [data-theme="raccoonmanor"] .panel-idea .quest {
+    position: relative;
+    background: linear-gradient(178deg, #e9e3cd, #dcd5b8);
+    border: none;
+    border-radius: 1px;
+    color: #241c10;
+  }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-children,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-completed {
+    border-left-color: #b9ac83;
+  }
+
+  /* Top-level cards get the full pinned-to-the-board treatment: lift,
+     hand-placed rotation (per item, via the jitter class the renderer
+     assigns from the item's own id), a thumbtack, a torn bottom edge. */
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node,
+  [data-theme="raccoonmanor"] #list-idea > .quest {
+    padding: 0.85rem 1rem 1.15rem;
+    margin: 0 0.2rem 1.3rem 0.5rem;
+    box-shadow: 2px 5px 12px rgba(0,0,0,0.55);
+  }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-a,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-a { transform: rotate(-1.6deg); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-b,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-b { transform: rotate(1.2deg); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-c,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-c { transform: rotate(-0.4deg); }
+
+  [data-theme="raccoonmanor"] .card-pin {
+    display: block;
+    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e58a92, var(--alarm) 70%);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .card-edge {
+    display: block;
+    position: absolute; left: 4%; right: 4%; bottom: -6px; height: 10px;
+    background: linear-gradient(178deg, #dcd5b8, transparent);
+    clip-path: polygon(0% 0%,6% 100%,12% 8%,18% 100%,24% 4%,30% 100%,36% 8%,42% 100%,48% 0%,
+                        54% 100%,60% 6%,66% 100%,72% 4%,78% 100%,84% 8%,90% 100%,96% 4%,100% 0%);
+  }
+  /* Nested (sub-task/sub-idea) cards stay flat paper, no pin/rotation --
+     they read as notes clipped to the card above them, not their own
+     pinned object. */
+  [data-theme="raccoonmanor"] .panel-quests .tree-children .card-pin,
+  [data-theme="raccoonmanor"] .panel-quests .tree-completed .card-pin { display: none; }
+
+  /* Readability: paper is light, the theme's own --text/--muted are pale
+     moonlight tones meant for the dark ground everywhere else. */
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-title,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-title { color: #241c10; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-meta,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-notes,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-notes-teaser,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .child-count,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-notes,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-notes-teaser { color: #5a4f34; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-toggle,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-check,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .note-btn,
+  [data-theme="raccoonmanor"] .panel-idea .quest .note-btn { color: #6b3a1f; border-color: #b9ac83; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node.is-done .tree-title,
+  [data-theme="raccoonmanor"] .panel-idea .quest.is-done .quest-title {
+    color: #8a7a5a;
+    text-decoration-color: var(--alarm);
+  }
+
+  /* ---- Evidence Log: the sidebar log becomes a torn page ---- */
+  [data-theme="raccoonmanor"] .log-panel-mini {
+    position: relative;
+    background: linear-gradient(178deg, #e5dfc7, #d7cfaf);
+    color: #241c10;
+    border: none;
+    box-shadow: 3px 6px 18px rgba(0,0,0,0.5);
+  }
+  [data-theme="raccoonmanor"] .log-panel-mini h2 { color: var(--alarm); text-shadow: none; }
+  [data-theme="raccoonmanor"] .log-panel-mini .card-edge {
+    left: 8px; right: 8px; bottom: -6px; height: 12px;
+  }
+  [data-theme="raccoonmanor"] .log-mini-list li {
+    color: #4a4126;
+    font-family: var(--font-body);
+    font-style: italic;
+    border-bottom-color: rgba(36,28,16,0.25);
+  }
+  [data-theme="raccoonmanor"] .log-mini-date {
+    color: var(--alarm);
+    opacity: 1;
+    font-family: var(--font-mono);
+    font-style: normal;
+  }
+  [data-theme="raccoonmanor"] .unroll-btn { color: #6b3a1f; border-color: #b9ac83; }
+  [data-theme="raccoonmanor"] .unroll-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
   @media (prefers-reduced-motion: reduce) {
     [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
@@ -514,6 +620,15 @@
     background: color-mix(in srgb, var(--alarm) 7%, transparent);
   }
   .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
+
+  /* Real per-row decoration hooks, not CSS pseudo-elements -- every .quest
+     and .tree-node row carries these two empty, positioned-nowhere spans
+     regardless of theme, so a theme can give a row a pin/tear/seal/whatever
+     of its own without fighting shared markup. Zero footprint until a
+     theme opts in (a theme styles them via its own [data-theme="X"]
+     selectors); absent that they render as literally nothing. */
+  .card-pin, .card-edge { display: none; }
+  .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
@@ -975,6 +1090,7 @@
     <aside class="layout-sidebar">
       <section class="panel log-panel-mini">
         <div class="corner-bl"></div><div class="corner-br"></div>
+        <span class="card-edge" aria-hidden="true"></span>
         <h2>Recent Activity</h2>
         <ul class="log-mini-list" id="log-body-mini"></ul>
         <button type="button" class="unroll-btn" data-action="toggle-log-full" aria-expanded="false">Show full log &#9662;</button>
