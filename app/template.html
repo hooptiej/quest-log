@@ -166,16 +166,9 @@
      screen space. The moon is the brightest thing in the scene; distant
      lightning occasionally flashes through it, and ~1 in 10 strikes trips
      the generator (see .rm-valve-rig below). */
-  [data-theme="raccoonmanor"] header.masthead { padding: 1.75rem 0 1.25rem; z-index: 0; }
+  [data-theme="raccoonmanor"] header.masthead { padding: 1.75rem 0 1.25rem; }
   [data-theme="raccoonmanor"] .rm-window {
-    /* z-index:2, not 0/1 -- clears header.masthead's own power-cut
-       darkening overlay (z-index:1, added below) the same way the card's
-       z-index:2 clears the corkboard panel's. The whole window (moon,
-       lightning bolt, sash, curtains, HELP smudge) rides above the
-       overlay together as one unit, rather than only the moon poking
-       through a still-darkened frame -- simpler, and nothing asked for
-       the frame itself to stay dark while just the moon glows through it. */
-    position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 2;
+    position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 0;
     width: min(92%, 420px);
     border: 3px solid #5a4530; border-radius: 2px; background: linear-gradient(180deg, #05070a, #0e120c);
     box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 0 6px #14170f, 0 0 0 1px #2c2013; overflow: hidden;
@@ -276,18 +269,6 @@
     border-color: #14100a;
     border-width: 4px;
     box-shadow: inset 0 0 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04), 0 3px 12px rgba(0,0,0,0.6);
-    z-index: 0;
-  }
-  /* The board itself darkens too, same overlay-not-filter approach as the
-     cards (see the note by .power-cut .boot). .rm-critter-eyes already
-     sits at z-index:6 (well above this overlay's z-index:1) so the eyes
-     keep glowing through the darkened board. */
-  [data-theme="raccoonmanor"].power-cut .panel-quests::after,
-  [data-theme="raccoonmanor"].power-cut .panel-idea::after {
-    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: #000; border-radius: inherit;
-    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
-    transition: opacity 1.3s ease;
   }
 
   /* Paper-card base: every row under the board becomes a scrap of paper,
@@ -320,14 +301,8 @@
     margin: 1.5rem 0.2rem 0 0.5rem;
     /* Own stacking context so card-edge-top's negative z-index tucks it
        behind THIS card specifically, rather than behind whatever the
-       page happens to stack beneath a plain position:relative element.
-       2, not 0, so the whole card also clears the corkboard panel's own
-       darkening overlay (z-index:1, see .power-cut .panel-quests::after
-       further down) -- otherwise the panel's overlay, being later in
-       paint order at the same tier, would paint over the card and hide
-       its stickers/progress bar despite their own z-index being higher
-       than IT locally. */
-    z-index: 2;
+       page happens to stack beneath a plain position:relative element. */
+    z-index: 0;
     box-shadow: 2px 5px 12px rgba(0,0,0,0.55), 0 -3px 6px -1px rgba(0,0,0,0.45);
   }
   [data-theme="raccoonmanor"] #quest-tree > .tree-node:first-child,
@@ -608,78 +583,94 @@
   [data-theme="raccoonmanor"].power-cut {
     --bg: #05070a; --surface: #12181c; --surface-2: #1a2226; --text: #c9d9dd; --muted: #5c6e73;
   }
-  /* Darkening no longer lives on .wrap as one ancestor-level filter. It
-     looked simple, but a filter on an ancestor cannot be selectively
-     un-done for one descendant short of exactly cancelling its whole
-     chain -- and that reciprocal-math approach (still visible in git
-     history) turned out to not reliably survive real rendering, and
-     compounds badly with the UV-glow elements' OWN filters (their glow
-     kept reading as a saturation/color shift instead of brightness,
-     because contrast()/saturate() from the ancestor still landed on top
-     of whatever they did).
+  /* Back to the simple version: one filter on the two real content
+     containers, everything in them darkens uniformly, no per-element
+     exemptions. Both the reciprocal-filter-cancellation attempt and the
+     per-level-overlay-plus-stacking-context attempt (both still visible in
+     git history) kept producing new breakage chasing exemptions for the
+     moon/glow elements. Simpler fix: stop trying to make the ORIGINAL
+     moon/bolt/eyes/HELP-smudge survive the darkening at all -- they darken
+     right along with everything else now, same as any other card content,
+     and separate, undarkened DUPLICATES of those four render on top
+     instead (search "power-cut duplicates" further down) via .rm-scene,
+     which was never inside anything this filter touches. Stickers and
+     progress bars don't get a duplicate (there's one of each per card,
+     dynamically many, versus one fixed instance of the other four) --
+     they just darken with the room for now. */
+  [data-theme="raccoonmanor"] .boot,
+  [data-theme="raccoonmanor"] .wrap {
+    transition: filter 1.3s ease;
+  }
+  [data-theme="raccoonmanor"].power-cut .boot,
+  [data-theme="raccoonmanor"].power-cut .wrap {
+    filter: brightness(var(--rm-power-cut-brightness, 0.18)) contrast(1.25) saturate(0.55);
+  }
 
-     Replaced with the same simple mechanism repeated at every level that
-     needs to darken (.boot, header.masthead, each corkboard panel, each
-     card): a semi-transparent ::after overlay whose opacity reads
-     --rm-power-cut-brightness, plus a stacking context (position +
-     explicit z-index) on that same element so the overlay's z-index:1
-     stays scoped locally rather than competing against unrelated parts
-     of the page. Whatever should stay lit within a given level just
-     needs its own z-index above 1, THAT level's own z-index bumped
-     high enough to also clear whatever darkens the level above IT, and
-     so on up the tree -- .rm-window (2) clears header.masthead's overlay,
-     the card (2) clears the panel's overlay, stickers/progress-bar (2)
-     clear the card's own overlay. No cancellation math anywhere, just
-     ordinary stacking, repeated at each level that needs an exemption. */
-  [data-theme="raccoonmanor"] .boot { transition: filter 1.3s ease; }
-  [data-theme="raccoonmanor"].power-cut .boot {
-    filter: brightness(var(--rm-power-cut-brightness, 0.18));
+  /* power-cut duplicates: real, separate elements living in .rm-scene
+     (never touched by .wrap/.boot's filter above, same reason
+     .rm-storm-flash isn't -- see that comment further down), shown only
+     during power-cut, standing in for the moon/bolt/eyes/HELP-smudge
+     instead of trying to make those originals survive the darkening
+     filter. Reuses the originals' existing @keyframes (global, not
+     scoped, so no need to redefine rm-moonpulse/rm-lightning-flash/
+     rm-eyes-fadein/rm-eyes-blink here). Position is a first-guess
+     approximation of where the real ones sit -- fixed coordinates, won't
+     track scrolling, and will likely need visual tuning once seen live. */
+  [data-theme="raccoonmanor"] .rm-moon-dupe,
+  [data-theme="raccoonmanor"] .rm-bolt-dupe,
+  [data-theme="raccoonmanor"] .rm-eyes-dupe,
+  [data-theme="raccoonmanor"] .rm-help-dupe {
+    display: none;
   }
-  /* Title/subtitle/theme-switcher darken along with everything else;
-     .rm-window clears this overlay via its own z-index:2 (see above) so
-     the moon/bolt/curtains/HELP-smudge stay lit as one unit regardless. */
-  [data-theme="raccoonmanor"].power-cut header.masthead::after {
-    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: #000;
-    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
-    transition: opacity 1.3s ease;
-  }
-  [data-theme="raccoonmanor"].power-cut .rm-moon {
+  [data-theme="raccoonmanor"].power-cut .rm-moon-dupe {
+    display: block;
+    position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
+    width: 140px; height: 140px; border-radius: 50%; z-index: 45;
+    background: radial-gradient(circle at 38% 34%, #f2f8f6, #a8d3dc 55%, #587278 100%);
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
+    animation: rm-moonpulse 6s ease-in-out infinite;
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-bolt-dupe {
+    display: block;
+    position: fixed; top: 100px; left: calc(50% + 55px);
+    width: 45px; height: 110px; z-index: 45;
+    fill: #eaf4ff; opacity: 0;
+    filter: drop-shadow(0 0 4px #cfe6ff) drop-shadow(0 0 10px #8fc4ff);
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-bolt-dupe.flash {
+    animation: rm-lightning-flash 0.4s ease-out;
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-eyes-dupe {
+    display: flex; gap: 10px; position: fixed; top: 420px; left: calc(50% - 380px);
+    z-index: 45; pointer-events: none; opacity: 0;
+    animation: rm-eyes-fadein 2.5s ease-in forwards, rm-eyes-blink 6s ease-in-out 2.5s infinite;
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-eyes-dupe .rm-eye {
+    width: 8px; height: 13px; border-radius: 50%;
+    background: #4fa8ff;
+    box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
+    filter: brightness(var(--rm-power-cut-glow, 1));
+  }
+  [data-theme="raccoonmanor"].power-cut .rm-help-dupe {
+    display: block;
+    position: fixed; top: 290px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+    z-index: 45; pointer-events: none;
+    font-family: var(--font-head); font-size: 1.3rem; letter-spacing: 0.14em;
+    color: transparent; opacity: 0.55; mix-blend-mode: screen;
+    text-shadow:
+      0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
+      0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
+    filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
-  /* Card darkening: an overlay inside each card, not a filter on an
-     ancestor. #quest-tree > .tree-node already has z-index:0 (see the
-     folder-tab comment above) establishing its own stacking context, so
-     this ::after (z-index:1) darkens everything else in the card by
-     default -- title, notes, anything without an explicit higher
-     z-index -- while .quest-tag/.ready-badge/.card-pin (already z-index:2)
-     and .quest-progress (bumped below) simply paint above it, no
-     cancellation needed. Opacity, not a background filter, so it composes
-     with the --rm-power-cut-brightness slider via a plain calc(). */
-  [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node::after,
-  [data-theme="raccoonmanor"].power-cut #list-idea > .quest::after {
-    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: #000; border-radius: inherit;
-    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
-    transition: opacity 1.3s ease;
-  }
-  [data-theme="raccoonmanor"] .quest-progress {
-    position: relative; z-index: 2;
-  }
-
-  /* UV stickers: the paper-label rule above (quest-tag/ready-badge) is
-     dark ink on cream paper -- reads fine in daylight, but a dim color
-     would just vanish against a dark card, same as everything else in it.
-     Repainting it as a saturated violet/cyan glow is what survives: strong
-     saturation reads as luminous by contrast with the darkened card behind
-     it, same trick as a real blacklight poster. These sit at z-index:2,
-     above the card's own darkening overlay (z-index:1, see above), so
-     there's no ancestor filter to fight or cancel -- brightness(glow) is a
-     clean, direct control. Untempered (not 0.5+0.5x) so the slider's wide
-     0.1-6 range has real visible range from barely-lit to blown-out, since
-     these colors are already fairly saturated/light and a narrower
-     multiplier range clips into "looks about the same" too easily. */
+  /* UV stickers: repainted as a saturated blue glow instead of their
+     normal dark-ink-on-cream look, same idea as a blacklight poster. Sits
+     under the same .wrap ancestor filter as everything else in the card
+     (no per-element exemption -- there's one sticker per card, dynamically
+     many, unlike the four singular elements duplicated further down), so
+     this reads as dim/muted rather than a true glow. Left as a deliberately
+     modest effect for now rather than chasing another exemption mechanism;
+     revisit if it's worth the engineering to duplicate these too. */
   [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .quest-tag,
   [data-theme="raccoonmanor"].power-cut #quest-tree > .tree-node .ready-badge,
   [data-theme="raccoonmanor"].power-cut #list-idea > .quest .quest-tag {
@@ -691,10 +682,8 @@
     filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
-  /* Progress bars get the same UV treatment as the stickers, same reason:
-     the theme accent color would otherwise just vanish into the card's
-     darkening overlay. .quest-progress is bumped to z-index:2 above (same
-     tier as the stickers), so this is a direct, uncancelled control too. */
+  /* Progress bars get the same treatment, and the same caveat, as the
+     stickers directly above -- deliberately not duplicated (one per card). */
   [data-theme="raccoonmanor"].power-cut .bar-fill {
     background: linear-gradient(90deg, #2f6fed, #6fd8ff);
     box-shadow: 0 0 calc(4px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #4fa8ff, 0 0 calc(10px * var(--rm-power-cut-glow, 1)) calc(3px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6);
@@ -2081,6 +2070,16 @@
 <body>
 <div class="rm-scene" id="rmScene" aria-hidden="true">
   <div class="rm-storm-flash" id="rmStormFlash"></div>
+  <!-- power-cut duplicates: undarkened stand-ins for the moon/bolt/eyes/
+       HELP-smudge, shown only during power-cut, positioned to roughly
+       sit where their real (still-darkened) counterparts are. Approximate
+       coordinates -- first pass, needs a visual check to tune. -->
+  <div class="rm-moon-dupe" id="rmMoonDupe"></div>
+  <svg class="rm-bolt-dupe" id="rmBoltDupe" viewBox="0 0 40 100" aria-hidden="true">
+    <path d="M22 0 L4 55 L16 55 L10 100 L36 40 L20 40 Z"></path>
+  </svg>
+  <div class="rm-eyes-dupe" id="rmEyesDupe"><span class="rm-eye"></span><span class="rm-eye"></span></div>
+  <div class="rm-help-dupe" id="rmHelpDupe" aria-hidden="true">HELP</div>
   <div class="rm-roach"><svg viewBox="0 0 24 13"><ellipse cx="12" cy="6.5" rx="11" ry="4" fill="#050705"/><ellipse cx="3.5" cy="6.5" rx="2.6" ry="2.3" fill="#050705"/><circle cx="2" cy="5.5" r="0.6" fill="#a8d3dc"/></svg></div>
 
   <div id="rmDripLayer">

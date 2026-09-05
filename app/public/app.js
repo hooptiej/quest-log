@@ -319,17 +319,23 @@
       });
     }
 
-    // Two elements flash together on every strike: #rmStormFlash (a fixed,
-    // full-viewport wash living in .rm-scene -- see the CSS comment there
-    // for why that placement sidesteps the power-cut filter entirely) and
-    // #rmLightningBolt (the actual bolt shape seen through the window,
-    // living in .rm-window with its own reciprocal-filter immunity). Both
-    // just toggle the same .flash class/restart trick the old single
+    // Three elements flash together on every strike: #rmStormFlash (a
+    // fixed, full-viewport wash living in .rm-scene, never touched by the
+    // power-cut filter), #rmLightningBolt (the bolt shape seen through the
+    // window when power is ON -- it darkens along with the room like
+    // everything else once power-cut is active, same as the moon), and
+    // #rmBoltDupe (an undarkened stand-in bolt, also living in .rm-scene,
+    // that CSS only shows during power-cut -- so exactly one of the two
+    // bolt elements is ever actually visible, and flashing both on every
+    // strike regardless of power state is harmless). All three just
+    // toggle the same .flash class/restart trick the old single
     // #rmLightning div used.
     var stormFlash = document.getElementById("rmStormFlash");
     var lightningBolt = document.getElementById("rmLightningBolt");
+    var boltDupe = document.getElementById("rmBoltDupe");
     if (!reduce && stormFlash && lightningBolt) {
       function flashEl(el) {
+        if (!el) return;
         el.classList.remove("flash");
         void el.offsetWidth; // restart the CSS animation
         el.classList.add("flash");
@@ -338,6 +344,7 @@
         if (!isRaccoonManor()) return;
         flashEl(stormFlash);
         flashEl(lightningBolt);
+        flashEl(boltDupe);
         if (Math.random() < 0.3) setTimeout(strike, 220 + Math.random() * 180);
         // ~10% of strikes trip the generator -- same power-cut state the
         // valve wheel toggles manually, so turning it back on afterward
