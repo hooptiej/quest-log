@@ -219,24 +219,22 @@
   }
   /* Case-strip, not a boxed panel like the other themes' boot bar --
      a dashed-border dossier strip (matching the mockup) with a faint
-     cobweb worked into the corner, monospace case-file type. */
+     cobweb worked into the corner, monospace case-file type. Keeping the
+     base rule's solid --surface fill here meant it was still a filled
+     rectangle even with a dashed border -- that reads as "a panel"
+     regardless of border style. Dropping the fill (and giving the
+     cobweb more presence) is what actually makes it read as an open
+     strip instead of a box. */
   [data-theme="raccoonmanor"] .boot {
     border-style: dashed; border-width: 1px 0; border-color: var(--border);
-    background: var(--surface);
+    background: transparent;
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='none' stroke='%23cdd4bd' stroke-width='0.7' opacity='0.3'><line x1='0' y1='0' x2='60' y2='60'/><line x1='0' y1='0' x2='40' y2='0'/><line x1='0' y1='0' x2='0' y2='40'/><path d='M8,2 Q10,10 2,8'/><path d='M18,5 Q21,20 5,18'/><path d='M30,10 Q34,34 10,30'/></g></svg>");
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='70' height='70'><g fill='none' stroke='%23cdd4bd' stroke-width='0.8' opacity='0.45'><line x1='0' y1='0' x2='70' y2='70'/><line x1='0' y1='0' x2='46' y2='0'/><line x1='0' y1='0' x2='0' y2='46'/><path d='M9,2 Q12,12 2,9'/><path d='M21,6 Q25,24 6,21'/><path d='M36,12 Q40,40 12,36'/></g></svg>");
     background-repeat: no-repeat;
     background-position: top left;
     box-shadow: none;
   }
   [data-theme="raccoonmanor"] .boot-line { font-family: var(--font-mono); letter-spacing: 0.05em; }
-  /* Owner asked for less dead space on the sides, matching the wider
-     body the mockup settled on (52rem -> 64rem there; same proportional
-     bump applied to this theme's own narrow/wide breakpoints). */
-  [data-theme="raccoonmanor"] .wrap { max-width: 55rem; }
-  @media (min-width: 900px) {
-    [data-theme="raccoonmanor"] .wrap { max-width: 78rem; }
-  }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
@@ -247,13 +245,21 @@
   }
   [data-theme="raccoonmanor"] .subtitle { font-style: italic; }
 
-  /* ---- Corkboard: the Quests + Idea Board panels become an actual board ---- */
+  /* ---- Corkboard: the Quests + Idea Board panels become an actual board ----
+     The mockup's board reads as a board because it's framed -- a thick
+     dark border plus a heavy inset vignette around the texture, not the
+     gradient alone. Ported into the shared .panel component that framing
+     got dropped, leaving just the (already quite dark) gradient inside
+     .panel's thin default border -- against an equally dark page it read
+     as flat near-black instead of textured. */
   [data-theme="raccoonmanor"] .panel-quests,
   [data-theme="raccoonmanor"] .panel-idea {
     background:
-      repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0 2px, transparent 2px 6px),
-      radial-gradient(ellipse at 30% 20%, #2c2318, #1a140d 70%);
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0 2px, transparent 2px 6px),
+      radial-gradient(ellipse at 30% 20%, #3c2f1e, #1a140d 70%);
     border-color: #14100a;
+    border-width: 4px;
+    box-shadow: inset 0 0 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04), 0 3px 12px rgba(0,0,0,0.6);
   }
 
   /* Paper-card base: every row under the board becomes a scrap of paper,
@@ -284,7 +290,11 @@
   [data-theme="raccoonmanor"] #list-idea > .quest {
     padding: 1.7rem 1rem 1.15rem;
     margin: 1.5rem 0.2rem 0 0.5rem;
-    box-shadow: 2px 5px 12px rgba(0,0,0,0.55);
+    /* Own stacking context so card-edge-top's negative z-index tucks it
+       behind THIS card specifically, rather than behind whatever the
+       page happens to stack beneath a plain position:relative element. */
+    z-index: 0;
+    box-shadow: 2px 5px 12px rgba(0,0,0,0.55), 0 -3px 6px -1px rgba(0,0,0,0.45);
   }
   [data-theme="raccoonmanor"] #quest-tree > .tree-node:first-child,
   [data-theme="raccoonmanor"] #list-idea > .quest:first-child { margin-top: 0.3rem; }
@@ -309,14 +319,21 @@
     box-shadow: 0 2px 3px rgba(0,0,0,0.6);
   }
   /* card-edge-top: the manila folder tab -- a real hook, not a pseudo-
-     element, so it casts the same shadow as the card body it belongs to. */
+     element. It's the BACK panel of the folder, poking up behind the
+     front fold, so it paints behind the card body (negative z-index,
+     inside the card's own stacking context above) instead of floating
+     in front of it. The card body's own upward shadow layer (below)
+     casts onto the sliver of tab still exposed above the fold -- that's
+     what actually sells "tucked behind"; the tab needs no shadow of its
+     own once it's the thing being shadowed. Widened relative to the
+     mockup so it still reads as folder-sized (not a scrawny nub) now
+     that cards run fluid-width instead of a fixed narrow column. */
   [data-theme="raccoonmanor"] .card-edge-top {
     display: block;
-    position: absolute; top: -16px; left: 16px; z-index: 1;
-    width: 100px; height: 18px;
+    position: absolute; top: -16px; left: 16px; z-index: -1;
+    width: min(38%, 160px); min-width: 110px; height: 20px;
     background: linear-gradient(178deg, #e9e3cd, #dcd5b8);
     border-radius: 4px 10px 0 0;
-    box-shadow: 2px 4px 10px rgba(0,0,0,0.55);
   }
   /* Real status label stuck on the tab, not blank manila -- reuses the
      existing ACTIVE/DONE/IDEA badge instead of inventing a caption with
@@ -331,12 +348,22 @@
     padding: 0.1rem 0.4rem; transform: rotate(-1.5deg); white-space: nowrap;
     box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
   }
+  /* Torn-paper fringe: many small, shallow teeth instead of a few tall
+     ones -- a handful of deep points reads as spikes (bat wings) once
+     stretched across a fluid card width, a dense row of shallow ones
+     reads as wear at any width. Kept in percentages so it holds up
+     whatever the card's actual width ends up being. */
   [data-theme="raccoonmanor"] .card-edge-bottom {
     display: block;
-    position: absolute; left: 4%; right: 4%; bottom: -6px; height: 10px;
+    position: absolute; left: 4%; right: 4%; bottom: -6px; height: 8px;
     background: linear-gradient(178deg, #dcd5b8, transparent);
-    clip-path: polygon(0% 0%,6% 100%,12% 8%,18% 100%,24% 4%,30% 100%,36% 8%,42% 100%,48% 0%,
-                        54% 100%,60% 6%,66% 100%,72% 4%,78% 100%,84% 8%,90% 100%,96% 4%,100% 0%);
+    clip-path: polygon(
+      0% 0%, 4.2% 55%, 8.3% 0%, 12.5% 55%, 16.7% 0%, 20.8% 55%,
+      25% 0%, 29.2% 55%, 33.3% 0%, 37.5% 55%, 41.7% 0%, 45.8% 55%,
+      50% 0%, 54.2% 55%, 58.3% 0%, 62.5% 55%, 66.7% 0%, 70.8% 55%,
+      75% 0%, 79.2% 55%, 83.3% 0%, 87.5% 55%, 91.7% 0%, 95.8% 55%,
+      100% 0%
+    );
   }
   /* Nested rows keep the tab hidden -- only top-level folders get one,
      same rule as the pin below. */
@@ -479,6 +506,20 @@
   [data-theme="raccoonmanor"].power-cut {
     --bg: #05070a; --surface: #12181c; --surface-2: #1a2226; --text: #c9d9dd; --muted: #5c6e73;
   }
+  /* Almost everything in this theme is hardcoded hex/rgba rather than
+     var()-driven, so remapping the custom properties above only dims the
+     handful of elements that actually read them -- barely the titlebar.
+     A filter on the two real content containers (.boot and .wrap --
+     siblings of .rm-scene under body, not nested inside it) darkens
+     everything else at once, transitioning smoothly either direction. */
+  [data-theme="raccoonmanor"] .boot,
+  [data-theme="raccoonmanor"] .wrap {
+    transition: filter 1.3s ease;
+  }
+  [data-theme="raccoonmanor"].power-cut .boot,
+  [data-theme="raccoonmanor"].power-cut .wrap {
+    filter: brightness(0.5) saturate(0.6);
+  }
   [data-theme="raccoonmanor"].power-cut .rm-moon {
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
   }
@@ -521,23 +562,75 @@
     --font-mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
     --font-body: 'Share Tech Mono', ui-monospace, Consolas, monospace;
 
+    /* Layers, front to back: (1) concentric bullseye rings echoing the
+       card-pin reticle motif, (2) the 7 SMPTE color bars at full-card
+       saturation, (3) a PLUGE/black-level reference strip like a real
+       calibration card's bottom row, (4) the readability vignette. Sizing
+       for (3) lives in the [data-theme="testpattern"] body rule below --
+       everything else relies on the same "gradient auto-fills the
+       positioning area" behavior the vignette already used. */
     --body-bg-image:
+      repeating-radial-gradient(circle at 50% 30%,
+        transparent 0 56px, rgba(240,240,240,0.10) 56px 59px,
+        transparent 59px 116px, rgba(240,240,240,0.08) 116px 119px,
+        transparent 119px 176px, rgba(240,240,240,0.06) 176px 179px),
       repeating-linear-gradient(90deg,
-        rgba(224,224,224,0.05) 0 12.5%, rgba(224,224,0,0.05) 12.5% 25%,
-        rgba(0,224,224,0.05) 25% 37.5%, rgba(0,224,0,0.05) 37.5% 50%,
-        rgba(224,0,224,0.05) 50% 62.5%, rgba(224,0,0,0.05) 62.5% 75%,
-        rgba(0,0,224,0.05) 75% 87.5%, rgba(0,0,0,0.05) 87.5% 100%),
-      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);
+        rgba(224,224,224,0.24) 0 12.5%, rgba(224,224,0,0.24) 12.5% 25%,
+        rgba(0,224,224,0.24) 25% 37.5%, rgba(0,180,0,0.24) 37.5% 50%,
+        rgba(224,0,224,0.24) 50% 62.5%, rgba(224,0,0,0.24) 62.5% 75%,
+        rgba(40,40,224,0.24) 75% 87.5%, rgba(10,10,10,0.24) 87.5% 100%),
+      repeating-linear-gradient(90deg,
+        rgba(10,10,60,0.22) 0 8%, rgba(240,240,240,0.16) 8% 16%,
+        rgba(10,10,60,0.22) 16% 24%, rgba(10,10,10,0.16) 24% 100%),
+      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 50%, rgba(0,0,0,0.62) 100%);
   }
+  [data-theme="testpattern"] body {
+    background-size: auto, auto, 100% 13%, auto;
+    background-position: center, center, 0 100%, center;
+    background-repeat: repeat, repeat, no-repeat, no-repeat;
+  }
+  /* R/B fringe reads from --tp-conv-x/-y (set by the convergence pad,
+     tpConvPad in app.js; 0,0 = perfectly converged = no fringe at all,
+     matching a real CRT). Declared on the base h1 rule too, not just the
+     keyframes, so dragging still works under reduced-motion (animation:
+     none below) and so the fringe doesn't reset to nothing between the
+     97%-100% keyframe gap. */
   [data-theme="testpattern"] h1 {
     letter-spacing: 0.05em;
+    text-shadow:
+      calc(var(--tp-conv-x, 0) * 6px) calc(var(--tp-conv-y, 0) * -6px) var(--accent),
+      calc(var(--tp-conv-x, 0) * -6px) calc(var(--tp-conv-y, 0) * 6px) var(--alarm);
     animation: tp-glitch 4s steps(1) infinite;
   }
+  /* The scripted glitch is now a periodic "signal hit" layered on top of
+     manual convergence (added offset, not a replacement) so it still reads
+     as a glitch even when the pad is centered, and settles back to
+     whatever the pad is set to afterward. */
   @keyframes tp-glitch {
-    0%, 92%, 100% { text-shadow: -1px 0 var(--accent), 1px 0 var(--alarm); transform: translate(0, 0); }
-    93% { text-shadow: 2px 0 var(--accent), -2px 0 var(--alarm); transform: translate(-1px, 0); }
-    95% { text-shadow: -2px 0 var(--accent), 2px 0 var(--alarm); transform: translate(1px, 0); }
-    97% { text-shadow: 1px 0 var(--accent), -1px 0 var(--alarm); transform: translate(0, -1px); }
+    0%, 92%, 100% {
+      text-shadow:
+        calc(var(--tp-conv-x, 0) * 6px) calc(var(--tp-conv-y, 0) * -6px) var(--accent),
+        calc(var(--tp-conv-x, 0) * -6px) calc(var(--tp-conv-y, 0) * 6px) var(--alarm);
+      transform: translate(0, 0);
+    }
+    93% {
+      text-shadow:
+        calc(var(--tp-conv-x, 0) * 6px + 2px) calc(var(--tp-conv-y, 0) * -6px) var(--accent),
+        calc(var(--tp-conv-x, 0) * -6px - 2px) calc(var(--tp-conv-y, 0) * 6px) var(--alarm);
+      transform: translate(-1px, 0);
+    }
+    95% {
+      text-shadow:
+        calc(var(--tp-conv-x, 0) * 6px - 2px) calc(var(--tp-conv-y, 0) * -6px) var(--accent),
+        calc(var(--tp-conv-x, 0) * -6px + 2px) calc(var(--tp-conv-y, 0) * 6px) var(--alarm);
+      transform: translate(1px, 0);
+    }
+    97% {
+      text-shadow:
+        calc(var(--tp-conv-x, 0) * 6px) calc(var(--tp-conv-y, 0) * -6px + 1px) var(--accent),
+        calc(var(--tp-conv-x, 0) * -6px) calc(var(--tp-conv-y, 0) * 6px - 1px) var(--alarm);
+      transform: translate(0, -1px);
+    }
   }
   [data-theme="testpattern"] .panel h2 { letter-spacing: 0.16em; }
   /* Rolling scanline (moving, unlike MU/TH/UR's static one) -- own rule
@@ -567,12 +660,20 @@
   [data-theme="testpattern"] .card-jitter-c { --tp-chan: var(--idea); }
 
   /* --jitter demo: continuous per-item hue drift, independent of the 3
-     discrete channel buckets above -- the two mechanisms stacking cleanly. */
+     discrete channel buckets above -- the two mechanisms stacking cleanly.
+     --tp-dim (0 by default, flipped to 1 below when the tuner floatie has
+     a different channel selected) rides in the same filter list rather
+     than a separate rule, since #quest-tree's ID specificity would
+     otherwise always beat a plain .card-jitter-* selector trying to add
+     grayscale/brightness on top. */
   [data-theme="testpattern"] #quest-tree > .tree-node,
   [data-theme="testpattern"] #list-idea > .quest,
   [data-theme="testpattern"] .log-mini-list li {
     position: relative;
-    filter: hue-rotate(calc(var(--jitter, 0.5) * 40deg - 20deg));
+    filter: hue-rotate(calc(var(--jitter, 0.5) * 40deg - 20deg))
+      grayscale(calc(var(--tp-dim, 0) * 0.85))
+      brightness(calc(1 - var(--tp-dim, 0) * 0.4));
+    transition: filter 0.35s ease;
   }
   [data-theme="testpattern"] #quest-tree > .tree-node,
   [data-theme="testpattern"] #list-idea > .quest {
@@ -623,8 +724,69 @@
   [data-theme="testpattern"] .log-panel-mini h2 { color: var(--alarm); }
   [data-theme="testpattern"] .log-mini-date { color: var(--tp-chan, var(--accent2)); }
 
+  /* Tuner floatie (tpTunerRig/tpTunerBtn in app.js): "changing the channel"
+     dims the two jitterClass buckets not currently tuned in, like an old
+     TV only showing the selected station. tp-tuned-* lands on <html> so
+     one class toggle drives every card at once. */
+  [data-theme="testpattern"] .card-jitter-a,
+  [data-theme="testpattern"] .card-jitter-b,
+  [data-theme="testpattern"] .card-jitter-c { --tp-dim: 0; }
+  [data-theme="testpattern"].tp-tuned-a .card-jitter-b,
+  [data-theme="testpattern"].tp-tuned-a .card-jitter-c,
+  [data-theme="testpattern"].tp-tuned-b .card-jitter-a,
+  [data-theme="testpattern"].tp-tuned-b .card-jitter-c,
+  [data-theme="testpattern"].tp-tuned-c .card-jitter-a,
+  [data-theme="testpattern"].tp-tuned-c .card-jitter-b { --tp-dim: 1; }
+
+  [data-theme="testpattern"] .tp-tuner-rig { position: fixed; bottom: 1.1rem; left: 1.1rem; z-index: 50; text-align: center; font-family: var(--font-mono); }
+  [data-theme="testpattern"] .tp-tuner-knob {
+    width: 52px; height: 52px; padding: 0; border-radius: 50%; cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #3a3a3a, #101010 70%);
+    border: 3px solid var(--border); position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 0 0 2px #050505;
+    transition: transform 0.35s cubic-bezier(.34,1.4,.64,1), border-color 0.2s ease;
+  }
+  [data-theme="testpattern"] .tp-tuner-knob:hover { border-color: var(--accent); }
+  [data-theme="testpattern"] .tp-tuner-knob:active { transform: scale(0.94); }
+  [data-theme="testpattern"] .tp-tuner-notch { position: absolute; top: 4px; left: 50%; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); }
+  [data-theme="testpattern"].tp-tuned-b .tp-tuner-knob { transform: rotate(120deg); }
+  [data-theme="testpattern"].tp-tuned-c .tp-tuner-knob { transform: rotate(240deg); }
+  [data-theme="testpattern"] .tp-tuner-readout { display: block; margin-top: 0.3rem; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent); }
+  [data-theme="testpattern"].tp-tuned-b .tp-tuner-readout { color: var(--accent2); text-shadow: 0 0 6px color-mix(in srgb, var(--accent2) 60%, transparent); }
+  [data-theme="testpattern"].tp-tuned-c .tp-tuner-readout { color: var(--idea); text-shadow: 0 0 6px color-mix(in srgb, var(--idea) 60%, transparent); }
+  [data-theme="testpattern"] .tp-tuner-label { display: block; margin-top: 0.1rem; font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
+
+  /* Convergence pad (tpConvPad/tpConvDot in app.js): drag the dot to set
+     --tp-conv-x/-y (normalized -1..1, read by the h1 rules above). The
+     dot echoes the same fringe on itself at a smaller scale so the pad
+     visibly demonstrates what it's doing to the title. */
+  [data-theme="testpattern"] .tp-conv-rig { position: fixed; bottom: 1.1rem; right: 1.1rem; z-index: 50; text-align: center; font-family: var(--font-mono); }
+  [data-theme="testpattern"] .tp-conv-pad {
+    width: 56px; height: 56px; border-radius: 6px; position: relative;
+    background: #0a0a0a; border: 3px solid var(--border);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.8);
+    cursor: grab; touch-action: none;
+  }
+  [data-theme="testpattern"] .tp-conv-pad:hover { border-color: var(--accent); }
+  [data-theme="testpattern"] .tp-conv-pad:active { cursor: grabbing; }
+  [data-theme="testpattern"] .tp-conv-crosshair-v,
+  [data-theme="testpattern"] .tp-conv-crosshair-h { position: absolute; background: var(--border); pointer-events: none; }
+  [data-theme="testpattern"] .tp-conv-crosshair-v { top: 4px; bottom: 4px; left: 50%; width: 1px; margin-left: -0.5px; }
+  [data-theme="testpattern"] .tp-conv-crosshair-h { left: 4px; right: 4px; top: 50%; height: 1px; margin-top: -0.5px; }
+  [data-theme="testpattern"] .tp-conv-dot {
+    position: absolute; top: 50%; left: 50%; width: 12px; height: 12px;
+    margin: -6px 0 0 -6px; border-radius: 50%; pointer-events: none;
+    background: var(--text);
+    box-shadow: calc(var(--tp-conv-x, 0) * -3px) calc(var(--tp-conv-y, 0) * 3px) 0 1px var(--accent),
+                calc(var(--tp-conv-x, 0) * 3px) calc(var(--tp-conv-y, 0) * -3px) 0 1px var(--alarm);
+    transform: translate(calc(var(--tp-conv-x, 0) * 18px), calc(var(--tp-conv-y, 0) * 18px));
+  }
+  [data-theme="testpattern"] .tp-conv-label { display: block; margin-top: 0.3rem; font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted); }
+
   @media (prefers-reduced-motion: reduce) {
-    [data-theme="testpattern"] h1 { animation: none; text-shadow: none; }
+    /* Automatic glitch off; the pad's own manual offset stays live since
+       it's user-initiated, not ambient motion. */
+    [data-theme="testpattern"] h1 { animation: none; }
     [data-theme="testpattern"] body::after { animation: none; }
   }
 
@@ -978,7 +1140,11 @@
     mix-blend-mode: multiply;
   }
 
-  .wrap { position: relative; z-index: 2; max-width: 47.5rem; margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
+  /* Fluid, not a fixed step -- the owner runs both very large and very
+     small windows, so a single hardcoded wide-breakpoint cap either
+     leaves dead space on an ultrawide/maximized window or overshoots on
+     a half-screen one. min() tracks the viewport at both ends instead. */
+  .wrap { position: relative; z-index: 2; max-width: min(94vw, 47.5rem); margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }
 
   /* ---------- main + sidebar layout ---------- */
 
@@ -990,7 +1156,7 @@
   }
 
   @media (min-width: 900px) {
-    .wrap { max-width: 65rem; }
+    .wrap { max-width: min(92vw, 100rem); }
     .layout { grid-template-columns: minmax(0, 1fr) 280px; }
     .layout-sidebar { position: sticky; top: 1.5rem; }
   }
@@ -1273,6 +1439,8 @@
   [data-theme="raccoonmanor"] .rm-window { display: block; }
   .rm-scene > * { display: none; }
   [data-theme="raccoonmanor"] .rm-scene > * { display: block; }
+  .tp-scene > * { display: none; }
+  [data-theme="testpattern"] .tp-scene > * { display: block; }
   .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
@@ -1802,6 +1970,22 @@
   </div>
 </div>
 
+<div class="tp-scene" id="tpScene" aria-hidden="true">
+  <div class="tp-tuner-rig" id="tpTunerRig">
+    <button type="button" class="tp-tuner-knob" id="tpTunerBtn" aria-label="Cycle the tuned channel"><span class="tp-tuner-notch"></span></button>
+    <span class="tp-tuner-readout" id="tpTunerReadout">CH 3</span>
+    <span class="tp-tuner-label">TUNER</span>
+  </div>
+  <div class="tp-conv-rig" id="tpConvRig">
+    <div class="tp-conv-pad" id="tpConvPad" role="slider" tabindex="0" aria-label="Convergence: drag to offset the title's color fringe" aria-valuetext="centered">
+      <div class="tp-conv-crosshair-v"></div>
+      <div class="tp-conv-crosshair-h"></div>
+      <div class="tp-conv-dot" id="tpConvDot"></div>
+    </div>
+    <span class="tp-conv-label">CONVERGENCE</span>
+  </div>
+</div>
+
 <div class="boot">
   <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span id="boot-env-badge"></span><span class="ok">LINK ESTABLISHED</span></div>
   <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
@@ -1875,7 +2059,7 @@
       <section class="panel log-panel-mini">
         <div class="corner-bl"></div><div class="corner-br"></div>
         <span class="card-edge" aria-hidden="true"></span>
-        <h2>Recent Activity</h2>
+        <h2 id="log-title">Recent Activity</h2>
         <ul class="log-mini-list" id="log-body-mini"></ul>
         <button type="button" class="unroll-btn" data-action="toggle-log-full" aria-expanded="false">Show full log &#9662;</button>
         <div class="log-full collapsed" id="log-body-full"></div>

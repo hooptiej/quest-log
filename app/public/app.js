@@ -23,6 +23,7 @@
       titleSuffix: "Mission Log",
       subtitlePrefix: "Priority One",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Recent Activity",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
@@ -32,6 +33,7 @@
       titleSuffix: "Survey Report",
       subtitlePrefix: "Undervault Directive",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Terminal Log",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
     },
     wow: {
@@ -41,6 +43,7 @@
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Guild News",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     },
     raccoonmanor: {
@@ -50,6 +53,7 @@
       titleSuffix: "",
       subtitlePrefix: "Est. 1998",
       subtitleSuffix: "Condition: Abandoned",
+      logLabel: "Evidence Log",
       designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     },
     testpattern: {
@@ -59,6 +63,7 @@
       titleSuffix: "Channel Log",
       subtitlePrefix: "Please Stand By",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Broadcast Log",
       designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
     },
     hadleyshope: {
@@ -68,6 +73,7 @@
       titleSuffix: "",
       subtitlePrefix: "Ops Terminal",
       subtitleSuffix: "It's A Bug Hunt",
+      logLabel: "Contact Log",
       designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
     }
   };
@@ -306,6 +312,85 @@
     }
   }
 
+  // Test Pattern ambient widgets: the channel tuner (cycles which
+  // jitterClass bucket is "tuned in", dimming the other two via --tp-dim)
+  // and the convergence pad (drags --tp-conv-x/-y, which the h1's fringe
+  // and the pad's own dot both read). Same "wire once, CSS keeps it inert
+  // while another theme is active" pattern as the other themes' effects.
+  var tpInitialized = false;
+  function isTestPattern() { return document.documentElement.dataset.theme === "testpattern"; }
+  function initTestPatternEffects() {
+    if (tpInitialized) return;
+    tpInitialized = true;
+
+    var CHANNELS = ["a", "b", "c"];
+    var CHANNEL_READOUT = { a: "CH 3", b: "CH 4", c: "CH 5" };
+    var chanIndex = 0;
+    var tunerBtn = document.getElementById("tpTunerBtn");
+    var tunerReadout = document.getElementById("tpTunerReadout");
+    function applyChannel() {
+      var ch = CHANNELS[chanIndex];
+      CHANNELS.forEach(function (c) {
+        document.documentElement.classList.toggle("tp-tuned-" + c, c === ch);
+      });
+      if (tunerReadout) tunerReadout.textContent = CHANNEL_READOUT[ch];
+    }
+    if (tunerBtn) {
+      applyChannel();
+      tunerBtn.addEventListener("click", function () {
+        if (!isTestPattern()) return;
+        chanIndex = (chanIndex + 1) % CHANNELS.length;
+        applyChannel();
+      });
+    }
+
+    var pad = document.getElementById("tpConvPad");
+    if (pad) {
+      var dragging = false;
+      var radius = 19; // px of drag inside the pad that maps to the full -1..1 range
+      function setConv(x, y) {
+        x = Math.max(-1, Math.min(1, x));
+        y = Math.max(-1, Math.min(1, y));
+        document.documentElement.style.setProperty("--tp-conv-x", x.toFixed(3));
+        document.documentElement.style.setProperty("--tp-conv-y", y.toFixed(3));
+        pad.setAttribute("aria-valuetext", (x === 0 && y === 0) ? "centered" : ("offset " + x.toFixed(2) + ", " + y.toFixed(2)));
+      }
+      function updateFromPoint(clientX, clientY) {
+        var rect = pad.getBoundingClientRect();
+        setConv((clientX - (rect.left + rect.width / 2)) / radius, (clientY - (rect.top + rect.height / 2)) / radius);
+      }
+      pad.addEventListener("pointerdown", function (e) {
+        if (!isTestPattern()) return;
+        dragging = true;
+        pad.setPointerCapture(e.pointerId);
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      pad.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      ["pointerup", "pointercancel"].forEach(function (evt) {
+        pad.addEventListener(evt, function () { dragging = false; });
+      });
+      // Double-click/tap re-centers -- 0,0 is "converged", i.e. no fringe.
+      pad.addEventListener("dblclick", function () { if (isTestPattern()) setConv(0, 0); });
+      // Keyboard nudge for the role="slider" a11y hook (arrow keys, since
+      // dragging alone would otherwise leave no non-pointer way to reach it).
+      pad.addEventListener("keydown", function (e) {
+        if (!isTestPattern()) return;
+        var style = getComputedStyle(document.documentElement);
+        var x = parseFloat(style.getPropertyValue("--tp-conv-x")) || 0;
+        var y = parseFloat(style.getPropertyValue("--tp-conv-y")) || 0;
+        var step = 0.15;
+        if (e.key === "ArrowLeft") { setConv(x - step, y); e.preventDefault(); }
+        else if (e.key === "ArrowRight") { setConv(x + step, y); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { setConv(x, y - step); e.preventDefault(); }
+        else if (e.key === "ArrowDown") { setConv(x, y + step); e.preventDefault(); }
+        else if (e.key === "Enter" || e.key === " ") { setConv(0, 0); e.preventDefault(); }
+      });
+    }
+  }
+
   function applyFlavor() {
     var theme = document.documentElement.dataset.theme || "muthur";
     var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
@@ -322,6 +407,8 @@
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var subtitleSuffixEl = document.getElementById("subtitle-suffix");
     if (subtitleSuffixEl) subtitleSuffixEl.textContent = flavor.subtitleSuffix;
+    var logLabelEl = document.getElementById("log-title");
+    if (logLabelEl) logLabelEl.textContent = flavor.logLabel || "Recent Activity";
     var eyebrowEl = document.getElementById("eyebrow");
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
     var versionEl = document.getElementById("version-badge");
@@ -1045,4 +1132,5 @@
   render(STATE);
   initHadleysHopeEffects();
   initRaccoonManorEffects();
+  initTestPatternEffects();
 })();
