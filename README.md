@@ -60,9 +60,15 @@ repo, merged in 2026-08-30, since renamed) — is mounted on the same Express ap
 process or HTTP round-trip between the two. Tools: `list_quests`, `add_idea`, `set_quest_status`,
 `set_blocked`, `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`,
 `transfer`, `move`, `rename_quest`, `delete_quest`, `update_quest_notes`, `add_log_entry`,
-`get_full_state`, `set_maintenance`, `set_designation`, `get_artifact_status`,
+`get_full_state`, `set_maintenance`, `set_auto_log`, `set_designation`, `get_artifact_status`,
 `record_artifact_update`, `get_mirror_template`. Point an MCP client at `http://<host>:4242/mcp`
 (or `https://` once a cert is configured, see below).
+
+A checked-in `UserPromptSubmit` hook (`.claude/hooks/quest-log-reminder.mjs` +
+`.claude/settings.json`, both committed so they travel with the repo to any machine) reminds an
+active Claude Code session to log a new ask into quest-log before scoping/implementing it.
+Gated on the `set_auto_log` flag above rather than a local file, so the switch is
+machine-agnostic — flip it from any client and it takes effect everywhere the hook runs.
 
 Note: MCP sessions are still held in memory (`questhelper/questhelper.js`), so a restart of this
 server still drops any already-connected client's session — merging removed one of the two

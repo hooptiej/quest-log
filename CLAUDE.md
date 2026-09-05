@@ -134,11 +134,11 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**22 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+**23 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
 included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
 `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
 `delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
-`get_full_state`, `get_batch_status`, `set_maintenance`, `get_artifact_status`,
+`get_full_state`, `get_batch_status`, `set_maintenance`, `set_auto_log`, `get_artifact_status`,
 `record_artifact_update`, `get_mirror_template`.
 
 Session gotcha: an unrecognized `Mcp-Session-Id` gets `404` (not `400`) so a compliant client
@@ -151,6 +151,26 @@ session drop itself.
 `~/.claude/skills/quest-tracker/SKILL.md`) that uses these tools to keep this quest log in sync
 with conversations. It also documents a direct REST fallback (`GET/POST /api/state` with the
 write token) for when an MCP session is stale.
+
+### Auto-log reminder hook (`.claude/hooks/quest-log-reminder.mjs`)
+
+A checked-in `UserPromptSubmit` hook (registered in `.claude/settings.json`, both committed so
+they travel with the repo to any machine that checks it out — no per-machine setup) reminds an
+active Claude Code session, on every message, to log a new concrete ask into quest-log via
+`add_idea` before scoping or implementing it. It was built as a hook deliberately, not a
+timer/poll: a periodic "wait and check" reconciliation job was tried first and rejected, since
+this project has direct prior experience (see the git-commit/push/PR `PostToolUse` hooks
+mentioned above) that an event-triggered reminder fires reliably where a timer-based one drifts
+or silently misses.
+
+The hook is gated on `state._autoLog.enabled` (`getAutoLog`/`setAutoLog` in `state.js`, toggled
+via the `set_auto_log` MCP tool) rather than a local file specifically so the switch is
+machine-agnostic — quest-log's own state already lives on one shared, always-reachable instance,
+so flipping the flag from any one of your machines takes effect on every machine's hook
+immediately. The hook script does a plain unauthenticated `GET /api/state` (same no-auth read
+access documented above) with a short timeout and fails silently (no output, exit 0) on any
+network hiccup — off-LAN, quest-log down, DNS miss — so a missed reminder never breaks a session.
+Override the target with the `QUEST_LOG_URL` env var (defaults to `http://questlog.local/api/state`).
 
 ## Build / run / test
 

@@ -25,6 +25,8 @@ import {
   setDesignation,
   getMaintenance,
   setMaintenance,
+  getAutoLog,
+  setAutoLog,
   setBlocked,
   setArchived,
   setAttention,
@@ -570,6 +572,20 @@ function createServer(options = {}) {
     async ({ active, note }) => {
       const { result } = await mutateState(async (state) => {
         return setMaintenance(state, { active, note });
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_auto_log",
+    "Toggle the machine-agnostic flag the checked-in UserPromptSubmit hook (.claude/hooks/) reads before reminding an active session to log a new ask into quest-log. Stored on shared state, not a local file, so flipping it from any one machine takes effect on every machine's hook immediately -- no per-machine setup.",
+    {
+      enabled: z.boolean().describe("true to have the hook remind sessions to log new asks, false to silence it"),
+    },
+    async ({ enabled }) => {
+      const { result } = await mutateState(async (state) => {
+        return setAutoLog(state, { enabled });
       });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },

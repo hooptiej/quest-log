@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/quest-log-reminder.mjs"
+      }
+    ]
+  }
+}
