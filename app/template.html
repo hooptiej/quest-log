@@ -584,6 +584,24 @@
   [data-theme="raccoonmanor"].power-cut .rm-moon {
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
   }
+  /* The moon doesn't need the generator -- it's not lit by the room. But
+     .rm-moon lives inside .wrap for layout reasons (the window shares the
+     header's vertical footprint), so .wrap's darkness filter above still
+     applies to it; filter has no "exempt this descendant" escape hatch,
+     only composition. Window frame/sash/curtains are left to darken
+     normally -- only the moon itself is exempt, so it reads as the one
+     surviving light source in an otherwise dark window, not a hole to an
+     undarkened outside. brightness/contrast/saturate are each exactly
+     self-inverting via their reciprocal (contrast(1/C) and saturate(1/S)
+     undo contrast(C)/saturate(S) precisely, same as brightness(1/B) undoes
+     brightness(B)), so applying that reciprocal chain here -- in reverse
+     order, since the parent's filter re-applies on top of whatever this
+     element already rendered -- cancels the parent's effect exactly
+     rather than approximating it. Only the brightness term needs var()
+     since contrast/saturate above are fixed constants, not slider-driven. */
+  [data-theme="raccoonmanor"].power-cut .rm-moon {
+    filter: saturate(1.818) contrast(0.8) brightness(calc(1 / var(--rm-power-cut-brightness, 0.18)));
+  }
 
   /* UV stickers: the paper-label rule above (quest-tag/ready-badge) is
      dark ink on cream paper -- reads fine in daylight, but a dim color
