@@ -531,9 +531,9 @@
   @keyframes rm-goo-fall { from { transform: translateY(0); opacity: 0.9; } to { transform: translateY(80vh); opacity: 0; } }
 
   [data-theme="raccoonmanor"] .rm-ekg-hud {
-    /* 25vh, not a small top offset -- at the top corner it sat right on
+    /* 12.5vh, not a small top offset -- at the top corner it sat right on
        top of the Display Mode/Scale controls in the header. */
-    position: fixed; top: 25vh; right: 1.1rem; z-index: 50; width: 150px; background: #050705; border: 2px solid var(--accent-dim);
+    position: fixed; top: 12.5vh; right: 1.1rem; z-index: 50; width: 150px; background: #050705; border: 2px solid var(--accent-dim);
     border-radius: 6px; box-shadow: 0 0 0 3px #0a0f0a, 0 0 16px color-mix(in srgb, var(--accent) 25%, transparent); padding: 0.4rem 0.5rem 0.3rem;
   }
   [data-theme="raccoonmanor"] .rm-ekg-label { font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; }
@@ -543,9 +543,9 @@
   @keyframes rm-ekg-sweep { to { stroke-dashoffset: 0; } }
 
   [data-theme="raccoonmanor"] .rm-ribbon-hud {
-    /* 25vh, not a small top offset -- same reason as the EKG HUD's
+    /* 12.5vh, not a small top offset -- same reason as the EKG HUD's
        matching change: it obscured header controls up in the corner. */
-    position: fixed; top: 25vh; left: 1.1rem; z-index: 50; background: #0a0a08; border: 2px solid #2a2a20; border-radius: 6px;
+    position: fixed; top: 12.5vh; left: 1.1rem; z-index: 50; background: #0a0a08; border: 2px solid #2a2a20; border-radius: 6px;
     padding: 0.4rem 0.6rem; box-shadow: 0 0 0 3px #000, 0 4px 10px rgba(0,0,0,0.6);
   }
   [data-theme="raccoonmanor"] .rm-ribbon-label { font-family: var(--font-head); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
