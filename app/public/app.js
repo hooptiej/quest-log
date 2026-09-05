@@ -349,7 +349,13 @@
         // ~10% of strikes trip the generator -- same power-cut state the
         // valve wheel toggles manually, so turning it back on afterward
         // just works (the click handler toggles whatever's already there).
-        if (Math.random() < 0.1 && !document.documentElement.classList.contains("power-cut")) {
+        // Suppressed under settings-mode: a random auto-trip landing right
+        // when someone's testing the manual valve/sliders reads as "my
+        // click didn't work" even though it's really just unlucky timing
+        // from a fully independent system -- confusing during tuning,
+        // fine during normal play.
+        if (!document.documentElement.classList.contains("settings-mode") &&
+            Math.random() < 0.1 && !document.documentElement.classList.contains("power-cut")) {
           setTimeout(function () {
             document.documentElement.classList.add("power-cut");
             if (valveRig) valveRig.classList.add("armed");
