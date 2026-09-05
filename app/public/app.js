@@ -239,6 +239,36 @@
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
     var versionEl = document.getElementById("version-badge");
     if (versionEl && window.__APP_VERSION__) versionEl.textContent = "v" + window.__APP_VERSION__;
+
+    if (theme === "hadleyshope") updateHadleysHopeFlavor();
+  }
+
+  // Reads real open-quest titles straight out of the rendered tree/idea
+  // rows (not a hardcoded sample list -- the mockup used one since it had
+  // no real backing data, but here the rows ARE the data) and slots one
+  // into the biohazard placard and another into the threat badge. Runs
+  // every time applyFlavor() does, so it stays current as quests change.
+  function updateHadleysHopeFlavor() {
+    var placardEl = document.getElementById("hhPlacard");
+    var threatEl = document.getElementById("hhThreatBadge");
+    if (!placardEl && !threatEl) return;
+    var openTitles = Array.prototype.slice
+      .call(document.querySelectorAll(".tree-node:not(.is-done) .tree-title, .quest:not(.is-done) .quest-title"))
+      .map(function (el) { return el.textContent.trim(); })
+      .filter(Boolean);
+    if (!openTitles.length) {
+      if (placardEl) placardEl.textContent = "";
+      if (threatEl) threatEl.textContent = "";
+      return;
+    }
+    if (placardEl) {
+      var pick = openTitles[Math.floor(Math.random() * openTitles.length)];
+      placardEl.textContent = "Biohazard — " + pick + " — Area Sealed";
+    }
+    if (threatEl) {
+      var next = openTitles[Math.floor(Math.random() * openTitles.length)];
+      threatEl.textContent = "Next Contact: " + next;
+    }
   }
 
   function truncate(s, max) {
