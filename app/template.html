@@ -449,11 +449,14 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 18px),
       repeating-linear-gradient(45deg, rgba(0,0,0,0.4) 0 1px, transparent 1px 18px),
       repeating-linear-gradient(-45deg, rgba(0,0,0,0.4) 0 1px, transparent 1px 18px),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><filter id='hhn'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.2  0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23hhn)'/></svg>"),
       radial-gradient(ellipse 80% 70% at 50% 35%, transparent 45%, rgba(0,0,0,0.55) 100%);
   }
   [data-theme="hadleyshope"] h1 {
-    font-family:var(--font-display); letter-spacing:0.03em; color:var(--alarm);
-    text-shadow:0 0 16px rgba(179,80,63,0.5), 0 0 2px #000;
+    font-family:var(--font-display); letter-spacing:0.03em;
+    background: linear-gradient(180deg, #a8d4b0, var(--accent) 55%, var(--accent-dim));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 10px rgba(92,156,104,0.4));
   }
   [data-theme="hadleyshope"] .subtitle { font-weight:600; }
   [data-theme="hadleyshope"] .boot,
