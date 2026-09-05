@@ -491,6 +491,34 @@
     if (versionEl && window.__APP_VERSION__) versionEl.textContent = "v" + window.__APP_VERSION__;
 
     if (theme === "hadleyshope") updateHadleysHopeFlavor();
+    if (theme === "raccoonmanor") updateRaccoonManorFlavor();
+  }
+
+  // Same trick as updateHadleysHopeFlavor() below, re-skinned for this
+  // theme's case-file vocabulary instead of Hadley's Hope's hazard/contact
+  // wording -- a real open quest title stamped into the boot bar's case
+  // line, refreshed as quests change.
+  function updateRaccoonManorFlavor() {
+    var stampEl = document.getElementById("rmCaseStamp");
+    var witnessEl = document.getElementById("rmWitnessLine");
+    if (!stampEl && !witnessEl) return;
+    var openTitles = Array.prototype.slice
+      .call(document.querySelectorAll(".tree-node:not(.is-done) .tree-title, .quest:not(.is-done) .quest-title"))
+      .map(function (el) { return el.textContent.trim(); })
+      .filter(Boolean);
+    if (!openTitles.length) {
+      if (stampEl) stampEl.textContent = "";
+      if (witnessEl) witnessEl.textContent = "";
+      return;
+    }
+    if (stampEl) {
+      var pick = openTitles[Math.floor(Math.random() * openTitles.length)];
+      stampEl.textContent = "Case File — " + pick + " — Unsolved";
+    }
+    if (witnessEl) {
+      var next = openTitles[Math.floor(Math.random() * openTitles.length)];
+      witnessEl.textContent = "Last witness account: " + next;
+    }
   }
 
   // Reads real open-quest titles straight out of the rendered tree/idea

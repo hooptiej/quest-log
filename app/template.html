@@ -159,7 +159,17 @@
     text-shadow: none;
     animation: raccoonmanor-flicker 5s linear infinite;
   }
-  [data-theme="raccoonmanor"] .subtitle { position: relative; z-index: 1; }
+  /* --accent (the subtitle's own color) is #a8d3dc -- the exact pale blue
+     the moon's gradient passes through, so the text vanishes wherever it
+     overlaps the moon specifically (fine everywhere else on the darker
+     window/page). A dark stroke via layered text-shadow reads against
+     any of it -- moon, frame, or curtain -- rather than picking a
+     different flat color that would just blend into some other part of
+     the same window instead. */
+  [data-theme="raccoonmanor"] .subtitle {
+    position: relative; z-index: 1;
+    text-shadow: 0 0 4px #000, 1px 1px 1px #000, -1px -1px 1px #000, 1px -1px 1px #000, -1px 1px 1px #000;
+  }
 
   /* A window behind the title -- shares its vertical footprint instead of
      stacking above it, so it can be large and atmospheric without eating
@@ -258,6 +268,25 @@
     letter-spacing: 0.1em;
     transform: rotate(-4deg);
     box-shadow: 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+  }
+  /* Case line: Hadley's Hope's trick (a real element JS fills with an
+     actual open quest title, refreshed as quests change -- not a static
+     sample string) borrowed and re-skinned for this theme's own
+     vocabulary. .rm-case-line is a shared .boot-line, hidden outside
+     this theme since the content is entirely case-file flavor with no
+     equivalent elsewhere. Stamp reuses the env-badge treatment above;
+     the witness line is plain case-note type, not another stamp -- one
+     rubber stamp per strip is a rubber stamp, three is a sticker sheet. */
+  .rm-case-line { display: none; }
+  [data-theme="raccoonmanor"] .rm-case-line { display: flex; }
+  [data-theme="raccoonmanor"] .rm-case-stamp {
+    color: var(--alarm); border: 2px solid var(--alarm); border-radius: 3px;
+    padding: 0.05rem 0.5rem; transform: rotate(-4deg);
+    font-family: var(--font-head); text-transform: uppercase; letter-spacing: 0.1em;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+  }
+  [data-theme="raccoonmanor"] .rm-witness-line {
+    font-style: italic; color: var(--muted); text-transform: none; letter-spacing: 0.02em;
   }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
@@ -2297,6 +2326,7 @@
   <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span id="boot-env-badge"></span><span class="ok">LINK ESTABLISHED</span></div>
   <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
   <div class="boot-line" id="neglected-quest-line" hidden><span>LEAST-TOUCHED QUEST:</span><span id="neglected-quest-value"></span></div>
+  <div class="boot-line rm-case-line"><span class="rm-case-stamp" id="rmCaseStamp"></span><span class="rm-witness-line" id="rmWitnessLine"></span></div>
 </div>
 <div class="wrap">
 
