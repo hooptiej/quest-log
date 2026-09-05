@@ -297,6 +297,20 @@
     font-style: italic; color: var(--muted); text-transform: none; letter-spacing: 0.02em;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
   }
+  /* Ticket scoreboard: plain --accent reads as a stray dusty-cyan swatch
+     against this theme's case-file palette -- every other "important
+     number" callout here (env-badge, case-stamp) uses --alarm and
+     typewriter type instead, so the scoreboard follows suit rather than
+     falling back to the generic look. */
+  [data-theme="raccoonmanor"] .score-value {
+    color: var(--alarm);
+    font-family: var(--font-head);
+    font-weight: 400;
+  }
+  [data-theme="raccoonmanor"] .score-block {
+    background: rgba(10,6,4,0.55);
+    border-style: dashed;
+  }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
@@ -1047,6 +1061,27 @@
 
   [data-theme="testpattern"] .log-panel-mini h2 { color: var(--alarm); }
   [data-theme="testpattern"] .log-mini-date { color: var(--tp-chan, var(--accent2)); }
+
+  /* Ticket scoreboard: the one panel-like readout this theme never gave
+     its own flourish (wow/raccoonmanor/hadleyshope all have a
+     [data-theme="X"] .status-panel rule, this theme never did) -- so it
+     was rendering with correct colors (inherited from the base palette)
+     but none of the calibration-card treatment everything else here has.
+     Reuses .card-edge-top's SMPTE bar strip as a plain background-image
+     instead of the absolutely-positioned pseudo-element version (this
+     element has no relative-positioned wrapper to anchor one to), plus
+     the heading color already established for log-panel-mini above. */
+  [data-theme="testpattern"] .status-panel {
+    background-image: repeating-linear-gradient(90deg,
+      #fff 0 12.5%, #e5e500 12.5% 25%, #00e5e5 25% 37.5%, #00c800 37.5% 50%,
+      #e500e5 50% 62.5%, #e50000 62.5% 75%, #0000e5 75% 87.5%, #000 87.5% 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 4px;
+    background-position: top;
+  }
+  [data-theme="testpattern"] .score-label {
+    color: var(--alarm);
+  }
 
   /* Tuner floatie (tpTunerRig/tpTunerBtn in app.js): "changing the channel"
      dims the two jitterClass buckets not currently tuned in, like an old
