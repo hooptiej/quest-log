@@ -481,6 +481,34 @@
     letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase;
   }
 
+  /* FX kill switch -- same idea as the other two themes' toggle, this
+     theme's own control since it never had an on/off switch before. */
+  [data-theme="testpattern"] .tp-switch-rig { position: fixed; bottom: 1.1rem; right: 1.1rem; z-index: 50; text-align: center; }
+  [data-theme="testpattern"] .tp-switch-plate {
+    background: #141414; border: 2px solid var(--border); border-radius: 9px;
+    padding: 0.4rem 0.5rem 0.75rem; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  }
+  [data-theme="testpattern"] .tp-switch-btn {
+    display: block; width: 22px; height: 38px; border-radius: 11px; background: #050505;
+    border: none; cursor: pointer; position: relative; margin: 0 auto;
+  }
+  [data-theme="testpattern"] .tp-switch-nub {
+    position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #cfd8c4, #5a624c); transition: transform 0.25s ease;
+  }
+  [data-theme="testpattern"] .tp-switch-rig.on .tp-switch-nub {
+    transform: translateY(16px); background: radial-gradient(circle at 35% 30%, #baffc0, var(--accent));
+  }
+  [data-theme="testpattern"] .tp-switch-label {
+    display: block; margin-top: 0.35rem; font-family: var(--font-mono); font-size: 0.55rem;
+    letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase;
+  }
+
+  [data-theme="testpattern"].fx-off .tp-testcard,
+  [data-theme="testpattern"].fx-off .tp-floatie { display: none !important; }
+  [data-theme="testpattern"].fx-off body::after { display: none !important; }
+  [data-theme="testpattern"].fx-off h1 { animation: none !important; text-shadow: none !important; }
+
   /* ---------- theme: Hadley's Hope (dieselpunk marine ops, half-hive) ---------- */
   [data-theme="hadleyshope"] {
     --bg:#0a0c08; --surface:#1c2016; --surface-2:#262b1c; --border:#4a5138;
@@ -632,6 +660,10 @@
      every other theme, revealed + populated only when this one is active) ---------- */
   .hh-scene > * { display:none; }
   [data-theme="hadleyshope"] .hh-scene > * { display:block; }
+  /* FX kill switch: hides every ambient/HUD greeble at once (they're all
+     direct children of .hh-scene, real content lives outside it entirely)
+     -- except the switch itself, or there'd be no way to turn it back on. */
+  [data-theme="hadleyshope"].fx-off .hh-scene > *:not(.hh-switch-rig) { display: none !important; }
   [data-theme="hadleyshope"] .hh-scene { pointer-events:none; }
   /* pointer-events:none above cascades to descendants -- re-enable it for
      the actually-interactive widgets (lever, switch, facehugger), or
@@ -1122,7 +1154,7 @@
      theme opts in (a theme styles them via its own [data-theme="X"]
      selectors); absent that they render as literally nothing. */
   .card-pin, .card-edge, .card-fold { display: none; }
-  .tp-testcard, .tp-floatie, .tp-knob-rig { display: none; }
+  .tp-testcard, .tp-floatie, .tp-knob-rig, .tp-switch-rig { display: none; }
   .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
@@ -1601,7 +1633,7 @@
   <div class="hh-switch-rig" id="hhSwitchRig">
     <div class="hh-switch-plate">
       <button type="button" class="hh-switch-btn" id="hhSwitchBtn" aria-label="Toggle atmosphere fog"><span class="hh-switch-nub"></span></button>
-      <span class="hh-switch-label">FOG</span>
+      <span class="hh-switch-label">FX</span>
     </div>
   </div>
   <div class="hh-facehugger" id="hhFacehugger" style="left:50%; top:70%;">
@@ -1625,6 +1657,12 @@
 <div class="tp-knob-rig" id="tpKnobRig">
   <div class="tp-knob" id="tpKnob"><div class="tp-knob-pointer"></div></div>
   <span class="tp-knob-label">Convergence</span>
+</div>
+<div class="tp-switch-rig on" id="tpSwitchRig">
+  <div class="tp-switch-plate">
+    <button type="button" class="tp-switch-btn" id="tpSwitchBtn" aria-label="Turn off all the ambient effects"><span class="tp-switch-nub"></span></button>
+    <span class="tp-switch-label">FX</span>
+  </div>
 </div>
 
 <div class="boot">

@@ -197,14 +197,16 @@
       });
     }
 
+    // FX kill switch (was fog-only, now the "turn off all the greebles"
+    // control -- with this much ambient motion piled on, there needs to
+    // be one obvious way to calm it all down at once).
     var switchRig = document.getElementById("hhSwitchRig");
     var switchBtn = document.getElementById("hhSwitchBtn");
     if (switchBtn && switchRig) {
       switchRig.classList.add("on");
-      var fogEl = document.getElementById("hhFogLayer");
       switchBtn.addEventListener("click", function () {
         var on = switchRig.classList.toggle("on");
-        if (fogEl) fogEl.style.opacity = on ? "" : "0";
+        document.documentElement.classList.toggle("fx-off", !on);
       });
     }
 
@@ -297,6 +299,18 @@
       document.addEventListener("mouseup", function () {
         knobDragging = false;
         knob.classList.remove("dragging");
+      });
+    }
+
+    // FX kill switch -- this theme's own on/off control, mirroring the
+    // other two themes' toggle since there needs to be one obvious way
+    // to calm all the ambient motion down at once.
+    var tpSwitchRig = document.getElementById("tpSwitchRig");
+    var tpSwitchBtn = document.getElementById("tpSwitchBtn");
+    if (tpSwitchBtn && tpSwitchRig) {
+      tpSwitchBtn.addEventListener("click", function () {
+        var on = tpSwitchRig.classList.toggle("on");
+        document.documentElement.classList.toggle("fx-off", !on);
       });
     }
   }
