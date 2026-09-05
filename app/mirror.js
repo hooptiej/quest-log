@@ -157,6 +157,46 @@ function childCountLabel(q, children) {
   return `${children.length} ${noun}${children.length === 1 ? "" : "s"}${doneCount > 0 ? `, ${doneCount} done` : ""}`;
 }
 
+// Used by treeNode for a node's own children (Missions within a Quest,
+// Tasks within a Mission) -- kept in sync with the identical helper in
+// app/public/app.js so the mirror can't silently drift from the live site
+// the way #88 happened once already. Not used for top-level Quests anymore
+// -- see completedRootCard below.
+function completedGroupHtml(doneItems, byParent, allQuests) {
+  if (!doneItems.length) return "";
+  return (
+    `<div class="tree-completed collapsed">` +
+    `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed">▸</button>` +
+    `<span class="completed-label">Completed (${doneItems.length})</span>` +
+    `<div class="tree-completed-items collapsed">${doneItems.map((c) => treeNode(c, byParent, allQuests)).join("")}</div>` +
+    "</div>"
+  );
+}
+
+// Top-level done Quests (#99) render as one more ordinary-looking
+// .tree-node -- titled "Completed Quests", no checkbox/notes controls
+// since it isn't a real quest -- rather than a distinct wrapper style.
+// Kept in sync with the identical app/public/app.js function
+// (which additionally applies jitter/card-decoration hooks the mirror
+// doesn't use, since it never sets data-theme). Always rendered, even with
+// zero done Quests -- a permanent fixture, not something that pops in and
+// out of existence.
+function completedRootCard(doneRoots, byParent, allQuests) {
+  const childrenHtml = doneRoots.length
+    ? doneRoots.map((q) => treeNode(q, byParent, allQuests)).join("")
+    : '<div class="empty-row">// none yet</div>';
+  return (
+    `<div class="tree-node" data-id="completed-quests-root">` +
+    `<div class="tree-row"><span class="tree-title-group">` +
+    `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed Quests">▸</button>` +
+    `<span class="child-count">(${doneRoots.length} ${doneRoots.length === 1 ? "quest" : "quests"})</span>` +
+    `<span class="tree-title">Completed Quests</span></span>` +
+    `<span class="tree-actions"><span class="quest-tag">DONE</span></span></div>` +
+    `<div class="tree-children collapsed">${childrenHtml}</div>` +
+    "</div>"
+  );
+}
+
 function treeNode(q, byParent, allQuests) {
   const allChildren = byParent[q.id] || [];
   const activeChildren = allChildren.filter((c) => c.status !== "done");
@@ -166,14 +206,7 @@ function treeNode(q, byParent, allQuests) {
   const progress = q.level === "quest" ? questProgress(q, allQuests) : null;
 
   let childrenHtml = activeChildren.map((c) => treeNode(c, byParent, allQuests)).join("");
-  if (doneChildren.length) {
-    childrenHtml +=
-      `<div class="tree-completed collapsed">` +
-      `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed">▸</button>` +
-      `<span class="completed-label">Completed (${doneChildren.length})</span>` +
-      `<div class="tree-completed-items collapsed">${doneChildren.map((c) => treeNode(c, byParent, allQuests)).join("")}</div>` +
-      "</div>";
-  }
+  childrenHtml += completedGroupHtml(doneChildren, byParent, allQuests);
   const hasChildren = allChildren.length > 0;
 
   return (
@@ -199,18 +232,23 @@ function treeNode(q, byParent, allQuests) {
   );
 }
 
-function renderQuestTree(state, parentIds) {
+function renderQuestTree(visibleQuests, parentIds) {
   const byParent = {};
-  state.quests.forEach((q) => {
+  visibleQuests.forEach((q) => {
     if (!q.parentId) return;
     (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
   });
-  const roots = state.quests.filter((q) => !q.parentId && (q.level === "quest" || parentIds.has(q.id)));
-  return roots.length ? roots.map((q) => treeNode(q, byParent, state.quests)).join("") : '<div class="empty-row">// no Quests yet</div>';
+  const roots = visibleQuests.filter((q) => !q.parentId && (q.level === "quest" || parentIds.has(q.id)));
+  if (!roots.length) return '<div class="empty-row">// no Quests yet</div>';
+  // Top-level Quests get the same active/done split their own children
+  // already got from #61 (#99).
+  const activeRoots = roots.filter((q) => q.status !== "done");
+  const doneRoots = roots.filter((q) => q.status === "done");
+  return activeRoots.map((q) => treeNode(q, byParent, visibleQuests)).join("") + completedRootCard(doneRoots, byParent, visibleQuests);
 }
 
-function computeMostNeglected(state) {
-  const topLevel = state.quests.filter((q) => q.level === "quest" && !q.parentId);
+function computeMostNeglected(visibleQuests) {
+  const topLevel = visibleQuests.filter((q) => q.level === "quest" && !q.parentId);
   if (!topLevel.length) return null;
   const sorted = [...topLevel].sort((a, b) => {
     const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
@@ -222,19 +260,23 @@ function computeMostNeglected(state) {
 
 export async function buildMirrorHtml(state) {
   const css = await getMirrorCss();
+  // Archived items (#61/#99) are meant to be genuinely hidden from the
+  // default view -- filtered out once, here, matching app/public/app.js's
+  // render(), so the mirror can't show something the live site hides.
+  const visibleQuests = state.quests.filter((q) => !q.archived);
   const parentIds = new Set();
-  state.quests.forEach((q) => { if (q.parentId) parentIds.add(q.parentId); });
+  visibleQuests.forEach((q) => { if (q.parentId) parentIds.add(q.parentId); });
 
   const groups = { progress: [], idea: [], done: [] };
-  state.quests.forEach((q) => {
+  visibleQuests.forEach((q) => {
     if (isTreeItem(q, parentIds)) return;
     if (!groups[q.status]) return;
     groups[q.status].push(q);
   });
 
-  const questTree = renderQuestTree(state, parentIds);
+  const questTree = renderQuestTree(visibleQuests, parentIds);
   const idea = groups.idea.length ? groups.idea.map(questRow).join("") : '<div class="empty-row">// none</div>';
-  const questRootCount = state.quests.filter((q) => !q.parentId && (q.level === "quest" || parentIds.has(q.id))).length;
+  const questRootCount = visibleQuests.filter((q) => !q.parentId && (q.level === "quest" || parentIds.has(q.id))).length;
 
   const flatLog = [];
   state.log.forEach((day) => {
@@ -245,7 +287,7 @@ export async function buildMirrorHtml(state) {
     .map((r) => `      <li><span class="log-mini-date">${escapeHtml(r.date)}</span>${escapeHtml(truncate(r.text, 200))}</li>`)
     .join("\n");
 
-  const neglected = computeMostNeglected(state);
+  const neglected = computeMostNeglected(visibleQuests);
   const neglectedLine = neglected
     ? `<div class="boot-line"><span>LEAST-TOUCHED QUEST:</span><span>${escapeHtml(neglected.title)}${neglected.lastTouchedAt ? ` (${escapeHtml(String(neglected.lastTouchedAt).slice(0, 10))})` : " (never touched)"}</span></div>`
     : "";
@@ -276,7 +318,7 @@ ${css}
 
 <div class="boot">
   <div class="boot-line"><span>WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span class="ok">LINK ESTABLISHED</span></div>
-  <div class="boot-line"><span>TERMINAL: <span>MU/TH/UR-6000</span></span><span class="ok">${state.quests.length} MISSIONS TRACKED</span></div>
+  <div class="boot-line"><span>TERMINAL: <span>MU/TH/UR-6000</span></span><span class="ok">${visibleQuests.length} MISSIONS TRACKED</span></div>
   ${neglectedLine}
 </div>
 <div class="wrap">

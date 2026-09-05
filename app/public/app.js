@@ -770,6 +770,59 @@
     return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
 
+  // Used by treeNode for a node's own children (Missions within a Quest,
+  // Tasks within a Mission) -- a collapsed-by-default "Completed (N)"
+  // wrapper around whatever done items were separated out at this level.
+  // Not used for top-level Quests anymore -- see completedRootCard below.
+  function completedGroupHtml(doneItems, byParent, allQuests) {
+    if (!doneItems.length) return "";
+    var completedExpanded = false;
+    return '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
+      '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
+      '<span class="completed-label">Completed (' + doneItems.length + ')</span>' +
+      '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
+      doneItems.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
+      '</div>' +
+      '</div>';
+  }
+
+  // Top-level done Quests (#99) render as one more ordinary-looking
+  // .tree-node -- titled "Completed Quests", no checkbox/notes/promote
+  // controls since it isn't a real quest -- rather than a distinct wrapper
+  // style. Deliberate: every theme's existing top-level card
+  // treatment (Raccoon Manor's folder pile, Test Pattern's bullseye pins,
+  // the jitter/rotation hooks) keys off "#quest-tree > .tree-node", so
+  // reusing that exact shape means this needs no per-theme styling of its
+  // own, and the existing toggle-tree click handler (any .tree-node's
+  // > .tree-children) already handles it with no code changes there either.
+  // A fixed synthetic id (not a real quest id) gives it a stable, un-
+  // reshuffling jitter look like everything else jitterClass/jitterStyle key
+  // off an id for. Always rendered, even with zero done Quests -- a
+  // permanent fixture at the bottom of the list, not something that pops
+  // in and out of existence.
+  var COMPLETED_ROOT_ID = "completed-quests-root";
+  function completedRootCard(doneRoots, byParent, allQuests) {
+    var expanded = false;
+    return (
+      '<div class="tree-node ' + jitterClass(COMPLETED_ROOT_ID) + '" data-id="' + COMPLETED_ROOT_ID + '"' + jitterStyle(COMPLETED_ROOT_ID) + '>' +
+        cardDecoration() +
+        '<div class="tree-row">' +
+          '<span class="tree-title-group">' +
+            '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle Completed Quests">' + (expanded ? "▾" : "▸") + '</button>' +
+            '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + doneRoots.length + (doneRoots.length === 1 ? " quest" : " quests") + ')</span>' +
+            '<span class="tree-title">Completed Quests</span>' +
+          '</span>' +
+          '<span class="tree-actions"><span class="quest-tag">DONE</span></span>' +
+        '</div>' +
+        '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' +
+          (doneRoots.length
+            ? doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("")
+            : '<div class="empty-row">// none yet</div>') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   // Read-only by design: a Quest/Mission with children only ever closes via
   // confirm_completion through Claude + the MCP tools (a conversation, not
   // a click) -- so this tree just displays current state, it doesn't offer
@@ -801,14 +854,7 @@
       childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
     }
     if (hasDoneChildren) {
-      var completedExpanded = false;
-      childrenHtml += '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
-        '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
-        '<span class="completed-label">Completed (' + doneChildren.length + ')</span>' +
-        '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
-        doneChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
-        '</div>' +
-        '</div>';
+      childrenHtml += completedGroupHtml(doneChildren, byParent, allQuests);
     }
 
     var hasChildren = allChildren.length > 0;
@@ -847,32 +893,45 @@
     );
   }
 
-  function renderQuestTree(state, parentIds) {
+  function renderQuestTree(visibleQuests, parentIds) {
     var panel = document.getElementById("quests-panel");
     var byParent = {};
-    state.quests.forEach(function (q) {
+    visibleQuests.forEach(function (q) {
       if (!q.parentId) return;
       (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
     });
     // Roots are real Quests, plus any parentless item that itself has
     // children (an ungrouped Mission with Tasks under it) -- otherwise it
     // would be excluded from the flat panels but never shown anywhere.
-    var roots = state.quests.filter(function (q) {
+    var roots = visibleQuests.filter(function (q) {
       return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
     });
+    // Top-level Quests get the same active/done split their own children
+    // already got from #61 -- a finished Quest used to just sit at the top
+    // of the list forever with only its strikethrough to mark it (#99).
+    var activeRoots = roots.filter(function (q) { return q.status !== "done"; });
+    var doneRoots = roots.filter(function (q) { return q.status === "done"; });
     // Always visible now (the hierarchy view is meant to be the primary
     // one), with an empty state when there's no Quest yet rather than
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent, state.quests); }).join("")
+      ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests); }).join("") +
+        completedRootCard(doneRoots, byParent, visibleQuests)
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
 
   function render(state) {
+    // Archived items (#61/#99) are meant to be genuinely hidden from the
+    // default view, distinct from "done" items which merely sort into a
+    // collapsed Completed section -- filtered out once, here, so every
+    // panel/count/progress figure downstream just never sees them instead
+    // of every consumer needing its own archived check.
+    var visibleQuests = state.quests.filter(function (q) { return !q.archived; });
+
     var parentIds = new Set();
-    state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
+    visibleQuests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
 
     // Flat panels are down to just the Idea Board now (#30 cleanup): ACTIVE
     // and COMPLETED never earned their keep once the hierarchy took over
@@ -880,7 +939,7 @@
     // of a status. progress/done are still tracked here (for the Mission
     // Progress bar below) even though only idea gets its own panel.
     var groups = { progress: [], idea: [], done: [] };
-    state.quests.forEach(function (q) {
+    visibleQuests.forEach(function (q) {
       if (isTreeItem(q, parentIds)) return;
       if (!groups[q.status]) {
         console.warn("quest with unrecognized status, skipping:", q.id, q.status);
@@ -889,7 +948,7 @@
       groups[q.status].push(q);
     });
 
-    renderQuestTree(state, parentIds);
+    renderQuestTree(visibleQuests, parentIds);
 
     var ideaList = document.getElementById("list-idea");
     ideaList.innerHTML = groups.idea.length
@@ -924,7 +983,7 @@
     }
 
     var bootTime = document.getElementById("boot-time");
-    if (bootTime) bootTime.textContent = state.quests.length + " MISSIONS TRACKED";
+    if (bootTime) bootTime.textContent = visibleQuests.length + " MISSIONS TRACKED";
 
     // Least-touched top-level Quest (#62) -- mirrors the same computation
     // get_full_state's mostNeglectedQuest does server-side, done client-side
@@ -932,7 +991,7 @@
     var neglectedLine = document.getElementById("neglected-quest-line");
     var neglectedValue = document.getElementById("neglected-quest-value");
     if (neglectedLine && neglectedValue) {
-      var topLevelQuests = state.quests.filter(function (q) { return q.level === "quest" && !q.parentId; });
+      var topLevelQuests = visibleQuests.filter(function (q) { return q.level === "quest" && !q.parentId; });
       if (topLevelQuests.length > 0) {
         var oldest = topLevelQuests.slice().sort(function (a, b) {
           var aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
