@@ -19,6 +19,7 @@
 // breaking out of the inline script block (#56).
 export function renderIndexHtml(template, state, writeToken, appVersion, questLogEnv) {
   return template
+    .replace("__PAGE_TITLE_VALUE__", questLogEnv === "dev" ? "Questlog - DEV" : "Questlog")
     .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(writeToken))
     .replace("__APP_VERSION_VALUE__", JSON.stringify(appVersion))
     .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(questLogEnv))
