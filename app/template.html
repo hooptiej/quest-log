@@ -474,6 +474,10 @@
      the visible viewport when a vertical scrollbar is present -- clip the
      stray overflow rather than let it add a horizontal scrollbar. */
   html[data-theme="hadleyshope"], [data-theme="hadleyshope"] body { overflow-x: hidden; }
+  /* Display Mode/Designation/Scale block would otherwise sit under the
+     motion tracker -- nudge it clear (left past the tracker's width,
+     down below the boot bar same as the tracker itself). */
+  [data-theme="hadleyshope"] .theme-switcher { top: calc(1.1rem + 120px); right: 140px; }
   [data-theme="hadleyshope"] .subtitle::after {
     content:"Biohazard \2014  Area Sealed";
     display:inline-block; margin-top:0.6rem; font-family:var(--font-display); font-size:0.65rem;
