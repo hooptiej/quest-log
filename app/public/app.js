@@ -770,11 +770,10 @@
     return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
 
-  // Shared by treeNode (for a node's children) and renderQuestTree (for the
-  // top-level roots themselves, #99) -- a collapsed-by-default "Completed
-  // (N)" wrapper around whatever done items were separated out at this
-  // level. Kept as one function so both call sites can't drift the way
-  // #61's grouping and #99's top-level version otherwise would.
+  // Used by treeNode for a node's own children (Missions within a Quest,
+  // Tasks within a Mission) -- a collapsed-by-default "Completed (N)"
+  // wrapper around whatever done items were separated out at this level.
+  // Not used for top-level Quests anymore -- see completedRootCard below.
   function completedGroupHtml(doneItems, byParent, allQuests) {
     if (!doneItems.length) return "";
     var completedExpanded = false;
@@ -785,6 +784,40 @@
       doneItems.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
       '</div>' +
       '</div>';
+  }
+
+  // Top-level done Quests (#99) render as one more ordinary-looking
+  // .tree-node -- titled "Completed Quests", no checkbox/notes/promote
+  // controls since it isn't a real quest -- rather than a distinct wrapper
+  // style. Deliberate: every theme's existing top-level card
+  // treatment (Raccoon Manor's folder pile, Test Pattern's bullseye pins,
+  // the jitter/rotation hooks) keys off "#quest-tree > .tree-node", so
+  // reusing that exact shape means this needs no per-theme styling of its
+  // own, and the existing toggle-tree click handler (any .tree-node's
+  // > .tree-children) already handles it with no code changes there either.
+  // A fixed synthetic id (not a real quest id) gives it a stable, un-
+  // reshuffling jitter look like everything else jitterClass/jitterStyle key
+  // off an id for.
+  var COMPLETED_ROOT_ID = "completed-quests-root";
+  function completedRootCard(doneRoots, byParent, allQuests) {
+    if (!doneRoots.length) return "";
+    var expanded = false;
+    return (
+      '<div class="tree-node ' + jitterClass(COMPLETED_ROOT_ID) + '" data-id="' + COMPLETED_ROOT_ID + '"' + jitterStyle(COMPLETED_ROOT_ID) + '>' +
+        cardDecoration() +
+        '<div class="tree-row">' +
+          '<span class="tree-title-group">' +
+            '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle Completed Quests">' + (expanded ? "▾" : "▸") + '</button>' +
+            '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + doneRoots.length + (doneRoots.length === 1 ? " quest" : " quests") + ')</span>' +
+            '<span class="tree-title">Completed Quests</span>' +
+          '</span>' +
+          '<span class="tree-actions"><span class="quest-tag">DONE</span></span>' +
+        '</div>' +
+        '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' +
+          doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("") +
+        '</div>' +
+      '</div>'
+    );
   }
 
   // Read-only by design: a Quest/Mission with children only ever closes via
@@ -881,7 +914,7 @@
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
       ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests); }).join("") +
-        completedGroupHtml(doneRoots, byParent, visibleQuests)
+        completedRootCard(doneRoots, byParent, visibleQuests)
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }

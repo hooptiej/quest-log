@@ -157,10 +157,11 @@ function childCountLabel(q, children) {
   return `${children.length} ${noun}${children.length === 1 ? "" : "s"}${doneCount > 0 ? `, ${doneCount} done` : ""}`;
 }
 
-// Shared by treeNode (a node's own children) and renderQuestTree (the
-// top-level roots, #99) -- kept in sync with the identical helper in
+// Used by treeNode for a node's own children (Missions within a Quest,
+// Tasks within a Mission) -- kept in sync with the identical helper in
 // app/public/app.js so the mirror can't silently drift from the live site
-// the way #88 happened once already.
+// the way #88 happened once already. Not used for top-level Quests anymore
+// -- see completedRootCard below.
 function completedGroupHtml(doneItems, byParent, allQuests) {
   if (!doneItems.length) return "";
   return (
@@ -168,6 +169,26 @@ function completedGroupHtml(doneItems, byParent, allQuests) {
     `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed">▸</button>` +
     `<span class="completed-label">Completed (${doneItems.length})</span>` +
     `<div class="tree-completed-items collapsed">${doneItems.map((c) => treeNode(c, byParent, allQuests)).join("")}</div>` +
+    "</div>"
+  );
+}
+
+// Top-level done Quests (#99) render as one more ordinary-looking
+// .tree-node -- titled "Completed Quests", no checkbox/notes controls
+// since it isn't a real quest -- rather than a distinct wrapper style.
+// Kept in sync with the identical app/public/app.js function
+// (which additionally applies jitter/card-decoration hooks the mirror
+// doesn't use, since it never sets data-theme).
+function completedRootCard(doneRoots, byParent, allQuests) {
+  if (!doneRoots.length) return "";
+  return (
+    `<div class="tree-node" data-id="completed-quests-root">` +
+    `<div class="tree-row"><span class="tree-title-group">` +
+    `<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="false" aria-label="Toggle Completed Quests">▸</button>` +
+    `<span class="child-count">(${doneRoots.length} ${doneRoots.length === 1 ? "quest" : "quests"})</span>` +
+    `<span class="tree-title">Completed Quests</span></span>` +
+    `<span class="tree-actions"><span class="quest-tag">DONE</span></span></div>` +
+    `<div class="tree-children collapsed">${doneRoots.map((q) => treeNode(q, byParent, allQuests)).join("")}</div>` +
     "</div>"
   );
 }
@@ -219,7 +240,7 @@ function renderQuestTree(visibleQuests, parentIds) {
   // already got from #61 (#99).
   const activeRoots = roots.filter((q) => q.status !== "done");
   const doneRoots = roots.filter((q) => q.status === "done");
-  return activeRoots.map((q) => treeNode(q, byParent, visibleQuests)).join("") + completedGroupHtml(doneRoots, byParent, visibleQuests);
+  return activeRoots.map((q) => treeNode(q, byParent, visibleQuests)).join("") + completedRootCard(doneRoots, byParent, visibleQuests);
 }
 
 function computeMostNeglected(visibleQuests) {
