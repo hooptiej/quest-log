@@ -238,13 +238,15 @@
     background: radial-gradient(circle at 35% 30%, #e58a92, var(--alarm) 70%);
     box-shadow: 0 2px 3px rgba(0,0,0,0.6);
   }
-  [data-theme="raccoonmanor"] .card-edge {
+  [data-theme="raccoonmanor"] .card-edge-bottom {
     display: block;
     position: absolute; left: 4%; right: 4%; bottom: -6px; height: 10px;
     background: linear-gradient(178deg, #dcd5b8, transparent);
     clip-path: polygon(0% 0%,6% 100%,12% 8%,18% 100%,24% 4%,30% 100%,36% 8%,42% 100%,48% 0%,
                         54% 100%,60% 6%,66% 100%,72% 4%,78% 100%,84% 8%,90% 100%,96% 4%,100% 0%);
   }
+  /* card-edge-top and card-fold are plumbed in but unused by this theme --
+     available for the next one. */
   /* Nested (sub-task/sub-idea) cards stay flat paper, no pin/rotation --
      they read as notes clipped to the card above them, not their own
      pinned object. */
@@ -300,6 +302,135 @@
 
   @media (prefers-reduced-motion: reduce) {
     [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
+  }
+
+  /* ---------- theme: Test Pattern (showcase/diagnostic, exercises every
+     card-* hook + both jitter mechanisms on purpose -- not meant to be
+     pretty, meant to be a reference for what the plumbing can do) ---------- */
+  [data-theme="testpattern"] {
+    --bg: #050505;
+    --surface: #141414;
+    --surface-2: #1e1e1e;
+    --border: #3a3a3a;
+    --text: #f0f0f0;
+    --muted: #8a8a8a;
+    --accent: #00e5e5;
+    --accent-dim: #007a7a;
+    --accent2: #e500e5;
+    --alarm: #ff2b2b;
+    --idea: #e5e500;
+
+    /* Reuses fonts already loaded for other themes -- no new font request. */
+    --font-display: 'Orbitron', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-head: 'Orbitron', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
+    --font-body: 'Share Tech Mono', ui-monospace, Consolas, monospace;
+
+    --body-bg-image:
+      repeating-linear-gradient(90deg,
+        rgba(224,224,224,0.05) 0 12.5%, rgba(224,224,0,0.05) 12.5% 25%,
+        rgba(0,224,224,0.05) 25% 37.5%, rgba(0,224,0,0.05) 37.5% 50%,
+        rgba(224,0,224,0.05) 50% 62.5%, rgba(224,0,0,0.05) 62.5% 75%,
+        rgba(0,0,224,0.05) 75% 87.5%, rgba(0,0,0,0.05) 87.5% 100%),
+      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+  [data-theme="testpattern"] h1 {
+    letter-spacing: 0.05em;
+    animation: tp-glitch 4s steps(1) infinite;
+  }
+  @keyframes tp-glitch {
+    0%, 92%, 100% { text-shadow: -1px 0 var(--accent), 1px 0 var(--alarm); transform: translate(0, 0); }
+    93% { text-shadow: 2px 0 var(--accent), -2px 0 var(--alarm); transform: translate(-1px, 0); }
+    95% { text-shadow: -2px 0 var(--accent), 2px 0 var(--alarm); transform: translate(1px, 0); }
+    97% { text-shadow: 1px 0 var(--accent), -1px 0 var(--alarm); transform: translate(0, -1px); }
+  }
+  [data-theme="testpattern"] .panel h2 { letter-spacing: 0.16em; }
+  /* Rolling scanline (moving, unlike MU/TH/UR's static one) -- own rule
+     since it's keyed off data-theme, not the "no theme set" default. */
+  [data-theme="testpattern"] body::after {
+    content: "";
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: multiply;
+    animation: tp-roll 6s linear infinite;
+  }
+  @keyframes tp-roll { from { background-position: 0 0; } to { background-position: 0 300px; } }
+
+  [data-theme="testpattern"] .panel-quests,
+  [data-theme="testpattern"] .panel-idea {
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 20px),
+      var(--surface);
+  }
+
+  /* jitterClass demo: buckets a card into one of 3 "channels" via a
+     cascading custom property, rather than styling each bucket's pin
+     directly -- shows the class can drive more than just a fixed lookup. */
+  [data-theme="testpattern"] .card-jitter-a { --tp-chan: var(--accent); }
+  [data-theme="testpattern"] .card-jitter-b { --tp-chan: var(--accent2); }
+  [data-theme="testpattern"] .card-jitter-c { --tp-chan: var(--idea); }
+
+  /* --jitter demo: continuous per-item hue drift, independent of the 3
+     discrete channel buckets above -- the two mechanisms stacking cleanly. */
+  [data-theme="testpattern"] #quest-tree > .tree-node,
+  [data-theme="testpattern"] #list-idea > .quest,
+  [data-theme="testpattern"] .log-mini-list li {
+    position: relative;
+    filter: hue-rotate(calc(var(--jitter, 0.5) * 40deg - 20deg));
+  }
+  [data-theme="testpattern"] #quest-tree > .tree-node,
+  [data-theme="testpattern"] #list-idea > .quest {
+    margin: 0 0 1.5rem 0;
+    padding-top: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--tp-chan, var(--border)) 55%, var(--border));
+  }
+
+  /* card-pin: bullseye reticle, colored by the jitterClass channel. */
+  [data-theme="testpattern"] .card-pin {
+    display: block;
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--tp-chan, var(--accent));
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--tp-chan, var(--accent)), 0 0 8px var(--tp-chan, var(--accent));
+  }
+  /* card-edge-top: a literal strip of color bars. */
+  [data-theme="testpattern"] .card-edge-top {
+    display: block;
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: repeating-linear-gradient(90deg,
+      #fff 0 12.5%, #e5e500 12.5% 25%, #00e5e5 25% 37.5%, #00c800 37.5% 50%,
+      #e500e5 50% 62.5%, #e50000 62.5% 75%, #0000e5 75% 87.5%, #000 87.5% 100%);
+  }
+  /* card-edge-bottom: a tick-mark ruler. */
+  [data-theme="testpattern"] .card-edge-bottom {
+    display: block;
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+    background: repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 8px);
+    opacity: 0.6;
+  }
+  /* card-fold: a corner registration mark (film/print alignment crosshair). */
+  [data-theme="testpattern"] .card-fold {
+    display: block;
+    position: absolute; top: 5px; right: 5px; width: 11px; height: 11px;
+    border: 1px solid var(--muted);
+    border-radius: 50%;
+    background:
+      linear-gradient(var(--muted), var(--muted)) center / 100% 1px no-repeat,
+      linear-gradient(90deg, var(--muted), var(--muted)) center / 1px 100% no-repeat;
+    opacity: 0.75;
+  }
+  /* Nested sub-items keep the hue-drift but not the channel border/pin --
+     same "top-level gets the full object treatment" rule Raccoon Manor uses. */
+  [data-theme="testpattern"] .tree-children .card-pin,
+  [data-theme="testpattern"] .tree-completed .card-pin { display: none; }
+
+  [data-theme="testpattern"] .log-panel-mini h2 { color: var(--alarm); }
+  [data-theme="testpattern"] .log-mini-date { color: var(--tp-chan, var(--accent2)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="testpattern"] h1 { animation: none; text-shadow: none; }
+    [data-theme="testpattern"] body::after { animation: none; }
   }
 
   * { box-sizing: border-box; }
@@ -627,12 +758,13 @@
      of its own without fighting shared markup. Zero footprint until a
      theme opts in (a theme styles them via its own [data-theme="X"]
      selectors); absent that they render as literally nothing. */
-  .card-pin, .card-edge { display: none; }
+  .card-pin, .card-edge, .card-fold { display: none; }
   .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
 
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
   .tree-node {
+    position: relative;
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
@@ -785,6 +917,7 @@
   /* ---------- quest rows ---------- */
 
   .quest {
+    position: relative;
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 0.15rem 0.85rem;
@@ -946,6 +1079,7 @@
   .log-panel-mini h2 { font-size: 0.82rem; margin-bottom: 0.75rem; }
   .log-mini-list { margin: 0; padding: 0; list-style: none; }
   .log-mini-list li {
+    position: relative;
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--muted);
@@ -1044,6 +1178,7 @@
           <option value="terminal">FIELD TERMINAL</option>
           <option value="wow">GUILD CHARTER</option>
           <option value="raccoonmanor">RACCOON MANOR</option>
+          <option value="testpattern">TEST PATTERN</option>
         </select>
       </div>
       <div class="switcher-row">
