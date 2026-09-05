@@ -464,11 +464,16 @@
   [data-theme="hadleyshope"] header.masthead { position:relative; padding-top:0.6rem; padding-bottom:0.6rem; }
   [data-theme="hadleyshope"] header.masthead::before,
   [data-theme="hadleyshope"] header.masthead::after {
-    content:""; display:block; height:9px; margin:0 auto 0.6rem; max-width:47.5rem;
+    content:""; display:block; height:9px; margin-bottom:0.6rem;
+    width:100vw; position:relative; left:50%; right:50%; margin-left:-50vw; margin-right:-50vw;
     background:repeating-linear-gradient(135deg, var(--accent2) 0 14px, #141414 14px 28px);
     box-shadow:0 0 10px rgba(184,152,88,0.3);
   }
-  [data-theme="hadleyshope"] header.masthead::after { margin:0.6rem auto 0; }
+  [data-theme="hadleyshope"] header.masthead::after { margin-top:0.6rem; margin-bottom:0; }
+  /* The full-bleed stripes above are sized off 100vw, which is wider than
+     the visible viewport when a vertical scrollbar is present -- clip the
+     stray overflow rather than let it add a horizontal scrollbar. */
+  html[data-theme="hadleyshope"], [data-theme="hadleyshope"] body { overflow-x: hidden; }
   [data-theme="hadleyshope"] .subtitle::after {
     content:"Biohazard \2014  Area Sealed";
     display:inline-block; margin-top:0.6rem; font-family:var(--font-display); font-size:0.65rem;
