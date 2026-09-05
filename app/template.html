@@ -698,6 +698,19 @@
     filter: brightness(var(--rm-power-cut-glow, 1));
   }
 
+  /* Temp debug readout -- settings-mode only, remove once done tuning the
+     power-cut duplicates. Fixed (not absolute like the duplicates above)
+     since it's a debug HUD, not part of the scene -- always visible
+     regardless of scroll. Plain text over a solid background, deliberately
+     ugly/obvious so it never gets mistaken for part of the theme. */
+  [data-theme="raccoonmanor"] .rm-debug-readout { display: none; }
+  [data-theme="raccoonmanor"].settings-mode .rm-debug-readout {
+    display: block; position: fixed; top: 1.1rem; left: 50%; transform: translateX(-50%);
+    z-index: 999; background: #000; color: #5fd75f; border: 1px solid #5fd75f;
+    font-family: var(--font-mono); font-size: 0.7rem; padding: 0.3rem 0.6rem;
+    white-space: pre; pointer-events: none;
+  }
+
   /* Eyes in the dark: something peeking around the edge of the corkboard
      from just off-panel. Absent entirely outside power-cut. The fade-in
      and blink below are deliberately two separate animations on the same
@@ -2088,6 +2101,10 @@
   </svg>
   <div class="rm-eyes-dupe" id="rmEyesDupe"><span class="rm-eye"></span><span class="rm-eye"></span></div>
   <div class="rm-help-dupe" id="rmHelpDupe" aria-hidden="true">HELP</div>
+  <!-- Temp debug readout: settings-mode only, remove once the power-cut
+       duplicates are done being tuned. Plain live state dump so it can be
+       read back precisely instead of guessed from a screenshot. -->
+  <div class="rm-debug-readout" id="rmDebugReadout"></div>
   <div class="rm-roach"><svg viewBox="0 0 24 13"><ellipse cx="12" cy="6.5" rx="11" ry="4" fill="#050705"/><ellipse cx="3.5" cy="6.5" rx="2.6" ry="2.3" fill="#050705"/><circle cx="2" cy="5.5" r="0.6" fill="#a8d3dc"/></svg></div>
 
   <div id="rmDripLayer">

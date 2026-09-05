@@ -278,6 +278,25 @@
       });
     }
 
+    // Temp debug readout (settings-mode only, see CSS) -- polls rather
+    // than hooking every state-changing call site, so it can't miss one
+    // (the ambient auto-trip included) and stays trivial to remove later.
+    var debugReadout = document.getElementById("rmDebugReadout");
+    if (debugReadout) {
+      setInterval(function () {
+        if (!isRaccoonManor()) return;
+        var html = document.documentElement;
+        var cs = getComputedStyle(html);
+        debugReadout.textContent =
+          "power-cut: " + html.classList.contains("power-cut") + "\n" +
+          "valve armed: " + (valveRig ? valveRig.classList.contains("armed") : "n/a") + "\n" +
+          "settings-mode: " + html.classList.contains("settings-mode") + "\n" +
+          "darkness: " + cs.getPropertyValue("--rm-power-cut-brightness").trim() + "\n" +
+          "glow: " + cs.getPropertyValue("--rm-power-cut-glow").trim() + "\n" +
+          "hud-boost: " + cs.getPropertyValue("--rm-hud-boost").trim();
+      }, 400);
+    }
+
     // Settings-mode tuning sliders (darkness/glow/HUD boost) -- each moves a
     // CSS custom property live on "input" for instant feedback while
     // dragging, and saves to STATE._themeTuning.raccoonmanor on "change"
