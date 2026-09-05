@@ -166,9 +166,16 @@
      screen space. The moon is the brightest thing in the scene; distant
      lightning occasionally flashes through it, and ~1 in 10 strikes trips
      the generator (see .rm-valve-rig below). */
-  [data-theme="raccoonmanor"] header.masthead { padding: 1.75rem 0 1.25rem; }
+  [data-theme="raccoonmanor"] header.masthead { padding: 1.75rem 0 1.25rem; z-index: 0; }
   [data-theme="raccoonmanor"] .rm-window {
-    position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 0;
+    /* z-index:2, not 0/1 -- clears header.masthead's own power-cut
+       darkening overlay (z-index:1, added below) the same way the card's
+       z-index:2 clears the corkboard panel's. The whole window (moon,
+       lightning bolt, sash, curtains, HELP smudge) rides above the
+       overlay together as one unit, rather than only the moon poking
+       through a still-darkened frame -- simpler, and nothing asked for
+       the frame itself to stay dark while just the moon glows through it. */
+    position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 2;
     width: min(92%, 420px);
     border: 3px solid #5a4530; border-radius: 2px; background: linear-gradient(180deg, #05070a, #0e120c);
     box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 0 6px #14170f, 0 0 0 1px #2c2013; overflow: hidden;
@@ -269,6 +276,18 @@
     border-color: #14100a;
     border-width: 4px;
     box-shadow: inset 0 0 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04), 0 3px 12px rgba(0,0,0,0.6);
+    z-index: 0;
+  }
+  /* The board itself darkens too, same overlay-not-filter approach as the
+     cards (see the note by .power-cut .boot). .rm-critter-eyes already
+     sits at z-index:6 (well above this overlay's z-index:1) so the eyes
+     keep glowing through the darkened board. */
+  [data-theme="raccoonmanor"].power-cut .panel-quests::after,
+  [data-theme="raccoonmanor"].power-cut .panel-idea::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: #000; border-radius: inherit;
+    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
+    transition: opacity 1.3s ease;
   }
 
   /* Paper-card base: every row under the board becomes a scrap of paper,
@@ -301,8 +320,14 @@
     margin: 1.5rem 0.2rem 0 0.5rem;
     /* Own stacking context so card-edge-top's negative z-index tucks it
        behind THIS card specifically, rather than behind whatever the
-       page happens to stack beneath a plain position:relative element. */
-    z-index: 0;
+       page happens to stack beneath a plain position:relative element.
+       2, not 0, so the whole card also clears the corkboard panel's own
+       darkening overlay (z-index:1, see .power-cut .panel-quests::after
+       further down) -- otherwise the panel's overlay, being later in
+       paint order at the same tier, would paint over the card and hide
+       its stickers/progress bar despite their own z-index being higher
+       than IT locally. */
+    z-index: 2;
     box-shadow: 2px 5px 12px rgba(0,0,0,0.55), 0 -3px 6px -1px rgba(0,0,0,0.45);
   }
   [data-theme="raccoonmanor"] #quest-tree > .tree-node:first-child,
@@ -591,16 +616,33 @@
      compounds badly with the UV-glow elements' OWN filters (their glow
      kept reading as a saturation/color shift instead of brightness,
      because contrast()/saturate() from the ancestor still landed on top
-     of whatever they did). Simpler and actually reliable: darken .boot
-     directly (nothing inside it needs to stay lit), and darken each card
-     via its own semi-transparent ::after overlay instead of a filter --
-     an overlay just needs a higher z-index to be exempt, no cancellation
-     math anywhere. Everything that should stay lit (moon, lightning bolt,
-     HELP smudge, the corkboard's peeking eyes) simply never sits inside
-     anything darkened in the first place now. */
+     of whatever they did).
+
+     Replaced with the same simple mechanism repeated at every level that
+     needs to darken (.boot, header.masthead, each corkboard panel, each
+     card): a semi-transparent ::after overlay whose opacity reads
+     --rm-power-cut-brightness, plus a stacking context (position +
+     explicit z-index) on that same element so the overlay's z-index:1
+     stays scoped locally rather than competing against unrelated parts
+     of the page. Whatever should stay lit within a given level just
+     needs its own z-index above 1, THAT level's own z-index bumped
+     high enough to also clear whatever darkens the level above IT, and
+     so on up the tree -- .rm-window (2) clears header.masthead's overlay,
+     the card (2) clears the panel's overlay, stickers/progress-bar (2)
+     clear the card's own overlay. No cancellation math anywhere, just
+     ordinary stacking, repeated at each level that needs an exemption. */
   [data-theme="raccoonmanor"] .boot { transition: filter 1.3s ease; }
   [data-theme="raccoonmanor"].power-cut .boot {
     filter: brightness(var(--rm-power-cut-brightness, 0.18));
+  }
+  /* Title/subtitle/theme-switcher darken along with everything else;
+     .rm-window clears this overlay via its own z-index:2 (see above) so
+     the moon/bolt/curtains/HELP-smudge stay lit as one unit regardless. */
+  [data-theme="raccoonmanor"].power-cut header.masthead::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: #000;
+    opacity: calc(1 - var(--rm-power-cut-brightness, 0.18));
+    transition: opacity 1.3s ease;
   }
   [data-theme="raccoonmanor"].power-cut .rm-moon {
     box-shadow: 0 0 60px 26px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 150px 65px color-mix(in srgb, var(--accent) 22%, transparent);
