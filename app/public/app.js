@@ -39,6 +39,22 @@
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
+    },
+    raccoonmanor: {
+      orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
+      terminalName: "R.P.D. DISPATCH-7",
+      titlePrefix: "Raccoon Manor",
+      titleSuffix: "Evidence Log",
+      subtitlePrefix: "Survive The Night",
+      designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
+    },
+    testpattern: {
+      orgLine: "BROADCAST CALIBRATION SYSTEM // DIAGNOSTIC CHANNEL",
+      terminalName: "SIGNAL GENERATOR MODEL 7",
+      titlePrefix: "Test Pattern",
+      titleSuffix: "Channel Log",
+      subtitlePrefix: "Please Stand By",
+      designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
     }
   };
   var NAME_KEY = "questlog-name";
@@ -205,6 +221,46 @@
     return '<button type="button" class="note-btn attention-btn" data-action="toggle-attention" data-id="' + escapeHtml(q.id) + '">' + (q.attention ? "unmark" : "🔔 mark") + '</button>';
   }
 
+  // Real per-row decoration hooks (not CSS pseudo-elements) so a theme can
+  // give a row its own pin/tear/seal/fold/whatever without fighting the
+  // shared .quest/.tree-node/.log-mini-list markup every theme renders
+  // through. All of it is empty and zero-footprint by default (see the
+  // base rules for these classes) -- a theme opts in by styling them,
+  // nothing changes for one that doesn't. Deliberately generous (four
+  // decoration slots, not just the two Raccoon Manor happens to use) since
+  // this is cheap, locally-served markup -- easier to prune an unused hook
+  // later than to replumb a future theme that needed one that wasn't here.
+  //
+  // Two flavors of per-item variance, for two different needs: jitterClass
+  // buckets an item into one of 3 discrete looks (e.g. "which of these 3
+  // pin colors"), while --jitter is a continuous 0-1 value a theme can feed
+  // into calc() for smooth variation (rotation angle, scale, hue, position
+  // -- anything on a spectrum rather than a pick-one). Both derive from the
+  // item's own id (a stable hash), not DOM position, so a card's look
+  // doesn't reshuffle as siblings are added/removed/filtered around it.
+  function hashId(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h;
+  }
+  function jitterClass(id) {
+    return "card-jitter-" + "abc"[hashId(id) % 3];
+  }
+  function jitterValue(id) {
+    // A second, independently-mixed hash so --jitter isn't just a rescale
+    // of the same 3 buckets jitterClass already picks from.
+    return ((hashId(id + "#") % 1000) / 1000).toFixed(3);
+  }
+  function cardDecoration() {
+    return '<span class="card-pin" aria-hidden="true"></span>' +
+      '<span class="card-edge card-edge-top" aria-hidden="true"></span>' +
+      '<span class="card-edge card-edge-bottom" aria-hidden="true"></span>' +
+      '<span class="card-fold" aria-hidden="true"></span>';
+  }
+  function jitterStyle(id) {
+    return ' style="--jitter:' + jitterValue(id) + '"';
+  }
+
   function questRow(q) {
     var checked = q.status === "done";
     var childLevel = childLevelFor(q.level);
@@ -213,7 +269,8 @@
     // always safe here -- the only gate is not already being a Quest.
     var canPromote = q.level !== "quest";
     return (
-      '<div class="quest' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="quest ' + jitterClass(q.id) + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '"' + jitterStyle(q.id) + '>' +
+        cardDecoration() +
         '<button type="button" class="quest-check" data-action="toggle-done" data-id="' + escapeHtml(q.id) + '" aria-pressed="' + checked + '" aria-label="Mark ' + escapeHtml(q.title) + (checked ? ' not done' : ' done') + '">' +
           (checked ? "[x]" : "[ ]") +
         '</button>' +
@@ -297,7 +354,8 @@
     var hasChildren = allChildren.length > 0;
 
     return (
-      '<div class="tree-node' + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '">' +
+      '<div class="tree-node ' + jitterClass(q.id) + (checked ? " is-done" : "") + blockedClass(q) + '" data-id="' + escapeHtml(q.id) + '"' + jitterStyle(q.id) + '>' +
+        cardDecoration() +
         '<div class="tree-row">' +
           '<span class="tree-title-group">' +
             (hasChildren
@@ -391,7 +449,9 @@
       var recent = flatLog.slice(0, 6);
       logMini.innerHTML = recent.length
         ? recent.map(function (item) {
-            return '<li><span class="log-mini-date">' + escapeHtml(item.date) + '</span>' + escapeHtml(truncate(item.text, 90)) + '</li>';
+            var key = item.date + "|" + item.text;
+            return '<li class="' + jitterClass(key) + '"' + jitterStyle(key) + '>' + cardDecoration() +
+              '<span class="log-mini-date">' + escapeHtml(item.date) + '</span>' + escapeHtml(truncate(item.text, 90)) + '</li>';
           }).join("")
         : '<li class="empty-row">// no recent activity</li>';
     }

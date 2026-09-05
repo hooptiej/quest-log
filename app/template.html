@@ -6,7 +6,7 @@
 <title>Questlog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=MedievalSharp&family=IM+Fell+English:ital@0;1&family=Nosifer&family=Special+Elite&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <script>
   // Applied before first paint to avoid a flash of the wrong theme.
   try {
@@ -121,6 +121,317 @@
     box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent), 0 1px 1px rgba(0,0,0,0.6);
   }
   [data-theme="wow"] .add-btn { color: #241407; }
+
+  /* ---------- theme: Raccoon Manor (shabby gothic horror) ---------- */
+  [data-theme="raccoonmanor"] {
+    --bg: #0b0d09;
+    --surface: #1c1f16;
+    --surface-2: #262b1e;
+    --border: #4a5138;
+    --text: #d9dcc6;
+    --muted: #82896e;
+    --accent: #a8d3dc;
+    --accent-dim: #587278;
+    --accent2: #85c93f;
+    --alarm: #c2394a;
+    --idea: #b8935a;
+
+    --font-display: 'Nosifer', 'Times New Roman', serif;
+    --font-head: 'Special Elite', 'Courier New', monospace;
+    --font-mono: 'Courier Prime', 'Special Elite', ui-monospace, Consolas, monospace;
+    --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+
+    --body-bg-image:
+      radial-gradient(ellipse 50% 35% at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      radial-gradient(ellipse 45% 55% at 4% 100%, rgba(30,35,20,0.6), transparent 70%),
+      radial-gradient(ellipse 40% 45% at 100% 100%, rgba(20,25,15,0.55), transparent 70%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.4  0 0 0 0 0.45  0 0 0 0 0.3  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
+      radial-gradient(ellipse 85% 70% at 50% 35%, transparent 40%, rgba(0,0,0,0.6) 100%);
+  }
+  [data-theme="raccoonmanor"] h1 {
+    letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #e0838f, var(--alarm) 55%, #5e1620);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--alarm) 45%, transparent));
+    animation: raccoonmanor-flicker 5s linear infinite;
+  }
+  @keyframes raccoonmanor-flicker {
+    0%, 100% { opacity: 1; }
+    4% { opacity: 0.86; }
+    6% { opacity: 1; }
+    41% { opacity: 0.94; }
+    43% { opacity: 1; }
+    78% { opacity: 0.9; }
+    80% { opacity: 1; }
+  }
+  [data-theme="raccoonmanor"] .boot,
+  [data-theme="raccoonmanor"] .status-panel,
+  [data-theme="raccoonmanor"] .panel {
+    border-color: var(--border);
+    box-shadow: inset 0 0 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03), 0 3px 12px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .boot {
+    background-image:
+      radial-gradient(ellipse 60% 140% at 100% 0%, rgba(20,25,15,0.5), transparent),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='none' stroke='%23cdd4bd' stroke-width='0.7' opacity='0.35'><line x1='0' y1='0' x2='60' y2='60'/><line x1='0' y1='0' x2='40' y2='0'/><line x1='0' y1='0' x2='0' y2='40'/><path d='M8,2 Q10,10 2,8'/><path d='M18,5 Q21,20 5,18'/><path d='M30,10 Q34,34 10,30'/></g></svg>"),
+      var(--surface);
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-position: top left, top left, top left;
+  }
+  [data-theme="raccoonmanor"] .panel::before,
+  [data-theme="raccoonmanor"] .panel::after,
+  [data-theme="raccoonmanor"] .panel .corner-bl,
+  [data-theme="raccoonmanor"] .panel .corner-br {
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--panel-accent, var(--accent)) 60%, white), transparent 60%), var(--panel-accent, var(--accent));
+    box-shadow: 0 0 6px color-mix(in srgb, var(--panel-accent, var(--accent)) 55%, transparent), 0 1px 1px rgba(0,0,0,0.7);
+    opacity: 0.7;
+  }
+  [data-theme="raccoonmanor"] .subtitle { font-style: italic; }
+
+  /* ---- Corkboard: the Quests + Idea Board panels become an actual board ---- */
+  [data-theme="raccoonmanor"] .panel-quests,
+  [data-theme="raccoonmanor"] .panel-idea {
+    background:
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0 2px, transparent 2px 6px),
+      radial-gradient(ellipse at 30% 20%, #2c2318, #1a140d 70%);
+    border-color: #14100a;
+  }
+
+  /* Paper-card base: every row under the board becomes a scrap of paper,
+     at any nesting depth (a sub-task pinned under its mission still reads
+     as paper, not a dark box floating inside a light one). */
+  [data-theme="raccoonmanor"] .panel-quests .tree-node,
+  [data-theme="raccoonmanor"] .panel-idea .quest {
+    position: relative;
+    background: linear-gradient(178deg, #e9e3cd, #dcd5b8);
+    border: none;
+    border-radius: 1px;
+    color: #241c10;
+  }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-children,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-completed {
+    border-left-color: #b9ac83;
+  }
+
+  /* Top-level cards get the full pinned-to-the-board treatment: lift,
+     hand-placed rotation (per item, via the jitter class the renderer
+     assigns from the item's own id), a thumbtack, a torn bottom edge. */
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node,
+  [data-theme="raccoonmanor"] #list-idea > .quest {
+    padding: 0.85rem 1rem 1.15rem;
+    margin: 0 0.2rem 1.3rem 0.5rem;
+    box-shadow: 2px 5px 12px rgba(0,0,0,0.55);
+  }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-a,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-a { transform: rotate(-1.6deg); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-b,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-b { transform: rotate(1.2deg); }
+  [data-theme="raccoonmanor"] #quest-tree > .tree-node.card-jitter-c,
+  [data-theme="raccoonmanor"] #list-idea > .quest.card-jitter-c { transform: rotate(-0.4deg); }
+
+  [data-theme="raccoonmanor"] .card-pin {
+    display: block;
+    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e58a92, var(--alarm) 70%);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.6);
+  }
+  [data-theme="raccoonmanor"] .card-edge-bottom {
+    display: block;
+    position: absolute; left: 4%; right: 4%; bottom: -6px; height: 10px;
+    background: linear-gradient(178deg, #dcd5b8, transparent);
+    clip-path: polygon(0% 0%,6% 100%,12% 8%,18% 100%,24% 4%,30% 100%,36% 8%,42% 100%,48% 0%,
+                        54% 100%,60% 6%,66% 100%,72% 4%,78% 100%,84% 8%,90% 100%,96% 4%,100% 0%);
+  }
+  /* card-edge-top and card-fold are plumbed in but unused by this theme --
+     available for the next one. */
+  /* Nested (sub-task/sub-idea) cards stay flat paper, no pin/rotation --
+     they read as notes clipped to the card above them, not their own
+     pinned object. */
+  [data-theme="raccoonmanor"] .panel-quests .tree-children .card-pin,
+  [data-theme="raccoonmanor"] .panel-quests .tree-completed .card-pin { display: none; }
+
+  /* Readability: paper is light, the theme's own --text/--muted are pale
+     moonlight tones meant for the dark ground everywhere else. */
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-title,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-title { color: #241c10; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-meta,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-notes,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-notes-teaser,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .child-count,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-notes,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-notes-teaser { color: #5a4f34; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .tree-toggle,
+  [data-theme="raccoonmanor"] .panel-idea .quest .quest-check,
+  [data-theme="raccoonmanor"] .panel-quests .tree-node .note-btn,
+  [data-theme="raccoonmanor"] .panel-idea .quest .note-btn { color: #6b3a1f; border-color: #b9ac83; }
+  [data-theme="raccoonmanor"] .panel-quests .tree-node.is-done .tree-title,
+  [data-theme="raccoonmanor"] .panel-idea .quest.is-done .quest-title {
+    color: #8a7a5a;
+    text-decoration-color: var(--alarm);
+  }
+
+  /* ---- Evidence Log: the sidebar log becomes a torn page ---- */
+  [data-theme="raccoonmanor"] .log-panel-mini {
+    position: relative;
+    background: linear-gradient(178deg, #e5dfc7, #d7cfaf);
+    color: #241c10;
+    border: none;
+    box-shadow: 3px 6px 18px rgba(0,0,0,0.5);
+  }
+  [data-theme="raccoonmanor"] .log-panel-mini h2 { color: var(--alarm); text-shadow: none; }
+  [data-theme="raccoonmanor"] .log-panel-mini .card-edge {
+    left: 8px; right: 8px; bottom: -6px; height: 12px;
+  }
+  [data-theme="raccoonmanor"] .log-mini-list li {
+    color: #4a4126;
+    font-family: var(--font-body);
+    font-style: italic;
+    border-bottom-color: rgba(36,28,16,0.25);
+  }
+  [data-theme="raccoonmanor"] .log-mini-date {
+    color: var(--alarm);
+    opacity: 1;
+    font-family: var(--font-mono);
+    font-style: normal;
+  }
+  [data-theme="raccoonmanor"] .unroll-btn { color: #6b3a1f; border-color: #b9ac83; }
+  [data-theme="raccoonmanor"] .unroll-btn:hover { border-color: var(--alarm); color: var(--alarm); }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="raccoonmanor"] h1 { animation: none; opacity: 1; }
+  }
+
+  /* ---------- theme: Test Pattern (showcase/diagnostic, exercises every
+     card-* hook + both jitter mechanisms on purpose -- not meant to be
+     pretty, meant to be a reference for what the plumbing can do) ---------- */
+  [data-theme="testpattern"] {
+    --bg: #050505;
+    --surface: #141414;
+    --surface-2: #1e1e1e;
+    --border: #3a3a3a;
+    --text: #f0f0f0;
+    --muted: #8a8a8a;
+    --accent: #00e5e5;
+    --accent-dim: #007a7a;
+    --accent2: #e500e5;
+    --alarm: #ff2b2b;
+    --idea: #e5e500;
+
+    /* Reuses fonts already loaded for other themes -- no new font request. */
+    --font-display: 'Orbitron', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-head: 'Orbitron', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
+    --font-body: 'Share Tech Mono', ui-monospace, Consolas, monospace;
+
+    --body-bg-image:
+      repeating-linear-gradient(90deg,
+        rgba(224,224,224,0.05) 0 12.5%, rgba(224,224,0,0.05) 12.5% 25%,
+        rgba(0,224,224,0.05) 25% 37.5%, rgba(0,224,0,0.05) 37.5% 50%,
+        rgba(224,0,224,0.05) 50% 62.5%, rgba(224,0,0,0.05) 62.5% 75%,
+        rgba(0,0,224,0.05) 75% 87.5%, rgba(0,0,0,0.05) 87.5% 100%),
+      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+  [data-theme="testpattern"] h1 {
+    letter-spacing: 0.05em;
+    animation: tp-glitch 4s steps(1) infinite;
+  }
+  @keyframes tp-glitch {
+    0%, 92%, 100% { text-shadow: -1px 0 var(--accent), 1px 0 var(--alarm); transform: translate(0, 0); }
+    93% { text-shadow: 2px 0 var(--accent), -2px 0 var(--alarm); transform: translate(-1px, 0); }
+    95% { text-shadow: -2px 0 var(--accent), 2px 0 var(--alarm); transform: translate(1px, 0); }
+    97% { text-shadow: 1px 0 var(--accent), -1px 0 var(--alarm); transform: translate(0, -1px); }
+  }
+  [data-theme="testpattern"] .panel h2 { letter-spacing: 0.16em; }
+  /* Rolling scanline (moving, unlike MU/TH/UR's static one) -- own rule
+     since it's keyed off data-theme, not the "no theme set" default. */
+  [data-theme="testpattern"] body::after {
+    content: "";
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: multiply;
+    animation: tp-roll 6s linear infinite;
+  }
+  @keyframes tp-roll { from { background-position: 0 0; } to { background-position: 0 300px; } }
+
+  [data-theme="testpattern"] .panel-quests,
+  [data-theme="testpattern"] .panel-idea {
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 20px),
+      var(--surface);
+  }
+
+  /* jitterClass demo: buckets a card into one of 3 "channels" via a
+     cascading custom property, rather than styling each bucket's pin
+     directly -- shows the class can drive more than just a fixed lookup. */
+  [data-theme="testpattern"] .card-jitter-a { --tp-chan: var(--accent); }
+  [data-theme="testpattern"] .card-jitter-b { --tp-chan: var(--accent2); }
+  [data-theme="testpattern"] .card-jitter-c { --tp-chan: var(--idea); }
+
+  /* --jitter demo: continuous per-item hue drift, independent of the 3
+     discrete channel buckets above -- the two mechanisms stacking cleanly. */
+  [data-theme="testpattern"] #quest-tree > .tree-node,
+  [data-theme="testpattern"] #list-idea > .quest,
+  [data-theme="testpattern"] .log-mini-list li {
+    position: relative;
+    filter: hue-rotate(calc(var(--jitter, 0.5) * 40deg - 20deg));
+  }
+  [data-theme="testpattern"] #quest-tree > .tree-node,
+  [data-theme="testpattern"] #list-idea > .quest {
+    margin: 0 0 1.5rem 0;
+    padding-top: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--tp-chan, var(--border)) 55%, var(--border));
+  }
+
+  /* card-pin: bullseye reticle, colored by the jitterClass channel. */
+  [data-theme="testpattern"] .card-pin {
+    display: block;
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--tp-chan, var(--accent));
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--tp-chan, var(--accent)), 0 0 8px var(--tp-chan, var(--accent));
+  }
+  /* card-edge-top: a literal strip of color bars. */
+  [data-theme="testpattern"] .card-edge-top {
+    display: block;
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: repeating-linear-gradient(90deg,
+      #fff 0 12.5%, #e5e500 12.5% 25%, #00e5e5 25% 37.5%, #00c800 37.5% 50%,
+      #e500e5 50% 62.5%, #e50000 62.5% 75%, #0000e5 75% 87.5%, #000 87.5% 100%);
+  }
+  /* card-edge-bottom: a tick-mark ruler. */
+  [data-theme="testpattern"] .card-edge-bottom {
+    display: block;
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+    background: repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 8px);
+    opacity: 0.6;
+  }
+  /* card-fold: a corner registration mark (film/print alignment crosshair). */
+  [data-theme="testpattern"] .card-fold {
+    display: block;
+    position: absolute; top: 5px; right: 5px; width: 11px; height: 11px;
+    border: 1px solid var(--muted);
+    border-radius: 50%;
+    background:
+      linear-gradient(var(--muted), var(--muted)) center / 100% 1px no-repeat,
+      linear-gradient(90deg, var(--muted), var(--muted)) center / 1px 100% no-repeat;
+    opacity: 0.75;
+  }
+  /* Nested sub-items keep the hue-drift but not the channel border/pin --
+     same "top-level gets the full object treatment" rule Raccoon Manor uses. */
+  [data-theme="testpattern"] .tree-children .card-pin,
+  [data-theme="testpattern"] .tree-completed .card-pin { display: none; }
+
+  [data-theme="testpattern"] .log-panel-mini h2 { color: var(--alarm); }
+  [data-theme="testpattern"] .log-mini-date { color: var(--tp-chan, var(--accent2)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="testpattern"] h1 { animation: none; text-shadow: none; }
+    [data-theme="testpattern"] body::after { animation: none; }
+  }
 
   * { box-sizing: border-box; }
 
@@ -441,9 +752,19 @@
   }
   .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
 
+  /* Real per-row decoration hooks, not CSS pseudo-elements -- every .quest
+     and .tree-node row carries these two empty, positioned-nowhere spans
+     regardless of theme, so a theme can give a row a pin/tear/seal/whatever
+     of its own without fighting shared markup. Zero footprint until a
+     theme opts in (a theme styles them via its own [data-theme="X"]
+     selectors); absent that they render as literally nothing. */
+  .card-pin, .card-edge, .card-fold { display: none; }
+  .card-jitter-a, .card-jitter-b, .card-jitter-c { /* hook only, no base styling */ }
+
   /* ---------- quest tree (Quest -> Mission -> Task) ---------- */
 
   .tree-node {
+    position: relative;
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
@@ -596,6 +917,7 @@
   /* ---------- quest rows ---------- */
 
   .quest {
+    position: relative;
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 0.15rem 0.85rem;
@@ -757,6 +1079,7 @@
   .log-panel-mini h2 { font-size: 0.82rem; margin-bottom: 0.75rem; }
   .log-mini-list { margin: 0; padding: 0; list-style: none; }
   .log-mini-list li {
+    position: relative;
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--muted);
@@ -854,6 +1177,8 @@
           <option value="muthur">MU/TH/UR-6000</option>
           <option value="terminal">FIELD TERMINAL</option>
           <option value="wow">GUILD CHARTER</option>
+          <option value="raccoonmanor">RACCOON MANOR</option>
+          <option value="testpattern">TEST PATTERN</option>
         </select>
       </div>
       <div class="switcher-row">
@@ -900,6 +1225,7 @@
     <aside class="layout-sidebar">
       <section class="panel log-panel-mini">
         <div class="corner-bl"></div><div class="corner-br"></div>
+        <span class="card-edge" aria-hidden="true"></span>
         <h2>Recent Activity</h2>
         <ul class="log-mini-list" id="log-body-mini"></ul>
         <button type="button" class="unroll-btn" data-action="toggle-log-full" aria-expanded="false">Show full log &#9662;</button>
