@@ -788,6 +788,8 @@
     white-space: pre; pointer-events: none;
   }
 
+  /* pro-mode-gated styles go here */
+
   /* Eyes in the dark: something peeking around the edge of the corkboard
      from just off-panel. Absent entirely outside power-cut. The fade-in
      and blink below are deliberately two separate animations on the same
@@ -1425,6 +1427,38 @@
     [data-theme="hadleyshope"] * { animation:none !important; }
   }
 
+  /* ---------- theme: Computer Cats Simple (flat corporate, field ops) ---------- */
+  [data-theme="computercatsimple"] {
+    --bg: #14170F;
+    --surface: #171A11;
+    --surface-2: #1E2318;
+    --border: rgba(230,225,200,0.12);
+    --text: #ECE8DA;
+    --muted: #A8A48F;
+    --accent: #9CAD5E;
+    --accent-dim: #6E7D3F;
+    --accent2: #AFC072;
+    --alarm: #C97A5E;
+    --idea: #6E6B57;
+
+    --font-display: 'Inter', -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    --font-head: 'Inter', -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --font-body: 'Inter', -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+
+    --body-bg-image: none;
+  }
+  /* ComputerCatSimple's own UI carries no retro terminal flair (no glow, no
+     scanlines, no all-caps shouting) -- this theme drops those per-theme
+     rather than in the shared rules so muthur/terminal/wow keep them. */
+  [data-theme="computercatsimple"] h1 { text-shadow: none; letter-spacing: 0; }
+  [data-theme="computercatsimple"] .subtitle,
+  [data-theme="computercatsimple"] .eyebrow { text-transform: none; }
+  /* .add-panel's --panel-accent is a hardcoded neon green (base CSS) that
+     ignores --accent entirely -- fine against the other themes' saturated
+     palettes, but it fights ComputerCatSimple's muted sage everywhere else. */
+  [data-theme="computercatsimple"] .add-panel { --panel-accent: var(--accent); }
+
   * { box-sizing: border-box; }
 
   body {
@@ -1606,12 +1640,72 @@
 
   /* ---------- status readout ---------- */
 
+  /* Scoreboard (#3): the two headline counters get a real scoreboard
+     treatment -- big number, always-visible small-caps label under it --
+     instead of a bare number with meaning hidden behind a hover tooltip. */
+  .scoreboard {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .score-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.55rem 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+  }
+
+  .score-value {
+    font-family: var(--font-mono);
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+
+  .score-label {
+    margin-top: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .status-subcaption {
+    margin: 0.1rem 0 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    opacity: 0.75;
+    text-align: center;
+  }
+
+  .ticket-closed-badge {
+    color: var(--accent2);
+    font-size: 0.75rem;
+    margin-left: 0.4rem;
+  }
+
   .status-panel {
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
     padding: 0.65rem 1rem;
     margin-bottom: 0.85rem;
+    display: none;
+  }
+
+  .pro-mode .status-panel {
+    display: block;
   }
 
   .status-row {
@@ -2101,6 +2195,22 @@
     margin-bottom: 0.1rem;
   }
 
+  /* Recent Tickets panel (pro-mode only). Shares .log-panel-mini for its
+     base look and every theme's per-theme treatment of that class (parchment
+     bg, card-edge hiding, heading color, etc.) -- this block only adds the
+     pro-mode display gate and the scrollable-list tweak that panel doesn't
+     otherwise need (its own log-mini-list is truncated instead of scrolled). */
+  .recent-tickets-mini {
+    display: none;
+  }
+  .pro-mode .recent-tickets-mini {
+    display: block;
+  }
+  .recent-tickets-mini .log-mini-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
   /* Unroll (#30): the mini widget is deliberately truncated to 6 recent
      entries -- this brings back the old always-on full-history view as an
      on-demand expansion instead, so nothing's actually lost. */
@@ -2353,11 +2463,16 @@
           <option value="raccoonmanor">RACCOON MANOR</option>
           <option value="testpattern">TEST PATTERN</option>
           <option value="hadleyshope">HADLEY'S HOPE</option>
+          <option value="computercatsimple">COMPUTER CATS</option>
         </select>
       </div>
       <div class="switcher-row">
         <label for="name-input">Designation</label>
         <input id="name-input" class="theme-select name-input" type="text" maxlength="24" placeholder="unnamed" autocomplete="off" aria-label="Your designation">
+      </div>
+      <div class="switcher-row">
+        <label for="pro-mode-input">Pro Mode</label>
+        <input id="pro-mode-input" type="checkbox" aria-label="Enable pro-mode features like ticket tracking">
       </div>
       <div class="switcher-row">
         <label id="scale-label" for="scale-down-btn">Scale</label>
@@ -2384,6 +2499,25 @@
     <div><span class="hh-placard" id="hhPlacard"></span><span class="hh-threat-badge" id="hhThreatBadge"></span></div>
   </header>
 
+  <div class="status-panel" id="ticket-stats-panel">
+    <div class="scoreboard">
+      <div class="score-block">
+        <span class="score-value" id="stat-touched">— · — · —</span>
+        <span class="score-label">Tickets Worked</span>
+      </div>
+      <div class="score-block">
+        <span class="score-value" id="stat-closed">— · — · —</span>
+        <span class="score-label">Closed w/ Claude</span>
+      </div>
+    </div>
+    <div class="status-row" style="opacity:0.7;">
+      <span class="status-label">Viewed</span>
+      <span class="status-value" id="stat-viewed">—</span>
+    </div>
+    <p class="status-subcaption">Claude session tracking (today &middot; week &middot; month) — not a live Halo metric. Halo is still the source of truth for ticket status.</p>
+    <button type="button" class="unroll-btn" data-action="toggle-tickets-full" aria-expanded="false">Show ticket history &#9662;</button>
+    <div class="log-full collapsed" id="tickets-full"></div>
+  </div>
 
   <div class="layout">
     <div class="layout-main">
@@ -2422,6 +2556,13 @@
         <ul class="log-mini-list" id="log-body-mini"></ul>
         <button type="button" class="unroll-btn" data-action="toggle-log-full" aria-expanded="false">Show full log &#9662;</button>
         <div class="log-full collapsed" id="log-body-full"></div>
+      </section>
+
+      <section class="panel log-panel-mini recent-tickets-mini">
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <span class="card-edge" aria-hidden="true"></span>
+        <h2>Recent Tickets</h2>
+        <ul class="log-mini-list" id="recent-tickets-list"></ul>
       </section>
     </aside>
   </div>

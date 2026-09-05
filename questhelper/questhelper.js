@@ -26,10 +26,16 @@ import {
   getMaintenance,
   setMaintenance,
   setSettingsMode,
+  setProMode,
+  getProMode,
   setBlocked,
   setArchived,
   setAttention,
   touchQuestAncestor,
+  appendTicketTouch,
+  appendTicketView,
+  attachHaloTicket,
+  getTicketStats,
 } from "../state.js";
 
 const LEVELS = ["quest", "mission", "task"];
@@ -587,6 +593,85 @@ function createServer(options = {}) {
         return setSettingsMode(state, { enabled });
       });
       return { content: [{ type: "text", text: JSON.stringify({ settingsMode: result }, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "set_pro_mode",
+    "Enable (or disable) pro-mode features like ticket tracking. A live toggle -- also flippable directly in the settings panel.",
+    {
+      enabled: z.boolean().describe("true to enable pro-mode features, false to disable them"),
+    },
+    async ({ enabled }) => {
+      const { result } = await mutateState(async (state) => {
+        return setProMode(state, { enabled });
+      });
+      return { content: [{ type: "text", text: JSON.stringify({ proMode: result }, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "log_ticket_touch",
+    "Log a Halo ticket that was worked on, optionally noting whether it was closed with Claude's help. Not a source of truth for ticket status -- Halo is; this is just a record of how Claude helped.",
+    {
+      ticketId: z.string().describe("Halo ticket number/id"),
+      client: z.string().describe("Client name the ticket belongs to"),
+      url: z.string().describe("Direct link to the ticket in Halo"),
+      note: z.string().describe("Short note on what was done"),
+      closedWithHelp: z.boolean().optional().describe("Whether Claude helped close this ticket -- defaults to false"),
+      questIdOrTitle: z.string().optional().describe("A quest/mission/task this ticket relates to, if any -- also attaches the ticket to it"),
+    },
+    async ({ ticketId, client, url, note, closedWithHelp, questIdOrTitle }) => {
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        let questId;
+        if (questIdOrTitle) {
+          const resolved = resolveOne(state, questIdOrTitle);
+          if (resolved.error) return resolved;
+          questId = resolved.quest.id;
+        }
+        const record = appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId });
+        bumpArtifactChangeCounter(state, { mainQuest: false });
+        return { record };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.record, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "log_ticket_view",
+    "Log that a Halo ticket was viewed (read-only look, no work done). Lightweight -- counted only, no record kept of which ticket.",
+    { ticketId: z.string().optional().describe("Accepted for caller convenience but not stored -- viewed events are count-only") },
+    async () => {
+      await mutateState(async (state) => {
+        if (!getProMode(state)) return;
+        appendTicketView(state);
+      });
+      return { content: [{ type: "text", text: "Logged a ticket view." }] };
+    },
+  );
+
+  server.tool(
+    "add_halo_ticket",
+    "Attach a Halo ticket reference to an existing quest/mission/task, without logging it as work done (see log_ticket_touch for that).",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      ticketId: z.string().describe("Halo ticket number/id"),
+      client: z.string().describe("Client name the ticket belongs to"),
+      url: z.string().describe("Direct link to the ticket in Halo"),
+    },
+    async ({ idOrTitle, ticketId, client, url }) => {
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        const resolved = resolveOne(state, idOrTitle);
+        if (resolved.error) return resolved;
+        attachHaloTicket(state, resolved.quest.id, { ticketId, client, url });
+        bumpArtifactChangeCounter(state, { mainQuest: false });
+        return { quest: state.quests.find((q) => q.id === resolved.quest.id) };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
     },
   );
 

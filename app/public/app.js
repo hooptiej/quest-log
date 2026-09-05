@@ -75,6 +75,16 @@
       subtitleSuffix: "It's A Bug Hunt",
       logLabel: "Contact Log",
       designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
+    },
+    computercatsimple: {
+      orgLine: "COMPUTER CATS MSP // FIELD OPS DIVISION",
+      terminalName: "CATOPS-9000",
+      titlePrefix: "Computer Cats",
+      titleSuffix: "Work Log",
+      subtitlePrefix: "On The Clock",
+      subtitleSuffix: "Track All Tickets",
+      logLabel: "Work Log",
+      designation: function (name) { return name ? name.toUpperCase() + ", FIELD TECH" : "Unassigned Tech"; }
     }
   };
   var NAME_KEY = "questlog-name";
@@ -83,6 +93,7 @@
   // localStorage, so the set_designation MCP tool actually takes effect on
   // reload instead of the old localStorage copy winning.
   var SERVER_DESIGNATION = ((window.__QUEST_STATE__ && window.__QUEST_STATE__.designation) || "").trim();
+  var SERVER_PRO_MODE = !!(window.__QUEST_STATE__ && window.__QUEST_STATE__._proMode);
 
   function currentDesignationName() {
     if (SERVER_DESIGNATION) return SERVER_DESIGNATION;
@@ -1005,6 +1016,42 @@
       }
     }
 
+    // Pro-mode: ticket tracking UI
+    if (SERVER_PRO_MODE) {
+      var stats = ticketStats(state);
+      var touchedEl = document.getElementById("stat-touched");
+      if (touchedEl) touchedEl.textContent = fmtStat(stats.touched);
+      var closedEl = document.getElementById("stat-closed");
+      if (closedEl) closedEl.textContent = fmtStat(stats.closed);
+      var viewedEl = document.getElementById("stat-viewed");
+      if (viewedEl) viewedEl.textContent = String(stats.viewed.today);
+
+      var touches = (state.ticketTouches || []).slice().reverse();
+      var ticketsFullEl = document.getElementById("tickets-full");
+      if (ticketsFullEl) {
+        ticketsFullEl.innerHTML = touches.length
+          ? touches.map(function (t) {
+              return '<div class="log-full-date">' + escapeHtml(t.timestamp.slice(0, 10)) + '</div>' +
+                '<ul class="log-full-list"><li><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">#' + escapeHtml(t.ticketId) + '</a> — ' + escapeHtml(t.client) + ': ' + escapeHtml(t.note) +
+                (t.closedWithHelp ? '<span class="ticket-closed-badge">closed w/ Claude</span>' : '') + '</li></ul>';
+            }).join("")
+          : '<div class="empty-row">// no tickets logged yet</div>';
+      }
+
+      var recentTicketsEl = document.getElementById("recent-tickets-list");
+      if (recentTicketsEl) {
+        // Always shows the full touch history (#3) -- the panel is a fixed
+        // height with its own scrollbar, so there's no need to truncate the list itself.
+        var recentTickets = touches;
+        recentTicketsEl.innerHTML = recentTickets.length
+          ? recentTickets.map(function (t) {
+              return '<li><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">#' + escapeHtml(t.ticketId) + '</a> ' + escapeHtml(t.client) + ' — ' + escapeHtml(truncate(t.note, 60)) +
+                (t.closedWithHelp ? '<span class="ticket-closed-badge">closed</span>' : '') + '</li>';
+            }).join("")
+          : '<li class="empty-row">// none yet</li>';
+      }
+    }
+
     applyFlavor();
   }
 
@@ -1012,6 +1059,26 @@
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
+
+  function ticketStats(state) {
+    var touches = state.ticketTouches || [];
+    var views = state.ticketViews || [];
+    var closed = touches.filter(function (t) { return t.closedWithHelp; });
+    var today = todayISO();
+    function isToday(e) { return e.timestamp.slice(0, 10) === today; }
+    function since(entries, ms) {
+      var cutoff = Date.now() - ms;
+      return entries.filter(function (e) { return new Date(e.timestamp).getTime() >= cutoff; }).length;
+    }
+    var DAY = 24 * 60 * 60 * 1000;
+    return {
+      touched: { today: touches.filter(isToday).length, week: since(touches, 7 * DAY), month: since(touches, 30 * DAY) },
+      closed: { today: closed.filter(isToday).length, week: since(closed, 7 * DAY), month: since(closed, 30 * DAY) },
+      viewed: { today: views.filter(isToday).length, week: since(views, 7 * DAY), month: since(views, 30 * DAY) }
+    };
+  }
+
+  function fmtStat(s) { return s.today + " · " + s.week + " · " + s.month; }
 
   // Completing a flat item no longer moves it to a Completed panel (#30) --
   // it just drops off the Idea Board, with this taking its place as the
@@ -1102,6 +1169,19 @@
         persist();
       });
     }
+  }
+
+  // Unlike Designation, Pro Mode stays a live, always-visible switch in
+  // settings -- it's a feature flag someone may want to flip back and forth
+  // (trying ticket tracking, deciding against it), not a one-time identity
+  // choice worth locking in.
+  var proModeInput = document.getElementById("pro-mode-input");
+  if (proModeInput) {
+    proModeInput.checked = SERVER_PRO_MODE;
+    proModeInput.addEventListener("change", function () {
+      STATE._proMode = proModeInput.checked;
+      persist();
+    });
   }
 
   var STATE = window.__QUEST_STATE__ || { quests: [], log: [] };
@@ -1239,6 +1319,16 @@
       }
       return;
     }
+    var ticketsUnrollBtn = ev.target.closest('[data-action="toggle-tickets-full"]');
+    if (ticketsUnrollBtn) {
+      var ticketsFullEl = document.getElementById("tickets-full");
+      if (ticketsFullEl) {
+        var ticketsCollapsed = ticketsFullEl.classList.toggle("collapsed");
+        ticketsUnrollBtn.textContent = ticketsCollapsed ? "Show ticket history ▾" : "Hide ticket history ▴";
+        ticketsUnrollBtn.setAttribute("aria-expanded", String(!ticketsCollapsed));
+      }
+      return;
+    }
     var promoteBtn = ev.target.closest('[data-action="promote"]');
     if (promoteBtn) {
       var pid = promoteBtn.getAttribute("data-id");
@@ -1297,6 +1387,10 @@
   // via the set_settings_mode MCP tool, read here from the server-rendered
   // state the same way SERVER_DESIGNATION is above.
   document.documentElement.classList.toggle("settings-mode", !!STATE._settingsMode);
+
+  // Pro mode has no in-page toggle by design -- flipped only via the
+  // set_pro_mode MCP tool, read here from the server-rendered state.
+  document.documentElement.classList.toggle("pro-mode", !!STATE._proMode);
 
   render(STATE);
   initHadleysHopeEffects();
