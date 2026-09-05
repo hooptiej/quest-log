@@ -601,6 +601,12 @@
     border-color: #4fa8ff;
     text-shadow: 0 0 calc(3px * var(--rm-power-cut-glow, 1)) #6fd8ff, 0 0 calc(7px * var(--rm-power-cut-glow, 1)) #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(1px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(14px * var(--rm-power-cut-glow, 1)) calc(4px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.6), 0 0 calc(24px * var(--rm-power-cut-glow, 1)) calc(9px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.25);
+    /* Blur radius alone controls spread, not perceived brightness -- a
+       bigger halo spread over more area can even read as dimmer. Scaling
+       the element's own brightness() is what actually makes the slider
+       feel like "brighter," not just "wider." Tempered (0.5 + 0.5x) rather
+       than a raw multiplier so the 0.5-4 slider range doesn't blow out. */
+    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
   }
 
   /* Eyes in the dark: something peeking around the edge of the corkboard
@@ -621,6 +627,7 @@
     width: 8px; height: 13px; border-radius: 50%;
     background: #4fa8ff;
     box-shadow: 0 0 calc(5px * var(--rm-power-cut-glow, 1)) calc(2px * var(--rm-power-cut-glow, 1)) #2f6fed, 0 0 calc(12px * var(--rm-power-cut-glow, 1)) calc(5px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.45);
+    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
   }
   @keyframes rm-eyes-fadein { from { opacity: 0; } to { opacity: 0.85; } }
   @keyframes rm-eyes-blink {
@@ -650,6 +657,7 @@
     text-shadow:
       0 0 calc(4px * var(--rm-power-cut-glow, 1)) #6fd8ff, 1px 1px calc(3px * var(--rm-power-cut-glow, 1)) #2f6fed, -1px 0 calc(3px * var(--rm-power-cut-glow, 1)) #4fa8ff,
       0 0 calc(12px * var(--rm-power-cut-glow, 1)) rgba(111,216,255,0.55), 0 0 calc(22px * var(--rm-power-cut-glow, 1)) rgba(47,111,237,0.4);
+    filter: brightness(calc(0.5 + 0.5 * var(--rm-power-cut-glow, 1)));
   }
 
   /* FX kill switch: everything in .rm-scene is ambient/HUD, real content
