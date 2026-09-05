@@ -230,6 +230,13 @@
     box-shadow: none;
   }
   [data-theme="raccoonmanor"] .boot-line { font-family: var(--font-mono); letter-spacing: 0.05em; }
+  /* Owner asked for less dead space on the sides, matching the wider
+     body the mockup settled on (52rem -> 64rem there; same proportional
+     bump applied to this theme's own narrow/wide breakpoints). */
+  [data-theme="raccoonmanor"] .wrap { max-width: 55rem; }
+  @media (min-width: 900px) {
+    [data-theme="raccoonmanor"] .wrap { max-width: 78rem; }
+  }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
