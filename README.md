@@ -60,8 +60,9 @@ repo, merged in 2026-08-30, since renamed) — is mounted on the same Express ap
 process or HTTP round-trip between the two. Tools: `list_quests`, `add_idea`, `set_quest_status`,
 `set_blocked`, `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`,
 `transfer`, `move`, `rename_quest`, `delete_quest`, `update_quest_notes`, `add_log_entry`,
-`get_full_state`, `set_maintenance`, `set_auto_log`, `set_designation`, `get_artifact_status`,
-`record_artifact_update`, `get_mirror_template`. Point an MCP client at `http://<host>:4242/mcp`
+`get_batch_status`, `get_full_state`, `set_maintenance`, `set_auto_log`, `set_settings_mode`,
+`set_pro_mode`, `log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`, `set_designation`.
+Point an MCP client at `http://<host>:4242/mcp`
 (or `https://` once a cert is configured, see below).
 
 A checked-in `UserPromptSubmit` hook (`.claude/hooks/quest-log-reminder.mjs` +

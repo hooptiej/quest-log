@@ -92,7 +92,29 @@ export function isValidQuest(q) {
     // with no repo is still valid, just less useful) to keep validation
     // simple and match how every other optional field on a quest works.
     (q.repo === undefined || typeof q.repo === "string") &&
-    (q.issueNumber === undefined || typeof q.issueNumber === "number")
+    (q.issueNumber === undefined || typeof q.issueNumber === "number") &&
+    // Halo ticket tracking: optional array of { ticketId, client, url } references
+    (q.haloTickets === undefined || isValidHaloTicketArray(q.haloTickets))
+  );
+}
+
+// A Quest/Mission/Task's optional list of related Halo tickets. Array, not
+// a single ticket, since one item can legitimately span several related
+// tickets. Absence means no tickets (same convention as `blocked`).
+function isValidHaloTicketArray(arr) {
+  return (
+    Array.isArray(arr) &&
+    arr.every(
+      (t) =>
+        t &&
+        typeof t === "object" &&
+        typeof t.ticketId === "string" &&
+        t.ticketId.length > 0 &&
+        typeof t.client === "string" &&
+        t.client.length > 0 &&
+        typeof t.url === "string" &&
+        t.url.length > 0,
+    )
   );
 }
 
@@ -331,25 +353,6 @@ export function describeQuest(q) {
   return `${q.id} ("${q.title}")`;
 }
 
-const ARTIFACT_CHANGE_THRESHOLD = 10;
-
-// Tracks how far the mirrored claude.ai Artifact has drifted from server
-// state, so any Claude session can tell (via get_artifact_status) whether
-// it's due for a republish -- either a mainquest-level change (status/new
-// quest) happened, or enough smaller changes (notes edits, log entries)
-// have piled up. Call this from inside a mutateState mutator, once per
-// logical change, right after making the change.
-export function bumpArtifactChangeCounter(state, { mainQuest = false } = {}) {
-  state._artifact = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
-  state._artifact.changesSince += 1;
-  if (mainQuest) state._artifact.mainQuestChanged = true;
-}
-
-export function artifactNeedsUpdate(state) {
-  const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
-  return a.url === null || a.mainQuestChanged || a.changesSince >= ARTIFACT_CHANGE_THRESHOLD;
-}
-
 // Lets a human flag an upcoming/in-progress redeploy before it happens, so an
 // already-open MCP session can warn the user ahead of time instead of just
 // hitting the opaque "no valid session" error once the container actually
@@ -376,6 +379,112 @@ export function getAutoLog(state) {
 export function setAutoLog(state, { enabled }) {
   state._autoLog = { enabled: !!enabled };
   return state._autoLog;
+}
+
+// Reveals per-theme dev/tuning controls (currently: Raccoon Manor's
+// power-cut darkness/glow/HUD-boost sliders) in the UI. Deliberately has no
+// in-page toggle -- flipped only via the set_settings_mode MCP tool, same
+// "ask Claude to change it, no code change needed" pattern as setDesignation
+// below, so the owner can turn it on/off from any machine without touching
+// a repo. Named "settings mode" rather than "dev mode" to keep it out of
+// the way of this project's actual dev/prod branch and environment naming.
+export function getSettingsMode(state) {
+  return state._settingsMode ?? false;
+}
+
+export function setSettingsMode(state, { enabled }) {
+  state._settingsMode = !!enabled;
+  return state._settingsMode;
+}
+
+// Persistent toggle for pro-mode features (ticket tracking, etc.). A live
+// switch in settings (unlike the one-time Designation field) -- flippable
+// either via the settings-panel checkbox or the set_pro_mode MCP tool.
+export function getProMode(state) {
+  return state._proMode ?? false;
+}
+
+export function setProMode(state, { enabled }) {
+  state._proMode = !!enabled;
+  return state._proMode;
+}
+
+// Halo ticket tracking -- records of tickets Claude helped with during a session
+
+const TICKET_RETENTION_DAYS = 90;
+
+function pruneOld(entries) {
+  const cutoff = Date.now() - TICKET_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return entries.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
+}
+
+// Appends a full ticket-work record. Optionally attaches the same ticket
+// reference onto a real quest item's haloTickets (deduped on ticketId) when
+// questId resolves to one -- a ticket can be logged without being tied to
+// any tracked quest item, so this is best-effort, not required.
+export function appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId }) {
+  state.ticketTouches ??= [];
+  const record = {
+    ticketId,
+    client,
+    url,
+    note,
+    timestamp: new Date().toISOString(),
+    closedWithHelp: closedWithHelp === true,
+    ...(questId ? { questId } : {}),
+  };
+  state.ticketTouches.push(record);
+  state.ticketTouches = pruneOld(state.ticketTouches);
+  if (questId) attachHaloTicket(state, questId, { ticketId, client, url });
+  return record;
+}
+
+// Deliberately minimal -- "viewed" doesn't need the record-keeping
+// "touched"/"closed" does, just a count.
+export function appendTicketView(state) {
+  state.ticketViews ??= [];
+  state.ticketViews.push({ timestamp: new Date().toISOString() });
+  state.ticketViews = pruneOld(state.ticketViews);
+}
+
+// Adds a ticket reference to an existing quest item's haloTickets,
+// deduped on ticketId (re-attaching the same ticket is a no-op, not a
+// duplicate entry). No-op (not an error) if questId doesn't resolve --
+// callers that already have a resolved quest should prefer calling this
+// directly over add_idea-style resolution errors.
+export function attachHaloTicket(state, questId, { ticketId, client, url }) {
+  const q = state.quests.find((x) => x.id === questId);
+  if (!q) return;
+  q.haloTickets ??= [];
+  if (!q.haloTickets.some((t) => t.ticketId === ticketId)) {
+    q.haloTickets.push({ ticketId, client, url });
+  }
+}
+
+function countSince(entries, sinceMs) {
+  const cutoff = Date.now() - sinceMs;
+  return entries.filter((e) => new Date(e.timestamp).getTime() >= cutoff).length;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Daily/weekly/monthly counts are computed on read by filtering raw
+// timestamps, never maintained as separately-incremented counters -- a
+// counter that has to be reset at a day/week/month boundary is a bug
+// waiting to happen; a filter over timestamps just is correct. "Today"
+// uses a real day boundary (todayISO), not a trailing 24h window, since
+// that's how a person actually thinks about "today".
+export function getTicketStats(state) {
+  const touches = state.ticketTouches ?? [];
+  const views = state.ticketViews ?? [];
+  const closed = touches.filter((t) => t.closedWithHelp);
+  const today = todayISO();
+  const isToday = (e) => e.timestamp.slice(0, 10) === today;
+  return {
+    touched: { today: touches.filter(isToday).length, week: countSince(touches, 7 * DAY_MS), month: countSince(touches, 30 * DAY_MS) },
+    closed: { today: closed.filter(isToday).length, week: countSince(closed, 7 * DAY_MS), month: countSince(closed, 30 * DAY_MS) },
+    viewed: { today: views.filter(isToday).length, week: countSince(views, 7 * DAY_MS), month: countSince(views, 30 * DAY_MS) },
+  };
 }
 
 // The level directly above/below each tier, for promote (up) and recruit

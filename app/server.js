@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState, bumpArtifactChangeCounter, nowISO } from "../state.js";
+import { readState, mutateState, validateState, nowISO, setProMode } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import pkg from "../package.json" with { type: "json" };
@@ -40,6 +40,19 @@ const WRITE_TOKEN = loadOrCreateWriteToken();
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
+// No caching, anywhere -- this is a low-traffic personal LAN app, not a
+// site where caching buys anything worth the cost. That cost showed up
+// concretely during active theme work: express.static's default headers
+// (ETag + ~Cache-Control: max-age=0) still leave room for a browser's own
+// heuristics to serve a stale app.js on a plain reload while a hard
+// refresh forces revalidation -- exactly the "hard refresh looks right,
+// normal reload doesn't" symptom that cost real time to track down. The
+// rendered "/" page is dynamic (reflects live state) and was never
+// correct to cache regardless.
+app.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 app.use(express.static(join(__dirname, "public")));
 
 app.get("/", async (_req, res, next) => {
@@ -109,10 +122,12 @@ app.post("/api/state", async (req, res, next) => {
         if (typeof incoming.designation === "string" && incoming.designation.trim()) {
           state.designation = incoming.designation.trim();
         }
-        // Wholesale write from the browser UI -- it only ever toggles/cycles
-        // status or adds a new quest (no log-only edits exposed there), so
-        // treat every successful browser save as a mainquest-level change.
-        bumpArtifactChangeCounter(state, { mainQuest: true });
+        // Pro Mode's settings-panel checkbox rides along on this same
+        // wholesale save too -- same reasoning as designation above, just
+        // without the one-time lock (it's a live, flippable switch).
+        if (typeof incoming._proMode === "boolean") {
+          setProMode(state, { enabled: incoming._proMode });
+        }
       }));
     } catch (err) {
       if (err instanceof ConflictError) {

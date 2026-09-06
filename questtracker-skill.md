@@ -134,12 +134,6 @@ The `quest-log` MCP server exposes:
   summary ("3 of 6 done, currently on #44"). Pass `repo`/`issueNumber` to `add_idea` when creating
   a batch item that tracks a specific GitHub issue, so it's a structured link, not just prose in
   the title
-- `get_artifact_status()` — whether the mirrored claude.ai Artifact (see below) is due for a
-  republish, plus the full state to build it from
-- `record_artifact_update(url)` — call after publishing/updating that Artifact, to reset its
-  change counter
-- `get_mirror_template()` — fetch the CSS and read-only render logic for building that mirrored
-  Artifact, alongside `get_full_state()` and `get_artifact_status()`
 - `set_maintenance(active, note?)` — flag or clear an in-progress/upcoming redeploy — see
   below
 - `set_designation(name)` — set the header Designation/name shown in the web UI. The browser
@@ -277,7 +271,6 @@ this block manually to that machine's `~/.claude/settings.json` (merge into any 
       {
         "hooks": [
           { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: early check — review quest-log for items with status: idea that haven't been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).\"}}'" },
-          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: if this session ends up calling any quest-log tool, check mcp__quest-log__get_artifact_status early and call mcp__quest-log__record_artifact_update after republishing if it reports needsUpdate — the artifact mirror only stays current if a session actually acts on that flag, not just notices the warning text.\"}}'" },
           { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: if calling any quest-log tool, check for attention-flagged items with mcp__quest-log__list_quests(attention: true) — these are items the owner explicitly marked for active follow-up in this session, distinct from passive markers. Surface them early for discussion.\"}}'" }
         ]
       }
@@ -326,7 +319,7 @@ session start, and it doesn't mean the service is down. `set_maintenance` doesn'
 - **If you're the one about to redeploy quest-log**, call
   `set_maintenance(active: true, note: "...")` *before* taking the container down. Any other
   session with quest-log tools open will see a `⚠️ quest-log maintenance flagged...` banner
-  prepended to its next `list_quests` / `get_full_state` / `get_artifact_status` call, so it
+  prepended to its next `list_quests` / `get_full_state` call, so it
   can warn the user proactively instead of just erroring blind. Call
   `set_maintenance(active: false)` once the new container is confirmed healthy — don't leave
   it flagged.
@@ -364,29 +357,3 @@ When bumping: update `package.json`'s `version` field with the new version, then
 7 merges (see #70) before anyone noticed.** Treat it as a standing checklist item: before merging
 any PR that ships a real feature or fix (not a docs-only change), decide whether it's a
 MINOR/PATCH bump and include it in that PR, or as its own immediate follow-up if it was missed.
-
-## Keeping the mirrored Artifact in sync
-
-hooptiej also keeps a claude.ai Artifact ("MU/TH/UR Quest Log") as a read-only visual mirror
-of this quest log, so it's viewable without hitting the LAN server. This mirror does **not**
-try to stay live-identical — Artifacts can't fetch from the LAN (strict CSP, no external
-requests except Google Fonts), so it's necessarily a periodic snapshot, not a live view. The
-server tracks drift itself via `_artifact` in its state, so you don't have to judge staleness
-by eye:
-
-- **At the start of any session that uses quest-log tools**, call `get_artifact_status()`
-  once and sync unconditionally — create the Artifact if `url` is `null`, otherwise republish
-  it (same file path / same `url` passed to `Artifact`, so it updates in place rather than
-  forking a new one) — regardless of whether `needsUpdate` says it's due. This is the
-  session-open snapshot.
-- **After any quest-log write during the session**, check the `needsUpdate` field from that
-  same tool's response (or call it again if you didn't just call it). If `true` — a mainquest
-  changed (any status change or new quest, via any write path) or 10+ smaller changes
-  (notes edits, log entries) have piled up since the last sync — republish and call
-  `record_artifact_update(url)` immediately after. Don't defer this or batch it up further;
-  the threshold logic already handles batching.
-- **Building the mirror:** Call the new `get_mirror_template()` MCP tool to fetch `{css, renderCode, renderFunctions, version}`. Combine the returned `css` and `renderCode` with the quest state from `get_full_state()` or `get_artifact_status()` to build the artifact. The `renderCode` is a read-only render function that takes state as input — the Artifact should invoke this to render the UI from the current state. Don't embed `window.__WRITE_TOKEN__` or any live `fetch("/api/state")` calls in the published Artifact — it's read-only, the token is a secret, and the fetch would just fail silently under the Artifact CSP anyway. A small "read-only mirror, edit at questlog.local" banner at the top is enough to set expectations.
-- **One shared Artifact, not one per session.** The `url` lives in server state precisely so
-  every session (any machine) updates the same Artifact instead of each spawning its own —
-  always pass the `url` from `get_artifact_status()` back into the `Artifact` tool's `url`
-  parameter when republishing, never omit it once one exists.

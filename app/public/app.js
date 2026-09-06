@@ -23,6 +23,7 @@
       titleSuffix: "Mission Log",
       subtitlePrefix: "Priority One",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Recent Activity",
       designation: function (name) { return name ? "WARRANT OFFICER " + name.toUpperCase() : "Interest: None"; }
     },
     terminal: {
@@ -32,6 +33,7 @@
       titleSuffix: "Survey Report",
       subtitlePrefix: "Undervault Directive",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Terminal Log",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
     },
     wow: {
@@ -41,15 +43,17 @@
       titleSuffix: "Quest Log",
       subtitlePrefix: "Bound By Oath",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Guild News",
       designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     },
     raccoonmanor: {
       orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
       terminalName: "R.P.D. DISPATCH-7",
       titlePrefix: "Raccoon Manor",
-      titleSuffix: "Evidence Log",
-      subtitlePrefix: "Survive The Night",
-      subtitleSuffix: "Track All Missions",
+      titleSuffix: "",
+      subtitlePrefix: "Est. 1998",
+      subtitleSuffix: "Condition: Abandoned",
+      logLabel: "Evidence Log",
       designation: function (name) { return name ? "SURVIVOR " + name.toUpperCase() : "No Survivors Logged"; }
     },
     testpattern: {
@@ -59,6 +63,7 @@
       titleSuffix: "Channel Log",
       subtitlePrefix: "Please Stand By",
       subtitleSuffix: "Track All Missions",
+      logLabel: "Broadcast Log",
       designation: function (name) { return name ? "CHANNEL " + name.toUpperCase() : "No Signal"; }
     },
     hadleyshope: {
@@ -68,7 +73,18 @@
       titleSuffix: "",
       subtitlePrefix: "Ops Terminal",
       subtitleSuffix: "It's A Bug Hunt",
+      logLabel: "Contact Log",
       designation: function (name) { return name ? name.toUpperCase() + ", COLONIAL MARINE" : "Unassigned Grunt"; }
+    },
+    computercatsimple: {
+      orgLine: "COMPUTER CATS MSP // FIELD OPS DIVISION",
+      terminalName: "CATOPS-9000",
+      titlePrefix: "Computer Cats",
+      titleSuffix: "Work Log",
+      subtitlePrefix: "On The Clock",
+      subtitleSuffix: "Track All Tickets",
+      logLabel: "Work Log",
+      designation: function (name) { return name ? name.toUpperCase() + ", FIELD TECH" : "Unassigned Tech"; }
     }
   };
   var NAME_KEY = "questlog-name";
@@ -77,6 +93,7 @@
   // localStorage, so the set_designation MCP tool actually takes effect on
   // reload instead of the old localStorage copy winning.
   var SERVER_DESIGNATION = ((window.__QUEST_STATE__ && window.__QUEST_STATE__.designation) || "").trim();
+  var SERVER_PRO_MODE = !!(window.__QUEST_STATE__ && window.__QUEST_STATE__._proMode);
 
   function currentDesignationName() {
     if (SERVER_DESIGNATION) return SERVER_DESIGNATION;
@@ -219,6 +236,248 @@
     }
   }
 
+  // Raccoon Manor ambient scene: ceiling drips, EKG/ribbon HUD, the
+  // generator valve (cuts power to a moonlight-only palette instead of
+  // sounding an alarm), lightning through the window (occasionally trips
+  // the generator itself), and the FX kill switch. Same "populate once,
+  // hidden markup is harmless" pattern as Hadley's Hope.
+  var rmInitialized = false;
+  function isRaccoonManor() { return document.documentElement.dataset.theme === "raccoonmanor"; }
+  function initRaccoonManorEffects() {
+    if (rmInitialized) return;
+    rmInitialized = true;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var ribbonEl = document.getElementById("rmRibbonCount");
+    var bpmEl = document.getElementById("rmEkgBpm");
+    var ribbons = 3;
+    setInterval(function () {
+      if (!isRaccoonManor()) return;
+      var scared = Math.random() < 0.3;
+      if (bpmEl) bpmEl.textContent = (scared ? (110 + Math.floor(Math.random() * 40)) : (68 + Math.floor(Math.random() * 10))) + " bpm";
+      if (scared && ribbonEl) {
+        ribbons = Math.max(0, ribbons - 1);
+        if (ribbons === 0) ribbons = 3;
+        ribbonEl.textContent = ribbons;
+      }
+    }, 2600);
+
+    var dripLayer = document.getElementById("rmDripLayer");
+    if (!reduce && dripLayer) {
+      dripLayer.querySelectorAll(".rm-drip").forEach(function (d) {
+        var left = d.style.left;
+        var startHeight = parseInt(d.style.height, 10) || 60;
+        setInterval(function () {
+          if (!isRaccoonManor()) return;
+          var drop = document.createElement("div");
+          drop.className = "rm-goo-drop";
+          drop.style.left = left;
+          drop.style.top = startHeight + "px";
+          drop.style.animationDuration = (2.2 + Math.random() * 1.4) + "s";
+          document.body.appendChild(drop);
+          setTimeout(function () { drop.remove(); }, 4000);
+        }, 3200 + Math.random() * 3000);
+      });
+    }
+
+    var valveRig = document.getElementById("rmValveRig");
+    var valveWheel = document.getElementById("rmValveWheel");
+    if (valveWheel && valveRig) {
+      valveWheel.addEventListener("click", function () {
+        var cut = valveRig.classList.toggle("armed");
+        document.documentElement.classList.toggle("power-cut", cut);
+      });
+    }
+
+    // Temp debug readout (settings-mode only, see CSS) -- polls rather
+    // than hooking every state-changing call site, so it can't miss one
+    // (the ambient auto-trip included) and stays trivial to remove later.
+    var debugReadout = document.getElementById("rmDebugReadout");
+    if (debugReadout) {
+      setInterval(function () {
+        if (!isRaccoonManor()) return;
+        var html = document.documentElement;
+        var cs = getComputedStyle(html);
+        debugReadout.textContent =
+          "power-cut: " + html.classList.contains("power-cut") + "\n" +
+          "valve armed: " + (valveRig ? valveRig.classList.contains("armed") : "n/a") + "\n" +
+          "settings-mode: " + html.classList.contains("settings-mode") + "\n" +
+          "darkness: " + cs.getPropertyValue("--rm-power-cut-brightness").trim() + "\n" +
+          "glow: " + cs.getPropertyValue("--rm-power-cut-glow").trim() + "\n" +
+          "hud-boost: " + cs.getPropertyValue("--rm-hud-boost").trim();
+      }, 400);
+    }
+
+    // Settings-mode tuning sliders (darkness/glow/HUD boost) -- each moves a
+    // CSS custom property live on "input" for instant feedback while
+    // dragging, and saves to STATE._themeTuning.raccoonmanor on "change"
+    // (once per interaction, not per drag-tick) through the same
+    // persist()/write-token path every other mutation in this app already
+    // uses -- "saved with the site," not per-browser localStorage, so the
+    // chosen values show up the same on any machine that loads the page.
+    // Only visible at all under settings-mode (see the settings-mode class
+    // applied near the bottom of this file); wiring one up while hidden is
+    // harmless, just a no-op with no visible effect.
+    function wireTunedSlider(elementId, cssVarName, tuningKey) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var saved = (STATE._themeTuning && STATE._themeTuning.raccoonmanor && STATE._themeTuning.raccoonmanor[tuningKey]);
+      if (saved !== undefined && saved !== null) {
+        el.value = saved;
+        document.documentElement.style.setProperty(cssVarName, saved);
+      }
+      el.addEventListener("input", function () {
+        document.documentElement.style.setProperty(cssVarName, el.value);
+      });
+      el.addEventListener("change", function () {
+        STATE._themeTuning = STATE._themeTuning || {};
+        STATE._themeTuning.raccoonmanor = STATE._themeTuning.raccoonmanor || {};
+        STATE._themeTuning.raccoonmanor[tuningKey] = el.value;
+        persist();
+      });
+    }
+    wireTunedSlider("rmDarknessSlider", "--rm-power-cut-brightness", "darkness");
+    wireTunedSlider("rmGlowSlider", "--rm-power-cut-glow", "glow");
+    wireTunedSlider("rmHudBoostSlider", "--rm-hud-boost", "hudBoost");
+
+    var candleRig = document.getElementById("rmCandleRig");
+    var candleBtn = document.getElementById("rmCandleBtn");
+    if (candleBtn && candleRig) {
+      candleBtn.addEventListener("click", function () {
+        var on = candleRig.classList.toggle("on");
+        document.documentElement.classList.toggle("fx-off", !on);
+      });
+    }
+
+    // Three elements flash together on every strike: #rmStormFlash (a
+    // fixed, full-viewport wash living in .rm-scene, never touched by the
+    // power-cut filter), #rmLightningBolt (the bolt shape seen through the
+    // window when power is ON -- it darkens along with the room like
+    // everything else once power-cut is active, same as the moon), and
+    // #rmBoltDupe (an undarkened stand-in bolt, also living in .rm-scene,
+    // that CSS only shows during power-cut -- so exactly one of the two
+    // bolt elements is ever actually visible, and flashing both on every
+    // strike regardless of power state is harmless). All three just
+    // toggle the same .flash class/restart trick the old single
+    // #rmLightning div used.
+    var stormFlash = document.getElementById("rmStormFlash");
+    var lightningBolt = document.getElementById("rmLightningBolt");
+    var boltDupe = document.getElementById("rmBoltDupe");
+    if (!reduce && stormFlash && lightningBolt) {
+      function flashEl(el) {
+        if (!el) return;
+        el.classList.remove("flash");
+        void el.offsetWidth; // restart the CSS animation
+        el.classList.add("flash");
+      }
+      function strike() {
+        if (!isRaccoonManor()) return;
+        flashEl(stormFlash);
+        flashEl(lightningBolt);
+        flashEl(boltDupe);
+        if (Math.random() < 0.3) setTimeout(strike, 220 + Math.random() * 180);
+        // ~10% of strikes trip the generator -- same power-cut state the
+        // valve wheel toggles manually, so turning it back on afterward
+        // just works (the click handler toggles whatever's already there).
+        // Suppressed under settings-mode: a random auto-trip landing right
+        // when someone's testing the manual valve/sliders reads as "my
+        // click didn't work" even though it's really just unlucky timing
+        // from a fully independent system -- confusing during tuning,
+        // fine during normal play.
+        if (!document.documentElement.classList.contains("settings-mode") &&
+            Math.random() < 0.1 && !document.documentElement.classList.contains("power-cut")) {
+          setTimeout(function () {
+            document.documentElement.classList.add("power-cut");
+            if (valveRig) valveRig.classList.add("armed");
+          }, 140);
+        }
+      }
+      function scheduleLightning() {
+        setTimeout(function () { strike(); scheduleLightning(); }, 6000 + Math.random() * 18000);
+      }
+      scheduleLightning();
+    }
+  }
+
+  // Test Pattern ambient widgets: the channel tuner (cycles which
+  // jitterClass bucket is "tuned in", dimming the other two via --tp-dim)
+  // and the convergence pad (drags --tp-conv-x/-y, which the h1's fringe
+  // and the pad's own dot both read). Same "wire once, CSS keeps it inert
+  // while another theme is active" pattern as the other themes' effects.
+  var tpInitialized = false;
+  function isTestPattern() { return document.documentElement.dataset.theme === "testpattern"; }
+  function initTestPatternEffects() {
+    if (tpInitialized) return;
+    tpInitialized = true;
+
+    var CHANNELS = ["a", "b", "c"];
+    var CHANNEL_READOUT = { a: "CH 3", b: "CH 4", c: "CH 5" };
+    var chanIndex = 0;
+    var tunerBtn = document.getElementById("tpTunerBtn");
+    var tunerReadout = document.getElementById("tpTunerReadout");
+    function applyChannel() {
+      var ch = CHANNELS[chanIndex];
+      CHANNELS.forEach(function (c) {
+        document.documentElement.classList.toggle("tp-tuned-" + c, c === ch);
+      });
+      if (tunerReadout) tunerReadout.textContent = CHANNEL_READOUT[ch];
+    }
+    if (tunerBtn) {
+      applyChannel();
+      tunerBtn.addEventListener("click", function () {
+        if (!isTestPattern()) return;
+        chanIndex = (chanIndex + 1) % CHANNELS.length;
+        applyChannel();
+      });
+    }
+
+    var pad = document.getElementById("tpConvPad");
+    if (pad) {
+      var dragging = false;
+      var radius = 19; // px of drag inside the pad that maps to the full -1..1 range
+      function setConv(x, y) {
+        x = Math.max(-1, Math.min(1, x));
+        y = Math.max(-1, Math.min(1, y));
+        document.documentElement.style.setProperty("--tp-conv-x", x.toFixed(3));
+        document.documentElement.style.setProperty("--tp-conv-y", y.toFixed(3));
+        pad.setAttribute("aria-valuetext", (x === 0 && y === 0) ? "centered" : ("offset " + x.toFixed(2) + ", " + y.toFixed(2)));
+      }
+      function updateFromPoint(clientX, clientY) {
+        var rect = pad.getBoundingClientRect();
+        setConv((clientX - (rect.left + rect.width / 2)) / radius, (clientY - (rect.top + rect.height / 2)) / radius);
+      }
+      pad.addEventListener("pointerdown", function (e) {
+        if (!isTestPattern()) return;
+        dragging = true;
+        pad.setPointerCapture(e.pointerId);
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      pad.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        updateFromPoint(e.clientX, e.clientY);
+      });
+      ["pointerup", "pointercancel"].forEach(function (evt) {
+        pad.addEventListener(evt, function () { dragging = false; });
+      });
+      // Double-click/tap re-centers -- 0,0 is "converged", i.e. no fringe.
+      pad.addEventListener("dblclick", function () { if (isTestPattern()) setConv(0, 0); });
+      // Keyboard nudge for the role="slider" a11y hook (arrow keys, since
+      // dragging alone would otherwise leave no non-pointer way to reach it).
+      pad.addEventListener("keydown", function (e) {
+        if (!isTestPattern()) return;
+        var style = getComputedStyle(document.documentElement);
+        var x = parseFloat(style.getPropertyValue("--tp-conv-x")) || 0;
+        var y = parseFloat(style.getPropertyValue("--tp-conv-y")) || 0;
+        var step = 0.15;
+        if (e.key === "ArrowLeft") { setConv(x - step, y); e.preventDefault(); }
+        else if (e.key === "ArrowRight") { setConv(x + step, y); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { setConv(x, y - step); e.preventDefault(); }
+        else if (e.key === "ArrowDown") { setConv(x, y + step); e.preventDefault(); }
+        else if (e.key === "Enter" || e.key === " ") { setConv(0, 0); e.preventDefault(); }
+      });
+    }
+  }
+
   function applyFlavor() {
     var theme = document.documentElement.dataset.theme || "muthur";
     var flavor = THEME_FLAVOR[theme] || THEME_FLAVOR.muthur;
@@ -235,12 +494,42 @@
     if (subtitleEl) subtitleEl.textContent = flavor.subtitlePrefix;
     var subtitleSuffixEl = document.getElementById("subtitle-suffix");
     if (subtitleSuffixEl) subtitleSuffixEl.textContent = flavor.subtitleSuffix;
+    var logLabelEl = document.getElementById("log-title");
+    if (logLabelEl) logLabelEl.textContent = flavor.logLabel || "Recent Activity";
     var eyebrowEl = document.getElementById("eyebrow");
     if (eyebrowEl) eyebrowEl.textContent = flavor.designation(name);
     var versionEl = document.getElementById("version-badge");
     if (versionEl && window.__APP_VERSION__) versionEl.textContent = "v" + window.__APP_VERSION__;
 
     if (theme === "hadleyshope") updateHadleysHopeFlavor();
+    if (theme === "raccoonmanor") updateRaccoonManorFlavor();
+  }
+
+  // Same trick as updateHadleysHopeFlavor() below, re-skinned for this
+  // theme's case-file vocabulary instead of Hadley's Hope's hazard/contact
+  // wording -- a real open quest title stamped into the boot bar's case
+  // line, refreshed as quests change.
+  function updateRaccoonManorFlavor() {
+    var stampEl = document.getElementById("rmCaseStamp");
+    var witnessEl = document.getElementById("rmWitnessLine");
+    if (!stampEl && !witnessEl) return;
+    var openTitles = Array.prototype.slice
+      .call(document.querySelectorAll(".tree-node:not(.is-done) .tree-title, .quest:not(.is-done) .quest-title"))
+      .map(function (el) { return el.textContent.trim(); })
+      .filter(Boolean);
+    if (!openTitles.length) {
+      if (stampEl) stampEl.textContent = "";
+      if (witnessEl) witnessEl.textContent = "";
+      return;
+    }
+    if (stampEl) {
+      var pick = openTitles[Math.floor(Math.random() * openTitles.length)];
+      stampEl.textContent = "Case File — " + pick + " — Unsolved";
+    }
+    if (witnessEl) {
+      var next = openTitles[Math.floor(Math.random() * openTitles.length)];
+      witnessEl.textContent = "Last witness account: " + next;
+    }
   }
 
   // Reads real open-quest titles straight out of the rendered tree/idea
@@ -492,6 +781,59 @@
     return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
 
+  // Used by treeNode for a node's own children (Missions within a Quest,
+  // Tasks within a Mission) -- a collapsed-by-default "Completed (N)"
+  // wrapper around whatever done items were separated out at this level.
+  // Not used for top-level Quests anymore -- see completedRootCard below.
+  function completedGroupHtml(doneItems, byParent, allQuests) {
+    if (!doneItems.length) return "";
+    var completedExpanded = false;
+    return '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
+      '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
+      '<span class="completed-label">Completed (' + doneItems.length + ')</span>' +
+      '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
+      doneItems.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
+      '</div>' +
+      '</div>';
+  }
+
+  // Top-level done Quests (#99) render as one more ordinary-looking
+  // .tree-node -- titled "Completed Quests", no checkbox/notes/promote
+  // controls since it isn't a real quest -- rather than a distinct wrapper
+  // style. Deliberate: every theme's existing top-level card
+  // treatment (Raccoon Manor's folder pile, Test Pattern's bullseye pins,
+  // the jitter/rotation hooks) keys off "#quest-tree > .tree-node", so
+  // reusing that exact shape means this needs no per-theme styling of its
+  // own, and the existing toggle-tree click handler (any .tree-node's
+  // > .tree-children) already handles it with no code changes there either.
+  // A fixed synthetic id (not a real quest id) gives it a stable, un-
+  // reshuffling jitter look like everything else jitterClass/jitterStyle key
+  // off an id for. Always rendered, even with zero done Quests -- a
+  // permanent fixture at the bottom of the list, not something that pops
+  // in and out of existence.
+  var COMPLETED_ROOT_ID = "completed-quests-root";
+  function completedRootCard(doneRoots, byParent, allQuests) {
+    var expanded = false;
+    return (
+      '<div class="tree-node ' + jitterClass(COMPLETED_ROOT_ID) + '" data-id="' + COMPLETED_ROOT_ID + '"' + jitterStyle(COMPLETED_ROOT_ID) + '>' +
+        cardDecoration() +
+        '<div class="tree-row">' +
+          '<span class="tree-title-group">' +
+            '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + expanded + '" aria-label="Toggle Completed Quests">' + (expanded ? "▾" : "▸") + '</button>' +
+            '<span class="child-count' + (expanded ? " collapsed" : "") + '">(' + doneRoots.length + (doneRoots.length === 1 ? " quest" : " quests") + ')</span>' +
+            '<span class="tree-title">Completed Quests</span>' +
+          '</span>' +
+          '<span class="tree-actions"><span class="quest-tag">DONE</span></span>' +
+        '</div>' +
+        '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' +
+          (doneRoots.length
+            ? doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("")
+            : '<div class="empty-row">// none yet</div>') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   // Read-only by design: a Quest/Mission with children only ever closes via
   // confirm_completion through Claude + the MCP tools (a conversation, not
   // a click) -- so this tree just displays current state, it doesn't offer
@@ -523,14 +865,7 @@
       childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
     }
     if (hasDoneChildren) {
-      var completedExpanded = false;
-      childrenHtml += '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
-        '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
-        '<span class="completed-label">Completed (' + doneChildren.length + ')</span>' +
-        '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
-        doneChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
-        '</div>' +
-        '</div>';
+      childrenHtml += completedGroupHtml(doneChildren, byParent, allQuests);
     }
 
     var hasChildren = allChildren.length > 0;
@@ -569,32 +904,45 @@
     );
   }
 
-  function renderQuestTree(state, parentIds) {
+  function renderQuestTree(visibleQuests, parentIds) {
     var panel = document.getElementById("quests-panel");
     var byParent = {};
-    state.quests.forEach(function (q) {
+    visibleQuests.forEach(function (q) {
       if (!q.parentId) return;
       (byParent[q.parentId] = byParent[q.parentId] || []).push(q);
     });
     // Roots are real Quests, plus any parentless item that itself has
     // children (an ungrouped Mission with Tasks under it) -- otherwise it
     // would be excluded from the flat panels but never shown anywhere.
-    var roots = state.quests.filter(function (q) {
+    var roots = visibleQuests.filter(function (q) {
       return !q.parentId && (q.level === "quest" || parentIds.has(q.id));
     });
+    // Top-level Quests get the same active/done split their own children
+    // already got from #61 -- a finished Quest used to just sit at the top
+    // of the list forever with only its strikethrough to mark it (#99).
+    var activeRoots = roots.filter(function (q) { return q.status !== "done"; });
+    var doneRoots = roots.filter(function (q) { return q.status === "done"; });
     // Always visible now (the hierarchy view is meant to be the primary
     // one), with an empty state when there's no Quest yet rather than
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? roots.map(function (q) { return treeNode(q, byParent, state.quests); }).join("")
+      ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests); }).join("") +
+        completedRootCard(doneRoots, byParent, visibleQuests)
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + roots.length + "]";
   }
 
   function render(state) {
+    // Archived items (#61/#99) are meant to be genuinely hidden from the
+    // default view, distinct from "done" items which merely sort into a
+    // collapsed Completed section -- filtered out once, here, so every
+    // panel/count/progress figure downstream just never sees them instead
+    // of every consumer needing its own archived check.
+    var visibleQuests = state.quests.filter(function (q) { return !q.archived; });
+
     var parentIds = new Set();
-    state.quests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
+    visibleQuests.forEach(function (q) { if (q.parentId) parentIds.add(q.parentId); });
 
     // Flat panels are down to just the Idea Board now (#30 cleanup): ACTIVE
     // and COMPLETED never earned their keep once the hierarchy took over
@@ -602,7 +950,7 @@
     // of a status. progress/done are still tracked here (for the Mission
     // Progress bar below) even though only idea gets its own panel.
     var groups = { progress: [], idea: [], done: [] };
-    state.quests.forEach(function (q) {
+    visibleQuests.forEach(function (q) {
       if (isTreeItem(q, parentIds)) return;
       if (!groups[q.status]) {
         console.warn("quest with unrecognized status, skipping:", q.id, q.status);
@@ -611,7 +959,7 @@
       groups[q.status].push(q);
     });
 
-    renderQuestTree(state, parentIds);
+    renderQuestTree(visibleQuests, parentIds);
 
     var ideaList = document.getElementById("list-idea");
     ideaList.innerHTML = groups.idea.length
@@ -646,7 +994,7 @@
     }
 
     var bootTime = document.getElementById("boot-time");
-    if (bootTime) bootTime.textContent = state.quests.length + " MISSIONS TRACKED";
+    if (bootTime) bootTime.textContent = visibleQuests.length + " MISSIONS TRACKED";
 
     // Least-touched top-level Quest (#62) -- mirrors the same computation
     // get_full_state's mostNeglectedQuest does server-side, done client-side
@@ -654,7 +1002,7 @@
     var neglectedLine = document.getElementById("neglected-quest-line");
     var neglectedValue = document.getElementById("neglected-quest-value");
     if (neglectedLine && neglectedValue) {
-      var topLevelQuests = state.quests.filter(function (q) { return q.level === "quest" && !q.parentId; });
+      var topLevelQuests = visibleQuests.filter(function (q) { return q.level === "quest" && !q.parentId; });
       if (topLevelQuests.length > 0) {
         var oldest = topLevelQuests.slice().sort(function (a, b) {
           var aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
@@ -668,6 +1016,44 @@
       }
     }
 
+    // Pro-mode: ticket tracking UI. Reads live state, not the load-time
+    // SERVER_PRO_MODE snapshot -- unlike Designation, this is meant to take
+    // effect immediately when flipped, no reload required.
+    if (state._proMode) {
+      var stats = ticketStats(state);
+      var touchedEl = document.getElementById("stat-touched");
+      if (touchedEl) touchedEl.textContent = fmtStat(stats.touched);
+      var closedEl = document.getElementById("stat-closed");
+      if (closedEl) closedEl.textContent = fmtStat(stats.closed);
+      var viewedEl = document.getElementById("stat-viewed");
+      if (viewedEl) viewedEl.textContent = String(stats.viewed.today);
+
+      var touches = (state.ticketTouches || []).slice().reverse();
+      var ticketsFullEl = document.getElementById("tickets-full");
+      if (ticketsFullEl) {
+        ticketsFullEl.innerHTML = touches.length
+          ? touches.map(function (t) {
+              return '<div class="log-full-date">' + escapeHtml(t.timestamp.slice(0, 10)) + '</div>' +
+                '<ul class="log-full-list"><li><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">#' + escapeHtml(t.ticketId) + '</a> — ' + escapeHtml(t.client) + ': ' + escapeHtml(t.note) +
+                (t.closedWithHelp ? '<span class="ticket-closed-badge">closed w/ Claude</span>' : '') + '</li></ul>';
+            }).join("")
+          : '<div class="empty-row">// no tickets logged yet</div>';
+      }
+
+      var recentTicketsEl = document.getElementById("recent-tickets-list");
+      if (recentTicketsEl) {
+        // Always shows the full touch history (#3) -- the panel is a fixed
+        // height with its own scrollbar, so there's no need to truncate the list itself.
+        var recentTickets = touches;
+        recentTicketsEl.innerHTML = recentTickets.length
+          ? recentTickets.map(function (t) {
+              return '<li><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">#' + escapeHtml(t.ticketId) + '</a> ' + escapeHtml(t.client) + ' — ' + escapeHtml(truncate(t.note, 60)) +
+                (t.closedWithHelp ? '<span class="ticket-closed-badge">closed</span>' : '') + '</li>';
+            }).join("")
+          : '<li class="empty-row">// none yet</li>';
+      }
+    }
+
     applyFlavor();
   }
 
@@ -675,6 +1061,26 @@
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
+
+  function ticketStats(state) {
+    var touches = state.ticketTouches || [];
+    var views = state.ticketViews || [];
+    var closed = touches.filter(function (t) { return t.closedWithHelp; });
+    var today = todayISO();
+    function isToday(e) { return e.timestamp.slice(0, 10) === today; }
+    function since(entries, ms) {
+      var cutoff = Date.now() - ms;
+      return entries.filter(function (e) { return new Date(e.timestamp).getTime() >= cutoff; }).length;
+    }
+    var DAY = 24 * 60 * 60 * 1000;
+    return {
+      touched: { today: touches.filter(isToday).length, week: since(touches, 7 * DAY), month: since(touches, 30 * DAY) },
+      closed: { today: closed.filter(isToday).length, week: since(closed, 7 * DAY), month: since(closed, 30 * DAY) },
+      viewed: { today: views.filter(isToday).length, week: since(views, 7 * DAY), month: since(views, 30 * DAY) }
+    };
+  }
+
+  function fmtStat(s) { return s.today + " · " + s.week + " · " + s.month; }
 
   // Completing a flat item no longer moves it to a Completed panel (#30) --
   // it just drops off the Idea Board, with this taking its place as the
@@ -765,6 +1171,24 @@
         persist();
       });
     }
+  }
+
+  // Unlike Designation, Pro Mode stays a live, always-visible switch in
+  // settings -- it's a feature flag someone may want to flip back and forth
+  // (trying ticket tracking, deciding against it), not a one-time identity
+  // choice worth locking in.
+  var proModeInput = document.getElementById("pro-mode-input");
+  if (proModeInput) {
+    proModeInput.checked = SERVER_PRO_MODE;
+    proModeInput.addEventListener("change", function () {
+      STATE._proMode = proModeInput.checked;
+      // The .pro-mode class (gates the ticket-tracking panels via CSS) is
+      // otherwise only ever set once at initial page load -- flip it here
+      // too so the toggle takes effect immediately in both directions,
+      // no reload required.
+      document.documentElement.classList.toggle("pro-mode", proModeInput.checked);
+      persist();
+    });
   }
 
   var STATE = window.__QUEST_STATE__ || { quests: [], log: [] };
@@ -902,6 +1326,16 @@
       }
       return;
     }
+    var ticketsUnrollBtn = ev.target.closest('[data-action="toggle-tickets-full"]');
+    if (ticketsUnrollBtn) {
+      var ticketsFullEl = document.getElementById("tickets-full");
+      if (ticketsFullEl) {
+        var ticketsCollapsed = ticketsFullEl.classList.toggle("collapsed");
+        ticketsUnrollBtn.textContent = ticketsCollapsed ? "Show ticket history ▾" : "Hide ticket history ▴";
+        ticketsUnrollBtn.setAttribute("aria-expanded", String(!ticketsCollapsed));
+      }
+      return;
+    }
     var promoteBtn = ev.target.closest('[data-action="promote"]');
     if (promoteBtn) {
       var pid = promoteBtn.getAttribute("data-id");
@@ -955,6 +1389,18 @@
     });
   }
 
+  // Settings mode (Raccoon Manor's power-cut tuning sliders, currently the
+  // only thing gated on it) has no in-page toggle by design -- flipped only
+  // via the set_settings_mode MCP tool, read here from the server-rendered
+  // state the same way SERVER_DESIGNATION is above.
+  document.documentElement.classList.toggle("settings-mode", !!STATE._settingsMode);
+
+  // Pro mode has no in-page toggle by design -- flipped only via the
+  // set_pro_mode MCP tool, read here from the server-rendered state.
+  document.documentElement.classList.toggle("pro-mode", !!STATE._proMode);
+
   render(STATE);
   initHadleysHopeEffects();
+  initRaccoonManorEffects();
+  initTestPatternEffects();
 })();
