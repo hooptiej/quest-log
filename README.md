@@ -77,6 +77,44 @@ processes that used to cause that, but didn't eliminate it. Tracked as
 [quest-log-mcp#2](https://github.com/hooptiej/quest-log-mcp/issues/2) (repo now archived; issue
 still tracked there for history).
 
+### Backstop hooks: quest-log check-in
+
+The QuestTracker skill's "sync proactively, without being asked" instruction is a soft,
+relevance-matched trigger — nothing forces Claude to actually check in, so it can lose out to
+whatever's in front of it in a long session. Five small, **additive** Claude Code hooks in
+`.claude/hooks/` (committed alongside `quest-log-reminder.mjs` above and registered the same way in
+`.claude/settings.json`, so they work on any machine that checks out the repo — no per-machine
+setup) backstop that. They supersede the echo-based, explicitly "not portable via this repo"
+version of this same idea documented in `questtracker-skill.md`'s "Automated checkpoint reminders"
+section:
+
+- **`quest-log-checkin.sh`** (`PostToolUse`/`Bash`) — scans the text of every Bash command and,
+  when it looks like a real completion/deploy event (`git commit`/`push`, `gh pr merge`/`create`,
+  `gh issue create`/`close`/`comment`, or `docker build`/`run`/`restart`/`compose`), injects a
+  one-line reminder to check whether the quest log needs updating.
+- **`quest-log-write-checkin.sh`** (`PostToolUse`/`Write|Edit`) — catches the moments the
+  Bash-only hook above structurally can't: writing or editing a `CLAUDE.md` or a memory file often
+  captures a scope/blocker/decision change, but isn't a Bash command at all.
+- **`quest-log-session-start.sh`** (`SessionStart`) — nudges a fresh session to check for stale
+  `status: idea` items before diving in. Covers a different gap than the two write-triggered hooks
+  above: those only fire on something *new* happening, so a standing idea can sit unread for an
+  entire session even with both firing correctly, since nothing about writing new state re-surfaces
+  old unread state.
+- **`quest-log-agent-checkin.sh`** (`PostToolUse`/`Agent`) — counts background-agent dispatches
+  per session (a per-session-id counter file under `$TMPDIR`) and, from the 2nd dispatch onward,
+  nudges Claude to check whether the investigation driving them is tracked yet — a better
+  general-purpose proxy for "this became a real investigation" than any single tool family.
+- **`quest-log-halo-checkin.sh`** (`PostToolUse`/Halo MCP tools) — reminds Claude to log Halo
+  ticket work into quest-log whenever a Halo MCP tool runs (read-only get/list/search get a
+  lightweight "log a view" nudge; mutating add_action/update/create get a "log a touch" nudge with
+  details). Gated on Pro Mode (`state._proMode`, see `set_pro_mode` above) the same way
+  `quest-log-reminder.mjs` gates itself on `state._autoLog.enabled` — a plain unauthenticated
+  `GET /api/state` with a short timeout, fails silently on any network hiccup, and is a no-op on any
+  deployment that never enables Pro Mode or has no Halo MCP tools present at all.
+
+To add or remove trigger patterns later, edit the scripts directly (plain shell, no JSON escaping)
+— no need to touch `.claude/settings.json` again unless adding a whole new hook.
+
 ### Connecting over HTTPS (trusting the self-signed cert)
 
 Since the server's HTTPS cert is self-signed (see below), an MCP client talking to `https://` will

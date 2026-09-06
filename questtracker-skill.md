@@ -233,12 +233,18 @@ right now, and continue the actual task. Don't repeatedly retry or nag about it.
 ## Automated checkpoint reminders (Claude Code hooks)
 
 The instructions above rely on Claude noticing the right moments on its own. As a backstop —
-not a replacement — this skill's home machine also has a set of Claude Code hooks
-(`~/.claude/settings.json`) that inject a reminder at the moments most likely to mean
-quest-log needs an update. These are **not portable via this repo** (hooks live in a
-machine-local config file, not git), so if quest-log is being used from a new machine, add
-this block manually to that machine's `~/.claude/settings.json` (merge into any existing
-`hooks`/`permissions` keys, don't overwrite them) to get the same backstop there:
+not a replacement — this project now ships a set of real, committed Claude Code hooks
+(`.claude/hooks/quest-log-checkin.sh`, `quest-log-write-checkin.sh`, `quest-log-session-start.sh`,
+`quest-log-agent-checkin.sh`, `quest-log-halo-checkin.sh`, registered in `.claude/settings.json` —
+see README.md's "Backstop hooks: quest-log check-in" section and CLAUDE.md) that inject a reminder
+at the moments most likely to mean quest-log needs an update. Because they're committed files, not
+machine-local config, they travel with the repo to any machine that checks it out — no manual
+per-machine setup needed.
+
+The JSON block below is kept for reference (e.g. reproducing this same backstop in a *different*
+project that doesn't have these files) and reflects the same trigger patterns and rationale as the
+real scripts, but if you're working in this repo, use the actual files above rather than
+hand-merging this into `~/.claude/settings.json`:
 
 ```json
 {
