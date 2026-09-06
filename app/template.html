@@ -341,6 +341,49 @@
   }
   [data-theme="raccoonmanor"] .score-block:nth-of-type(1) .score-label { transform: rotate(-5deg); }
   [data-theme="raccoonmanor"] .score-block:nth-of-type(2) .score-label { transform: rotate(4deg); }
+  /* The rounded, bordered #ticket-stats-panel box (border-color: var(--border),
+     a mossy olive green here) was the actual problem -- a clean rectangle
+     around hand-tilted evidence reads wrong no matter what's inside it.
+     Drop the frame entirely so the scoreboard and the stuff below it
+     float directly on the page, then restyle that "stuff below" (the
+     Viewed count, the caption, the ticket-history toggle) as loose
+     evidence scraps instead of a status readout -- a sticky note and a
+     torn note card, scattered at their own angles under the scoreboard. */
+  [data-theme="raccoonmanor"] .status-panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0.6rem 0.1rem 0;
+  }
+  [data-theme="raccoonmanor"] .status-row {
+    display: inline-flex;
+    background: #e8dcaa;
+    border: 1px solid rgba(44,32,19,0.35);
+    padding: 0.3rem 0.6rem;
+    margin: 0.7rem 0 0.6rem 0.4rem;
+    transform: rotate(2.5deg);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+  }
+  [data-theme="raccoonmanor"] .status-row .status-label,
+  [data-theme="raccoonmanor"] .status-row .status-value {
+    color: #2c2013;
+    font-family: var(--font-head);
+  }
+  [data-theme="raccoonmanor"] .status-subcaption {
+    display: inline-block;
+    text-align: left;
+    background: rgba(233,227,201,0.88);
+    border: 1px solid rgba(44,32,19,0.3);
+    color: #2c2013;
+    font-family: var(--font-body);
+    font-style: italic;
+    opacity: 1;
+    padding: 0.35rem 0.65rem;
+    margin: 0 0 0.8rem 1.5rem;
+    transform: rotate(-1.8deg);
+    box-shadow: 1px 2px 3px rgba(0,0,0,0.35);
+  }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
