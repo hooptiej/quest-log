@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState, bumpArtifactChangeCounter, nowISO, setProMode } from "../state.js";
+import { readState, mutateState, validateState, nowISO, setProMode } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import pkg from "../package.json" with { type: "json" };
@@ -128,10 +128,6 @@ app.post("/api/state", async (req, res, next) => {
         if (typeof incoming._proMode === "boolean") {
           setProMode(state, { enabled: incoming._proMode });
         }
-        // Wholesale write from the browser UI -- it only ever toggles/cycles
-        // status or adds a new quest (no log-only edits exposed there), so
-        // treat every successful browser save as a mainquest-level change.
-        bumpArtifactChangeCounter(state, { mainQuest: true });
       }));
     } catch (err) {
       if (err instanceof ConflictError) {

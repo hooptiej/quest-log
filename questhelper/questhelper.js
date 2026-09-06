@@ -3,7 +3,6 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { buildMirrorHtml } from "../app/mirror.js";
 import {
   readState,
   mutateState,
@@ -11,8 +10,6 @@ import {
   nowISO,
   slugify,
   describeQuest,
-  bumpArtifactChangeCounter,
-  artifactNeedsUpdate,
   resolveOne,
   resolveParent,
   confirmCompletion,
@@ -71,19 +68,9 @@ function withMaintenanceBanner(state, content) {
   return [{ type: "text", text: `⚠️ quest-log maintenance flagged since ${m.since}${note}` }, ...content];
 }
 
-// Prepended to read tools' responses when the mirrored artifact is stale,
-// so a session is notified on next call instead of silently continuing to
-// work with an out-of-date mirror. Used alongside withMaintenanceBanner()
-// -- maintenance banner appears first if both are flagged.
-function withArtifactStalenessInfo(state, content) {
-  if (!artifactNeedsUpdate(state)) return content;
-  const a = state._artifact ?? { changesSince: 0 };
-  return [{ type: "text", text: `⚠️ Artifact mirror is stale (${a.changesSince} changes since last publish) — call record_artifact_update(url) after republishing` }, ...content];
-}
-
 // Prepended to read tools' responses when any items have the attention flag set,
 // so a session is nudged to actively follow up on those items. Follows the
-// pattern of withMaintenanceBanner and withArtifactStalenessInfo.
+// pattern of withMaintenanceBanner.
 function withAttentionInfo(state, content) {
   const attentionItems = state.quests.filter((q) => q.attention);
   if (attentionItems.length === 0) return content;
@@ -107,7 +94,6 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
     outcomes.forEach((o) => {
       if (!o.error) touchQuestAncestor(state, o.quest);
     });
-    if (outcomes.some((o) => !o.error)) bumpArtifactChangeCounter(state, { mainQuest: true });
     return outcomes;
   });
   if (!Array.isArray(idOrTitleOrList)) {
@@ -155,7 +141,7 @@ function createServer(options = {}) {
           return bTime - aTime;
         });
       }
-      if (!tree) return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }]))) };
+      if (!tree) return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
 
       const byParent = new Map();
       for (const q of quests) {
@@ -165,7 +151,7 @@ function createServer(options = {}) {
       }
       const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
       const roots = (byParent.get(null) ?? []).map(attachChildren);
-      return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }]))) };
+      return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }])) };
     },
   );
 
@@ -209,7 +195,6 @@ function createServer(options = {}) {
         if (q.status === "done") q.date = todayISO();
         state.quests.push(q);
         if (parentResolution.parentId) touchQuestAncestor(state, q);
-        bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest: q };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -242,7 +227,6 @@ function createServer(options = {}) {
         }
         quest.status = status;
         touchQuestAncestor(state, quest);
-        bumpArtifactChangeCounter(state, { mainQuest: true });
         return { quest };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -262,7 +246,6 @@ function createServer(options = {}) {
         const outcome = setBlocked(state, idOrTitle, blocked);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: false });
         }
         return outcome;
       });
@@ -283,7 +266,6 @@ function createServer(options = {}) {
         const outcome = setArchived(state, idOrTitle, archived);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: false });
         }
         return outcome;
       });
@@ -304,7 +286,6 @@ function createServer(options = {}) {
         const outcome = setAttention(state, idOrTitle, attention);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: false });
         }
         return outcome;
       });
@@ -322,7 +303,6 @@ function createServer(options = {}) {
         const outcome = confirmCompletion(state, idOrTitle);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: true });
         }
         return outcome;
       });
@@ -340,7 +320,6 @@ function createServer(options = {}) {
         const outcome = promoteQuest(state, idOrTitle);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: true });
         }
         return outcome;
       });
@@ -383,7 +362,6 @@ function createServer(options = {}) {
         const outcome = deleteQuest(state, idOrTitle, { cascade });
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: true });
         }
         return outcome;
       });
@@ -407,7 +385,6 @@ function createServer(options = {}) {
         const outcome = moveQuest(state, idOrTitle, newParentIdOrTitle);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: true });
         }
         return outcome;
       });
@@ -428,7 +405,6 @@ function createServer(options = {}) {
         const outcome = renameQuest(state, idOrTitle, newTitle);
         if (!outcome.error) {
           touchQuestAncestor(state, outcome.quest);
-          bumpArtifactChangeCounter(state, { mainQuest: true });
         }
         return outcome;
       });
@@ -469,7 +445,6 @@ function createServer(options = {}) {
         if (resolved.error) return resolved;
         resolved.quest.notes = notes;
         touchQuestAncestor(state, resolved.quest);
-        bumpArtifactChangeCounter(state, { mainQuest: false });
         return resolved;
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -499,7 +474,6 @@ function createServer(options = {}) {
           state.log.unshift(logDay);
         }
         logDay.entries.push(entry);
-        bumpArtifactChangeCounter(state, { mainQuest: false });
       });
       return { content: [{ type: "text", text: `Logged under ${day}: ${entry}` }] };
     },
@@ -527,7 +501,7 @@ function createServer(options = {}) {
     }
 
     const stateWithMostNeglected = { ...state, mostNeglectedQuest };
-    return { content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(stateWithMostNeglected, null, 2) }]))) };
+    return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(stateWithMostNeglected, null, 2) }])) };
   });
 
   server.tool(
@@ -631,7 +605,6 @@ function createServer(options = {}) {
           questId = resolved.quest.id;
         }
         const record = appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId });
-        bumpArtifactChangeCounter(state, { mainQuest: false });
         return { record };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -667,61 +640,10 @@ function createServer(options = {}) {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
         attachHaloTicket(state, resolved.quest.id, { ticketId, client, url });
-        bumpArtifactChangeCounter(state, { mainQuest: false });
         return { quest: state.quests.find((q) => q.id === resolved.quest.id) };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
-    },
-  );
-
-  server.tool(
-    "get_artifact_status",
-    "Check whether the mirrored claude.ai Artifact of this quest log is due for a republish -- a cheap status check only (needsUpdate/url/changesSince), not the full state. Call this at the start of every session that uses quest-log, and again after any write that might have flipped needsUpdate. To actually build the mirror, call get_mirror_html() separately.",
-    {},
-    async () => {
-      const state = await readState();
-      const a = state._artifact ?? { url: null, changesSince: 0, mainQuestChanged: false };
-      return {
-        content: withMaintenanceBanner(state, withArtifactStalenessInfo(state, [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                needsUpdate: artifactNeedsUpdate(state),
-                url: a.url,
-                mainQuestChanged: a.mainQuestChanged,
-                changesSince: a.changesSince,
-              },
-              null,
-              2,
-            ),
-          },
-        ])),
-      };
-    },
-  );
-
-  server.tool(
-    "record_artifact_update",
-    "Call this right after publishing or updating the mirrored claude.ai Artifact, to reset the change counter. Always pass the artifact's URL (same one every time -- this is a single shared artifact, not one per session).",
-    { url: z.string().describe("The claude.ai artifact URL") },
-    async ({ url }) => {
-      await mutateState(async (state) => {
-        state._artifact = { url, changesSince: 0, mainQuestChanged: false };
-      });
-      return { content: [{ type: "text", text: `Recorded artifact sync at ${url}` }] };
-    },
-  );
-
-  server.tool(
-    "get_mirror_html",
-    "Get the complete, ready-to-publish static HTML for the read-only claude.ai Artifact mirror of this quest log (#85). Assembled server-side from the live template.html CSS, live state, and a real read-only render module (app/mirror.js) -- no client-side assembly needed. Just publish the returned HTML directly, then call record_artifact_update(url).",
-    {},
-    async () => {
-      const state = await readState();
-      const html = await buildMirrorHtml(state);
-      return { content: [{ type: "text", text: html }] };
     },
   );
 

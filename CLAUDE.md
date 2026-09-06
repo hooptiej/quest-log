@@ -69,7 +69,7 @@ showing the same test fails on a version without escaping applied. Run it with `
 
 State lives entirely in `data/state.json` — **gitignored, never committed**; only
 `data/state.example.json` (generic, no real content) ships in the repo. Shape: `{ quests: [],
-log: [], designation, _version, _artifact, _maintenance }`.
+log: [], designation, _version, _maintenance }`.
 
 Each quest/mission/task object: `{ id, title, status, notes, level, parentId, blocked?,
 readyToClose?, blockedByDescendant?, _confirmedDone?, _prevStatus?, date?, repo?, issueNumber? }`.
@@ -134,12 +134,18 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**22 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+**24 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
 included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
 `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
 `delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
-`get_full_state`, `get_batch_status`, `set_maintenance`, `get_artifact_status`,
-`record_artifact_update`, `get_mirror_template`.
+`get_full_state`, `get_batch_status`, `set_maintenance`, `set_settings_mode`, `set_pro_mode`,
+`log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`.
+
+No claude.ai Artifact mirror mechanism anymore -- `app/mirror.js` and the
+`get_artifact_status`/`record_artifact_update`/`get_mirror_html` tools were removed 2026-09-06
+(the mirror had accumulated too many incompatible design attempts across several redesigns and
+wasn't worth maintaining; see hooptiej/quest-log#100). Don't re-add a mirror mechanism reflexively
+if this comes up again -- treat it as a deliberate decision, not an oversight.
 
 Session gotcha: an unrecognized `Mcp-Session-Id` gets `404` (not `400`) so a compliant client
 reconnects transparently — this matters because sessions are in-memory only and don't survive a
