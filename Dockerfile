@@ -7,6 +7,7 @@ RUN npm install --omit=dev
 COPY state.js docker-entrypoint.sh ./
 COPY app ./app
 COPY questhelper ./questhelper
+COPY scripts ./scripts
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 4242
