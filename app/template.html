@@ -297,20 +297,50 @@
     font-style: italic; color: var(--muted); text-transform: none; letter-spacing: 0.02em;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
   }
-  /* Ticket scoreboard: plain --accent reads as a stray dusty-cyan swatch
-     against this theme's case-file palette -- every other "important
-     number" callout here (env-badge, case-stamp) uses --alarm and
-     typewriter type instead, so the scoreboard follows suit rather than
-     falling back to the generic look. */
+  /* Ticket scoreboard: a color swap alone still read as a sore thumb --
+     a dark flat box just isn't this theme's vocabulary. Rebuilt around
+     the manila/case-file elements already established elsewhere: the
+     .scoreboard strip becomes a paper insert (same manila gradient as
+     the folder tabs, same hand-placed tilt as the quest-tree pile), the
+     number sits directly on the paper in red ink, and each .score-label
+     becomes its own tape tag -- the same cream tag + dark ink + shadow
+     as .quest-tag, but bigger/bolder/typewriter-set and thrown on at
+     steeper, more haphazard angles than the folders ever use (those stay
+     a subtle -1.6/1.2/-0.4deg pile-tilt; these are slapped-on labels,
+     not the folder itself, so they get away with more chaos). */
+  [data-theme="raccoonmanor"] .scoreboard {
+    background: linear-gradient(178deg, #d3bd8c, #ab9260);
+    border-radius: 3px;
+    padding: 0.7rem 0.6rem 0.6rem;
+    transform: rotate(-0.6deg);
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+  }
+  [data-theme="raccoonmanor"] .score-block {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
   [data-theme="raccoonmanor"] .score-value {
     color: var(--alarm);
     font-family: var(--font-head);
     font-weight: 400;
   }
-  [data-theme="raccoonmanor"] .score-block {
-    background: rgba(10,6,4,0.55);
-    border-style: dashed;
+  [data-theme="raccoonmanor"] .score-label {
+    display: inline-block;
+    background: rgba(233,227,201,0.92);
+    border: 1px solid rgba(44,32,19,0.4);
+    color: #2c2013;
+    font-family: var(--font-head);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.55rem;
+    border-radius: 2px;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+    text-shadow: 0.5px 0.5px 0 rgba(80,55,25,0.35);
   }
+  [data-theme="raccoonmanor"] .score-block:nth-of-type(1) .score-label { transform: rotate(-5deg); }
+  [data-theme="raccoonmanor"] .score-block:nth-of-type(2) .score-label { transform: rotate(4deg); }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
   [data-theme="raccoonmanor"] .panel .corner-bl,
