@@ -178,6 +178,37 @@ access documented above) with a short timeout and fails silently (no output, exi
 network hiccup — off-LAN, quest-log down, DNS miss — so a missed reminder never breaks a session.
 Override the target with the `QUEST_LOG_URL` env var (defaults to `http://questlog.local/api/state`).
 
+### Backstop check-in hooks (`.claude/hooks/quest-log-*.sh`)
+
+Five more checked-in hooks (registered in the same `.claude/settings.json`, same "no per-machine
+setup" reasoning as the auto-log reminder above) backstop the QuestTracker skill's own
+proactive-sync instruction, which is soft/relevance-matched and can lose out to whatever's in
+front of Claude in a long session:
+
+- `quest-log-checkin.sh` (`PostToolUse`/`Bash`) — nudges on a `git commit`/`push`, `gh pr
+  merge`/`create`, `gh issue create`/`close`/`comment`, or `docker build`/`run`/`restart`/`compose`
+  command.
+- `quest-log-write-checkin.sh` (`PostToolUse`/`Write|Edit`) — nudges on a `CLAUDE.md`/memory-file
+  write, which the Bash-only hook above structurally can't see.
+- `quest-log-session-start.sh` (`SessionStart`) — nudges a fresh session to review stale
+  `status: idea` items, since nothing about the write-triggered hooks above re-surfaces old unread
+  state on its own.
+- `quest-log-agent-checkin.sh` (`PostToolUse`/`Agent`) — counts background-agent dispatches per
+  session (a `$TMPDIR`-based counter file keyed by `session_id`) and escalates the nudge from the
+  2nd dispatch onward, catching multi-source investigations that never trip any single
+  tool-family-scoped hook.
+- `quest-log-halo-checkin.sh` (`PostToolUse`/Halo MCP tools) — nudges to log a Halo ticket view
+  (`log_ticket_view`) or touch (`log_ticket_touch`) via the ticket-tracking tools documented above.
+  Gated on `state._proMode` (`getProMode`/`setProMode`, toggled via `set_pro_mode`) using the exact
+  same pattern as the auto-log reminder's `_autoLog.enabled` gate: a plain unauthenticated
+  `GET /api/state`, short timeout, fails silent on any network hiccup — so this is a true no-op on
+  a deployment that never turns Pro Mode on, or has no Halo MCP tools present at all.
+
+These five supersede the echo-based `PostToolUse`/`SessionStart` one-liners previously documented
+in `questtracker-skill.md`'s "Automated checkpoint reminders" section, which were explicitly
+marked "not portable via this repo" — real committed scripts here close that gap the same way
+`quest-log-reminder.mjs` already did for the `UserPromptSubmit` case.
+
 ## Build / run / test
 
 No test suite in this repo. A persistent dev container (`quest-log-dev`) runs on the TrueNAS box
