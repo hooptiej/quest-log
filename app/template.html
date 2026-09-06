@@ -360,12 +360,14 @@
   [data-theme="raccoonmanor"] .status-row {
     display: inline-flex;
     vertical-align: top;
+    position: relative;
+    z-index: 1;
     background: #e8dcaa;
     border: 1px solid rgba(44,32,19,0.35);
     padding: 0.3rem 0.6rem;
-    margin: 0.2rem 0 0.6rem 0.4rem;
+    margin: -1.1rem 0 0.6rem 0.4rem;
     transform: rotate(2.5deg);
-    box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+    box-shadow: 2px 3px 6px rgba(0,0,0,0.5);
   }
   [data-theme="raccoonmanor"] .status-row .status-label,
   [data-theme="raccoonmanor"] .status-row .status-value {
@@ -375,6 +377,8 @@
   [data-theme="raccoonmanor"] .status-subcaption {
     display: inline-block;
     vertical-align: top;
+    position: relative;
+    z-index: 1;
     text-align: center;
     background: rgba(233,227,201,0.88);
     border: 1px solid rgba(44,32,19,0.3);
@@ -384,9 +388,9 @@
     font-size: 1.06rem;
     opacity: 1;
     padding: 0.55rem 0.9rem;
-    margin: 0.2rem 0 0.6rem 0.6rem;
+    margin: -1.1rem 0 0.6rem 0.6rem;
     transform: rotate(-1.2deg);
-    box-shadow: 1px 2px 3px rgba(0,0,0,0.35);
+    box-shadow: 2px 3px 5px rgba(0,0,0,0.45);
   }
   [data-theme="raccoonmanor"] .panel::before,
   [data-theme="raccoonmanor"] .panel::after,
