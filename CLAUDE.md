@@ -257,6 +257,21 @@ For a portable one-off (no `questlog-lan` network available — laptop, work ser
 Desktop demo), skip compose and port-map directly; see the README's "Running elsewhere" section
 for the exact `docker build` + `docker run -p 8080:80 -e DISABLE_TLS=1 ...` invocation.
 
+**Prefer live-testing against `quest-log-dev` over ad hoc local Node scripts, when the change
+needs a real server round trip (an HTTP/MCP request, a full server boot) rather than just calling
+a function directly.** On the Windows/git-bash machine this repo is often worked from, quoting
+multi-line JS/JSON through Bash heredocs — nested double quotes, `$`, backslash-escaped paths with
+spaces (`C:\Users\...`) — is real, recurring friction that burns time on escaping bugs unrelated to
+the actual change (confirmed 2026-09-07 debugging a throwaway test script's own quoting before it
+would even run). The dev container sidesteps all of that: push the branch, `git fetch` +
+`docker compose -f docker-compose.dev.yml up -d --build` on the TrueNAS box, then hit it with a
+real HTTP/MCP client instead of shell-escaping a payload.
+
+When a genuine local unit-style check is still the right tool (pure function logic, no server
+needed) — write the throwaway script to a real `.mjs` file with the Write tool instead of a Bash
+heredoc, and delete it afterward; `DATA_PATH`/`WRITE_TOKEN` env vars let `state.js` run against a
+disposable copy of `data/state.example.json` without touching real state.
+
 `DISABLE_TLS=1` serves plain HTTP; otherwise `docker-entrypoint.sh` generates a self-signed cert
 into `./certs` on first boot and `server.js` serves HTTPS whenever `certs/cert.pem`/`key.pem`
 exist.
