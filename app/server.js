@@ -39,7 +39,12 @@ function loadOrCreateWriteToken() {
 const WRITE_TOKEN = loadOrCreateWriteToken();
 
 const app = express();
-app.use(express.json({ limit: "256kb" }));
+// The client POSTs the entire state document on every mutation (see
+// render/full-state-POST notes below), so this limit bounds *total*
+// accumulated state size, not any single edit -- state.json crossed the
+// old 256kb limit from ordinary organic growth (quest/mission notes, log
+// entries) and every save started failing with PayloadTooLargeError.
+app.use(express.json({ limit: "8mb" }));
 // No caching, anywhere -- this is a low-traffic personal LAN app, not a
 // site where caching buys anything worth the cost. That cost showed up
 // concretely during active theme work: express.static's default headers
