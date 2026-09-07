@@ -930,7 +930,7 @@
       ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests); }).join("") +
         completedRootCard(doneRoots, byParent, visibleQuests)
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
-    document.getElementById("count-quests").textContent = "[" + roots.length + "]";
+    document.getElementById("count-quests").textContent = "[" + activeRoots.length + "]";
   }
 
   function render(state) {
