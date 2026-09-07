@@ -203,6 +203,14 @@ front of Claude in a long session:
   same pattern as the auto-log reminder's `_autoLog.enabled` gate: a plain unauthenticated
   `GET /api/state`, short timeout, fails silent on any network hiccup — so this is a true no-op on
   a deployment that never turns Pro Mode on, or has no Halo MCP tools present at all.
+- `quest-log-hierarchy-checkin.sh` (`PostToolUse`/`mcp__.*__add_idea`, #108) — nudges when a newly
+  created Mission/Task has no `parentIdOrTitle`. Quests are legitimately top-level by design (see
+  e.g. the "homeserver-docker" quest's own notes on why umbrella intents stay their own top-level
+  Quest rather than a literal parent), so this only fires for `level: mission`/`task` (`mission` is
+  `add_idea`'s own default) — a missing parent on one of those is usually a skipped placement
+  decision, not a deliberate one. Prompted by a real cleanup where several orphaned items were
+  found only because they'd separately been attention-flagged; nudges rather than blocks, since a
+  standalone Mission/Task is sometimes genuinely correct.
 
 These five supersede the echo-based `PostToolUse`/`SessionStart` one-liners previously documented
 in `questtracker-skill.md`'s "Automated checkpoint reminders" section, which were explicitly

@@ -46,6 +46,15 @@
             "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quest-log-agent-checkin.sh\" 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__add_idea",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quest-log-hierarchy-checkin.sh\" 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "SessionStart": [
