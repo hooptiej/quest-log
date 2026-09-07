@@ -101,7 +101,12 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
   if (!Array.isArray(idOrTitleOrList)) {
     const [only] = result;
     if (only.error) return { content: [{ type: "text", text: only.error }], isError: true };
-    return { content: [{ type: "text", text: JSON.stringify(only.quest, null, 2) }] };
+    // Strip the echoed idOrTitle, keep every other field the op returned --
+    // moveQuest's result also carries `moved` (the whole shifted subtree),
+    // which recruitQuest/transferQuest's `{ quest }`-only shape doesn't have,
+    // so this generalizes to both without changing recruit/transfer's output.
+    const { idOrTitle, ...rest } = only;
+    return { content: [{ type: "text", text: JSON.stringify(rest, null, 2) }] };
   }
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
@@ -113,23 +118,33 @@ function createServer(options = {}) {
 
   server.tool(
     "list_quests",
-    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created. By default, archived items are excluded; pass archived:true to see only archived items or archived:false to see only non-archived items.",
+    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created. By default, archived items are excluded; pass archived:true to see only archived items or archived:false to see only non-archived items. For a full-log review, prefer openOnly/orphaned/summary over pulling everything unfiltered -- the unfiltered response grows with the log and can exceed tool-result size limits.",
     {
       status: z.enum(["idea", "progress", "done"]).optional().describe("Filter to just this status"),
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
       blocked: z.boolean().optional().describe("Filter to only blocked (true) or only unblocked (false) quests"),
       archived: z.boolean().optional().describe("Filter to only archived (true) or only non-archived (false) quests. Default (undefined) excludes archived items from results."),
       attention: z.boolean().optional().describe("Filter to only attention-flagged (true) or only non-flagged (false) quests"),
+      orphaned: z
+        .boolean()
+        .optional()
+        .describe(
+          "Filter to Missions/Tasks with no parent (true) or with a parent (false) -- Quests are always excluded by this filter either way, since top-level is their normal, deliberate placement. Use true to audit for items that were probably meant to be nested under something (#108/#109).",
+        ),
+      openOnly: z.boolean().optional().describe("Shortcut to exclude done items (keep only status idea/progress). Combines with status/level/etc; redundant if status is also given."),
+      summary: z.boolean().optional().describe("Omit each item's notes text from the response -- use when you just need titles/status/hierarchy and want to avoid a large payload from long notes fields (#109)."),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
       sortByCreatedAtDesc: z.boolean().optional().describe("Sort by createdAt descending (newest first). Only applies to flat list (tree: false)"),
     },
-    async ({ status, level, blocked, archived, attention, tree, sortByCreatedAtDesc }) => {
+    async ({ status, level, blocked, archived, attention, orphaned, openOnly, summary, tree, sortByCreatedAtDesc }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
+      if (openOnly) quests = quests.filter((q) => q.status !== "done");
       if (level) quests = quests.filter((q) => q.level === level);
       if (blocked !== undefined) quests = quests.filter((q) => !!q.blocked === blocked);
       if (attention !== undefined) quests = quests.filter((q) => !!q.attention === attention);
+      if (orphaned !== undefined) quests = quests.filter((q) => q.level !== "quest" && (q.parentId == null) === orphaned);
       // Default behavior: exclude archived items unless explicitly requested.
       // archived === false behaves the same as undefined (both mean "only
       // non-archived") -- only archived === true flips to archived-only.
@@ -143,6 +158,7 @@ function createServer(options = {}) {
           return bTime - aTime;
         });
       }
+      if (summary) quests = quests.map(({ notes, ...rest }) => rest);
       if (!tree) return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
 
       const byParent = new Map();
@@ -374,25 +390,17 @@ function createServer(options = {}) {
 
   server.tool(
     "move",
-    "Move an item -- and its whole subtree, whatever shape it is -- to become a child of a new parent, regardless of its current level, parent, or children. The general-purpose fix promote/recruit/transfer don't cover between them: recruit needs the item childless+parentless, transfer keeps the same level, promote never reparents. The moved item's new level is derived automatically from the new parent's level (one tier down); every descendant shifts by the same number of tiers to keep the subtree's shape. Omit newParentIdOrTitle to move it to top-level as a Quest. Only fails if the shift would push some descendant past Task -- promote/reparent that part first.",
+    "Move an item -- and its whole subtree, whatever shape it is -- to become a child of a new parent, regardless of its current level, parent, or children. The general-purpose fix promote/recruit/transfer don't cover between them: recruit needs the item childless+parentless, transfer keeps the same level, promote never reparents. The moved item's new level is derived automatically from the new parent's level (one tier down); every descendant shifts by the same number of tiers to keep the subtree's shape. Omit newParentIdOrTitle to move it to top-level as a Quest. Only fails if the shift would push some descendant past Task -- promote/reparent that part first. Pass an array to move several items under the same newParentIdOrTitle in one call (#109) -- each is attempted independently in a single save, so one failure doesn't block the rest; the response is a per-item array instead of a single result.",
     {
-      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title -- the subtree root to move"),
+      idOrTitle: z
+        .union([z.string(), z.array(z.string())])
+        .describe("Quest id, exact title, or a substring of the title -- the subtree root to move, or an array of several to move under the same newParentIdOrTitle at once"),
       newParentIdOrTitle: z
         .string()
         .optional()
-        .describe("New parent's id, exact title, or a title substring. Omit to move the item to top-level as a Quest."),
+        .describe("New parent's id, exact title, or a title substring. Omit to move the item(s) to top-level as a Quest."),
     },
-    async ({ idOrTitle, newParentIdOrTitle }) => {
-      const { result } = await mutateState(async (state) => {
-        const outcome = moveQuest(state, idOrTitle, newParentIdOrTitle);
-        if (!outcome.error) {
-          touchQuestAncestor(state, outcome.quest);
-        }
-        return outcome;
-      });
-      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    },
+    async ({ idOrTitle, newParentIdOrTitle }) => runBatch(moveQuest, idOrTitle, newParentIdOrTitle),
   );
 
   server.tool(

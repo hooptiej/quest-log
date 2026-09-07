@@ -257,6 +257,10 @@ For a portable one-off (no `questlog-lan` network available — laptop, work ser
 Desktop demo), skip compose and port-map directly; see the README's "Running elsewhere" section
 for the exact `docker build` + `docker run -p 8080:80 -e DISABLE_TLS=1 ...` invocation.
 
+A genuine local unit-style check (pure function logic, no server needed) can run against
+`state.js` directly: `DATA_PATH`/`WRITE_TOKEN` env vars let it operate on a disposable copy of
+`data/state.example.json` without touching real state.
+
 `DISABLE_TLS=1` serves plain HTTP; otherwise `docker-entrypoint.sh` generates a self-signed cert
 into `./certs` on first boot and `server.js` serves HTTPS whenever `certs/cert.pem`/`key.pem`
 exist.
