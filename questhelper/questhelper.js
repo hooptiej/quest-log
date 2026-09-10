@@ -477,13 +477,20 @@ function createServer(options = {}) {
       }
 
       const day = date ?? todayISO();
+      // #92: entries used to be bare strings, giving day-level ordering only
+      // — a busy day (several log entries) had no way to tell what happened
+      // when, or to correlate against another timestamped system. Stamping
+      // with nowISO() (the same helper createdAt/lastTouchedAt already use)
+      // gives real sub-day resolution. Old bare-string entries stay exactly
+      // as they are — see app.js's renderer for the mixed-shape handling
+      // this requires, no migration of existing data.
       await mutateState(async (state) => {
         let logDay = state.log.find((d) => d.date === day);
         if (!logDay) {
           logDay = { date: day, entries: [] };
           state.log.unshift(logDay);
         }
-        logDay.entries.push(entry);
+        logDay.entries.push({ text: entry, time: nowISO() });
       });
       return { content: [{ type: "text", text: `Logged under ${day}: ${entry}` }] };
     },
