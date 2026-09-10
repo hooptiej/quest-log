@@ -25,6 +25,14 @@
 
 <style>
   :root {
+    /* #95 follow-up: the owner's actual working size across almost every
+       theme is 10% over the browser default -- baked in here as the real
+       baseline rather than living only as a per-viewer localStorage
+       scale-slider preference, so it's what every theme starts at before
+       any slider adjustment, and the slider's own "100%" means this
+       size, not the unscaled browser default. */
+    font-size: 110%;
+
     --bg: #1c1c1c;
     --surface: #262626;
     --surface-2: #2f2f2f;
@@ -1684,17 +1692,17 @@
   .name-input { width: 6.5rem; }
   .name-input::placeholder { color: var(--muted); opacity: 0.6; }
 
-  .scale-stepper {
-    display: flex; align-items: center; gap: 0.35rem;
-    background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px;
-    padding: 0.05rem 0.3rem;
+  /* #95 rewrite: a real live-drag range input (accent-color gives it a
+     themed thumb/track natively, no custom track/thumb CSS needed) instead
+     of the old discrete +/- button stepper. */
+  .scale-slider-row {
+    display: flex; align-items: center; gap: 0.5rem;
   }
-  .scale-stepper button {
-    background: none; border: none; color: var(--accent); font-family: var(--font-mono);
-    font-size: 0.85rem; line-height: 1; padding: 0.1rem 0.25rem; cursor: pointer;
+  #scale-slider {
+    accent-color: var(--accent);
+    width: 6rem;
   }
-  .scale-stepper button:hover { color: var(--text); }
-  .scale-stepper button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #scale-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #scale-value {
     font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.05em;
     color: var(--accent); min-width: 2.6rem; text-align: center;
@@ -2591,11 +2599,10 @@
         <input id="pro-mode-input" type="checkbox" aria-label="Enable pro-mode features like ticket tracking">
       </div>
       <div class="switcher-row">
-        <label id="scale-label" for="scale-down-btn">Scale</label>
-        <div class="scale-stepper">
-          <button type="button" id="scale-down-btn" aria-label="Decrease scale">−</button>
+        <label id="scale-label" for="scale-slider">Scale</label>
+        <div class="scale-slider-row">
+          <input type="range" id="scale-slider" min="85" max="115" step="1" value="100" aria-label="Interface scale">
           <span id="scale-value" aria-live="polite">100%</span>
-          <button type="button" id="scale-up-btn" aria-label="Increase scale">+</button>
         </div>
       </div>
     </div>

@@ -1152,36 +1152,47 @@
     });
   }
 
-  // #69: UI scale stepper. Adjusts the root font-size (everything in
-  // app/css.js is already sized in rem, so this scales the whole layout
-  // proportionally with no other CSS changes needed) rather than relying on
-  // browser zoom. Per-viewer localStorage preference, same as theme -- never
-  // touches STATE/persist().
+  // #95 rewrite: this was the original ad hoc implementation of what later
+  // became the standing "live slider for subjective tuning" pattern (built
+  // in prod after repeated "a little larger" asks, before that pattern was
+  // formalized) -- a discrete +/- button stepper instead of a real live
+  // slider, which is almost certainly why it never resized smoothly and
+  // broke in some themes. Rewritten as a genuine <input type="range">: the
+  // "input" event fires continuously while dragging, giving instant visual
+  // feedback exactly like the "a little larger... a little more" live
+  // tuning this was always meant for, rather than fixed 5%-per-click jumps.
+  // Root font-size adjustment (everything in app/css.js is already sized
+  // in rem, so this scales the whole layout proportionally with no other
+  // CSS changes needed) and per-viewer localStorage persistence are
+  // unchanged from the old version -- never touches STATE/persist().
   var SCALE_KEY = "questlog-scale";
-  var SCALE_MIN = 90;
-  var SCALE_MAX = 150;
-  var SCALE_STEP = 5;
+  // The owner's actual working size (previously reached by manually
+  // stepping up to 110%) is now baked into :root's own font-size (see
+  // template.html) as the real baseline -- so the slider's "100%" already
+  // IS that size. Range is +/-15 (equivalent to the old stepper's 3
+  // notches of 5% each side), but draggable at 1% granularity, not fixed
+  // jumps.
+  var SCALE_DEFAULT = 100;
+  var SCALE_MIN = 85;
+  var SCALE_MAX = 115;
   var scaleValueEl = document.getElementById("scale-value");
-  var scaleDownBtn = document.getElementById("scale-down-btn");
-  var scaleUpBtn = document.getElementById("scale-up-btn");
-  if (scaleValueEl && scaleDownBtn && scaleUpBtn) {
+  var scaleSlider = document.getElementById("scale-slider");
+  if (scaleValueEl && scaleSlider) {
     var currentScale = parseInt(localStorage.getItem(SCALE_KEY), 10);
-    if (!currentScale || isNaN(currentScale)) currentScale = 100;
+    if (!currentScale || isNaN(currentScale)) currentScale = SCALE_DEFAULT;
     currentScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, currentScale));
 
     function applyScale(scale) {
       currentScale = scale;
       document.documentElement.style.fontSize = scale === 100 ? "" : scale + "%";
       scaleValueEl.textContent = scale + "%";
-      scaleDownBtn.disabled = scale <= SCALE_MIN;
-      scaleUpBtn.disabled = scale >= SCALE_MAX;
+      scaleSlider.value = scale;
       try { localStorage.setItem(SCALE_KEY, scale); } catch (e) {}
     }
-    scaleDownBtn.addEventListener("click", function () {
-      applyScale(Math.max(SCALE_MIN, currentScale - SCALE_STEP));
-    });
-    scaleUpBtn.addEventListener("click", function () {
-      applyScale(Math.min(SCALE_MAX, currentScale + SCALE_STEP));
+    scaleSlider.min = SCALE_MIN;
+    scaleSlider.max = SCALE_MAX;
+    scaleSlider.addEventListener("input", function () {
+      applyScale(parseInt(scaleSlider.value, 10));
     });
     applyScale(currentScale);
   }
