@@ -1166,25 +1166,17 @@
   // CSS changes needed) and per-viewer localStorage persistence are
   // unchanged from the old version -- never touches STATE/persist().
   var SCALE_KEY = "questlog-scale";
-  // The owner's actual working size (previously reached by manually
-  // stepping up to 110%) is now baked into :root's own font-size (see
-  // template.html) as the real baseline -- so the slider's "100%" already
-  // IS that size. Range is +/-15 (equivalent to the old stepper's 3
-  // notches of 5% each side), but draggable at 1% granularity, not fixed
-  // jumps.
   var SCALE_DEFAULT = 100;
   var SCALE_MIN = 85;
   var SCALE_MAX = 115;
-  // A stylesheet `:root { font-size: 110% }` rule turned out not to behave
-  // the same as setting it inline on the root element -- confirmed live,
-  // side by side against prod, that it rendered visibly smaller than the
-  // real 110% the old inline-style version produced. Rather than rely on
-  // root-percentage cascade behavior at all, the real baseline lives here
-  // in JS and always gets applied as an explicit inline percentage (the
-  // one mechanism already proven correct) -- the slider's "100" label maps
-  // to SCALE_BASELINE_PERCENT actually applied, everything else scales
-  // proportionally off that same real number.
-  var SCALE_BASELINE_PERCENT = 110;
+  // The owner's real working size (previously reached by manually running
+  // the old stepper up to 110%) is a flat +10 OFFSET from the slider's own
+  // label, always applied as an explicit inline percentage -- not a
+  // multiplier, not a separate :root stylesheet rule (tried both; the
+  // stylesheet version confirmed live to render smaller than the real
+  // 110%, and a multiplier is more moving parts than this needs). Label
+  // "100" -> real 110%, label "85" -> real 95%, label "115" -> real 125%.
+  var SCALE_OFFSET = 10;
   var scaleValueEl = document.getElementById("scale-value");
   var scaleSlider = document.getElementById("scale-slider");
   if (scaleValueEl && scaleSlider) {
@@ -1194,7 +1186,7 @@
 
     function applyScale(scale) {
       currentScale = scale;
-      document.documentElement.style.fontSize = (SCALE_BASELINE_PERCENT * scale / 100) + "%";
+      document.documentElement.style.fontSize = (scale + SCALE_OFFSET) + "%";
       scaleValueEl.textContent = scale + "%";
       scaleSlider.value = scale;
       try { localStorage.setItem(SCALE_KEY, scale); } catch (e) {}
