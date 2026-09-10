@@ -1,6 +1,13 @@
 import { readFile, writeFile, rename } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
-const DATA_PATH = process.env.DATA_PATH ?? new URL("./data/state.json", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+// #100: manual `.pathname.replace(...)` munging percent-encodes special
+// characters (a space becomes %20), which readFile/writeFile then can't
+// find — bites any checkout under a spaced path (e.g. this machine's
+// "Claude Code\quest-log"). fileURLToPath handles URL-to-path decoding
+// correctly, including drive letters and encoded characters, so this
+// isn't just a smaller regex — it's the actual right tool for this.
+const DATA_PATH = process.env.DATA_PATH ?? fileURLToPath(new URL("./data/state.json", import.meta.url));
 
 export async function readState() {
   const raw = await readFile(DATA_PATH, "utf8");

@@ -785,14 +785,14 @@
   // Tasks within a Mission) -- a collapsed-by-default "Completed (N)"
   // wrapper around whatever done items were separated out at this level.
   // Not used for top-level Quests anymore -- see completedRootCard below.
-  function completedGroupHtml(doneItems, byParent, allQuests) {
+  function completedGroupHtml(doneItems, byParent, allQuests, expandedIds) {
     if (!doneItems.length) return "";
     var completedExpanded = false;
     return '<div class="tree-completed' + (completedExpanded ? "" : " collapsed") + '">' +
       '<button type="button" class="tree-toggle" data-action="toggle-tree" aria-expanded="' + completedExpanded + '" aria-label="Toggle Completed">' + (completedExpanded ? "▾" : "▸") + '</button>' +
       '<span class="completed-label">Completed (' + doneItems.length + ')</span>' +
       '<div class="tree-completed-items' + (completedExpanded ? "" : " collapsed") + '">' +
-      doneItems.map(function (c) { return treeNode(c, byParent, allQuests); }).join("") +
+      doneItems.map(function (c) { return treeNode(c, byParent, allQuests, expandedIds); }).join("") +
       '</div>' +
       '</div>';
   }
@@ -812,8 +812,11 @@
   // permanent fixture at the bottom of the list, not something that pops
   // in and out of existence.
   var COMPLETED_ROOT_ID = "completed-quests-root";
-  function completedRootCard(doneRoots, byParent, allQuests) {
-    var expanded = false;
+  function completedRootCard(doneRoots, byParent, allQuests, expandedIds) {
+    // #112: this wrapper has a real, stable data-id (unlike
+    // completedGroupHtml's per-level toggle), so it's just as subject to
+    // the same re-render-collapses-everything bug as any other tree node.
+    var expanded = expandedIds ? expandedIds.has(COMPLETED_ROOT_ID) : false;
     return (
       '<div class="tree-node ' + jitterClass(COMPLETED_ROOT_ID) + '" data-id="' + COMPLETED_ROOT_ID + '"' + jitterStyle(COMPLETED_ROOT_ID) + '>' +
         cardDecoration() +
@@ -827,7 +830,7 @@
         '</div>' +
         '<div class="tree-children' + (expanded ? "" : " collapsed") + '">' +
           (doneRoots.length
-            ? doneRoots.map(function (q) { return treeNode(q, byParent, allQuests); }).join("")
+            ? doneRoots.map(function (q) { return treeNode(q, byParent, allQuests, expandedIds); }).join("")
             : '<div class="empty-row">// none yet</div>') +
         '</div>' +
       '</div>'
@@ -840,7 +843,7 @@
   // controls to change it. Every node starts collapsed regardless of level,
   // so the tree shows what Quests/Missions exist without dumping the whole
   // hierarchy on the page at once.
-  function treeNode(q, byParent, allQuests) {
+  function treeNode(q, byParent, allQuests, expandedIds) {
     var allChildren = byParent[q.id] || [];
     // Separate active items from done items (#61)
     var activeChildren = allChildren.filter(function (c) { return c.status !== "done"; });
@@ -854,7 +857,14 @@
     // with children would leave them one tier too deep (see promoteQuest in
     // state.js), so the button only shows once it's actually eligible.
     var canPromote = q.level !== "quest" && allChildren.length === 0;
-    var expanded = false;
+    // #112: used to be a hard `false` -- render() does a full innerHTML
+    // rebuild on every state-mutating action (any persist() call, not just
+    // the attention toggle the bug was filed against), which silently
+    // re-collapsed every node the owner had expanded. renderQuestTree now
+    // captures which node ids were expanded before rebuilding and threads
+    // that set down through here, so a re-render preserves what was open
+    // instead of resetting it.
+    var expanded = expandedIds ? expandedIds.has(q.id) : false;
     // Per-quest progress bar (#29): each top-level Quest shows its own
     // completion status (its Missions/Tasks: done vs. total within that Quest only)
     var progress = q.level === "quest" ? questProgress(q, allQuests) : null;
@@ -862,10 +872,10 @@
     // Render active children and done children separately (#61)
     var childrenHtml = '';
     if (hasActiveChildren) {
-      childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests); }).join("");
+      childrenHtml += activeChildren.map(function (c) { return treeNode(c, byParent, allQuests, expandedIds); }).join("");
     }
     if (hasDoneChildren) {
-      childrenHtml += completedGroupHtml(doneChildren, byParent, allQuests);
+      childrenHtml += completedGroupHtml(doneChildren, byParent, allQuests, expandedIds);
     }
 
     var hasChildren = allChildren.length > 0;
@@ -906,6 +916,16 @@
 
   function renderQuestTree(visibleQuests, parentIds) {
     var panel = document.getElementById("quests-panel");
+    // #112: snapshot which nodes are currently expanded before the innerHTML
+    // rebuild below destroys that DOM state -- :scope keeps this to each
+    // node's own direct .tree-children (nested child tree-nodes have their
+    // own, and would otherwise get double-counted by a plain descendant
+    // query).
+    var expandedIds = new Set();
+    document.querySelectorAll("#quest-tree .tree-node").forEach(function (el) {
+      var kids = el.querySelector(":scope > .tree-children");
+      if (kids && !kids.classList.contains("collapsed")) expandedIds.add(el.getAttribute("data-id"));
+    });
     var byParent = {};
     visibleQuests.forEach(function (q) {
       if (!q.parentId) return;
@@ -927,8 +947,8 @@
     // hiding the whole panel.
     panel.hidden = false;
     document.getElementById("quest-tree").innerHTML = roots.length
-      ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests); }).join("") +
-        completedRootCard(doneRoots, byParent, visibleQuests)
+      ? activeRoots.map(function (q) { return treeNode(q, byParent, visibleQuests, expandedIds); }).join("") +
+        completedRootCard(doneRoots, byParent, visibleQuests, expandedIds)
       : '<div class="empty-row">// no Quests yet -- promote a Mission below (&uarr;), or ask Claude to recruit one</div>';
     document.getElementById("count-quests").textContent = "[" + activeRoots.length + "]";
   }
@@ -972,7 +992,7 @@
     // history on demand, since that used to be its own always-visible panel.
     var flatLog = [];
     state.log.forEach(function (day) {
-      for (var i = day.entries.length - 1; i >= 0; i--) flatLog.push({ date: day.date, text: day.entries[i] });
+      for (var i = day.entries.length - 1; i >= 0; i--) flatLog.push({ date: day.date, text: entryText(day.entries[i]), time: entryTime(day.entries[i]) });
     });
     var logMini = document.getElementById("log-body-mini");
     if (logMini) {
@@ -980,7 +1000,7 @@
       logMini.innerHTML = recent.length
         ? recent.map(function (item) {
             var key = item.date + "|" + item.text;
-            return '<li class="' + jitterClass(key) + '"' + jitterStyle(key) + '>' + cardDecoration() +
+            return '<li class="' + jitterClass(key) + '"' + jitterStyle(key) + entryTimeTitle(item) + '>' + cardDecoration() +
               '<span class="log-mini-date">' + escapeHtml(item.date) + '</span>' + escapeHtml(truncate(item.text, 90)) + '</li>';
           }).join("")
         : '<li class="empty-row">// no recent activity</li>';
@@ -989,7 +1009,7 @@
     if (logFull) {
       logFull.innerHTML = state.log.map(function (day) {
         return '<div class="log-full-date">' + escapeHtml(day.date) + '</div>' +
-          '<ul class="log-full-list">' + day.entries.map(function (e) { return "<li>" + escapeHtml(e) + "</li>"; }).join("") + '</ul>';
+          '<ul class="log-full-list">' + day.entries.map(function (e) { return "<li" + entryTimeTitle(e) + ">" + escapeHtml(entryText(e)) + "</li>"; }).join("") + '</ul>';
       }).join("");
     }
 
@@ -1062,6 +1082,24 @@
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
+  // #92: log entries are {text, time} now (nowISO() timestamp), but existing
+  // entries in already-saved state are bare strings with no time -- these two
+  // helpers are the one place that distinction gets handled, so every
+  // renderer/consumer below can treat entries uniformly instead of each
+  // re-checking typeof.
+  function entryText(e) { return typeof e === "string" ? e : e.text; }
+  function entryTime(e) { return typeof e === "string" ? null : e.time; }
+  // Kept low-key per the issue's own ask -- a title attribute (hover
+  // tooltip), not a prominent inline "3:42 PM" next to every line. Old
+  // bare-string entries have no time to show, so this is just omitted for
+  // them rather than inventing one.
+  function entryTimeTitle(e) {
+    var time = entryTime(e);
+    if (!time) return "";
+    var d = new Date(time);
+    return isNaN(d.getTime()) ? "" : ' title="' + escapeHtml(d.toLocaleTimeString()) + '"';
+  }
+
   function ticketStats(state) {
     var touches = state.ticketTouches || [];
     var views = state.ticketViews || [];
@@ -1092,7 +1130,10 @@
       logDay = { date: day, entries: [] };
       STATE.log.unshift(logDay);
     }
-    logDay.entries.push(text);
+    // #92: matches add_log_entry's server-side {text, time} shape now,
+    // rather than the two write paths drifting into different shapes for
+    // the same field.
+    logDay.entries.push({ text: text, time: new Date().toISOString() });
   }
 
   var THEME_KEY = "questlog-theme";
