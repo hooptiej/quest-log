@@ -25,13 +25,13 @@
 
 <style>
   :root {
-    /* #95 follow-up: the owner's actual working size across almost every
-       theme is 10% over the browser default -- baked in here as the real
-       baseline rather than living only as a per-viewer localStorage
-       scale-slider preference, so it's what every theme starts at before
-       any slider adjustment, and the slider's own "100%" means this
-       size, not the unscaled browser default. */
-    font-size: 110%;
+    /* #95: the owner's actual working size (10% over browser default)
+       lives in app.js's SCALE_BASELINE_PERCENT, always applied as an
+       inline style on this element -- NOT here as a stylesheet rule.
+       That was tried first and confirmed live to render smaller than the
+       real 110%; root-element percentage font-size behaves differently
+       from a stylesheet rule than it does set inline. Don't reintroduce
+       a font-size rule here without re-testing that against prod. */
 
     --bg: #1c1c1c;
     --surface: #262626;

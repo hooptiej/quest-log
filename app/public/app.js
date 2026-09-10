@@ -1175,6 +1175,16 @@
   var SCALE_DEFAULT = 100;
   var SCALE_MIN = 85;
   var SCALE_MAX = 115;
+  // A stylesheet `:root { font-size: 110% }` rule turned out not to behave
+  // the same as setting it inline on the root element -- confirmed live,
+  // side by side against prod, that it rendered visibly smaller than the
+  // real 110% the old inline-style version produced. Rather than rely on
+  // root-percentage cascade behavior at all, the real baseline lives here
+  // in JS and always gets applied as an explicit inline percentage (the
+  // one mechanism already proven correct) -- the slider's "100" label maps
+  // to SCALE_BASELINE_PERCENT actually applied, everything else scales
+  // proportionally off that same real number.
+  var SCALE_BASELINE_PERCENT = 110;
   var scaleValueEl = document.getElementById("scale-value");
   var scaleSlider = document.getElementById("scale-slider");
   if (scaleValueEl && scaleSlider) {
@@ -1184,7 +1194,7 @@
 
     function applyScale(scale) {
       currentScale = scale;
-      document.documentElement.style.fontSize = scale === 100 ? "" : scale + "%";
+      document.documentElement.style.fontSize = (SCALE_BASELINE_PERCENT * scale / 100) + "%";
       scaleValueEl.textContent = scale + "%";
       scaleSlider.value = scale;
       try { localStorage.setItem(SCALE_KEY, scale); } catch (e) {}
