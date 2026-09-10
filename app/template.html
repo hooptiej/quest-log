@@ -1700,7 +1700,11 @@
   }
   #scale-slider {
     accent-color: var(--accent);
-    width: 6rem;
+    /* #95: 6rem for a 30-unit (85-115) range at 1% granularity made a
+       small drag cover a big value jump -- confirmed live, felt like the
+       slider's own scale had shrunk, unrelated to the font-size math.
+       Wider track = more physical distance per unit, smoother drag. */
+    width: 14rem;
   }
   #scale-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #scale-value {
