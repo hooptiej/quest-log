@@ -1152,31 +1152,15 @@
     });
   }
 
-  // #95 rewrite: this was the original ad hoc implementation of what later
-  // became the standing "live slider for subjective tuning" pattern (built
-  // in prod after repeated "a little larger" asks, before that pattern was
-  // formalized) -- a discrete +/- button stepper instead of a real live
-  // slider, which is almost certainly why it never resized smoothly and
-  // broke in some themes. Rewritten as a genuine <input type="range">: the
-  // "input" event fires continuously while dragging, giving instant visual
-  // feedback exactly like the "a little larger... a little more" live
-  // tuning this was always meant for, rather than fixed 5%-per-click jumps.
-  // Root font-size adjustment (everything in app/css.js is already sized
-  // in rem, so this scales the whole layout proportionally with no other
-  // CSS changes needed) and per-viewer localStorage persistence are
-  // unchanged from the old version -- never touches STATE/persist().
+  // #95: kept the live-drag slider (a real improvement over the old
+  // discrete +/- button stepper), dropped the relabeling/offset idea
+  // entirely -- owner's call, plain and simple: the label IS the real
+  // applied percentage, no hidden math, default settles at the owner's
+  // actual working value (110%).
   var SCALE_KEY = "questlog-scale";
-  var SCALE_DEFAULT = 100;
-  var SCALE_MIN = 85;
-  var SCALE_MAX = 115;
-  // The owner's real working size (previously reached by manually running
-  // the old stepper up to 110%) is a flat +10 OFFSET from the slider's own
-  // label, always applied as an explicit inline percentage -- not a
-  // multiplier, not a separate :root stylesheet rule (tried both; the
-  // stylesheet version confirmed live to render smaller than the real
-  // 110%, and a multiplier is more moving parts than this needs). Label
-  // "100" -> real 110%, label "85" -> real 95%, label "115" -> real 125%.
-  var SCALE_OFFSET = 10;
+  var SCALE_DEFAULT = 110;
+  var SCALE_MIN = 95;
+  var SCALE_MAX = 125;
   var scaleValueEl = document.getElementById("scale-value");
   var scaleSlider = document.getElementById("scale-slider");
   if (scaleValueEl && scaleSlider) {
@@ -1186,7 +1170,7 @@
 
     function applyScale(scale) {
       currentScale = scale;
-      document.documentElement.style.fontSize = (scale + SCALE_OFFSET) + "%";
+      document.documentElement.style.fontSize = scale + "%";
       scaleValueEl.textContent = scale + "%";
       scaleSlider.value = scale;
       try { localStorage.setItem(SCALE_KEY, scale); } catch (e) {}
