@@ -251,15 +251,17 @@ serves the template with the current state spliced in and handles the `/api/stat
 
 The DISPLAY MODE dropdown in the boot panel switches the whole UI between visual themes,
 persisted client-side via `localStorage` (no server round-trip). Themes are CSS variable sets
-keyed off `data-theme` on `<html>` — three ship today, all from [#9](https://github.com/hooptiej/quest-log/issues/9):
+keyed off `data-theme` on `<html>`:
 
 - **MU/TH/UR-6000** (default, no attribute) — the original dark green/purple terminal look,
   `Orbitron` display font. h1 reads "MU/TH/UR Mission Log".
 - **Field Terminal** (`data-theme="terminal"`) — a phosphor green/amber CRT look, `VT323` +
   IBM Plex Mono. h1 reads "ROBCO Survey Report".
-- **Guild Charter** (`data-theme="wow"`) — a parchment/gold WoW-inspired look, `Cinzel` display
-  font (carried over from MU/TH/UR's original face) + MedievalSharp/IM Fell English. h1 reads
-  "Azeroth Quest Log".
+
+See `docs/THEME-SPEC.md` and the `[data-theme="..."]` blocks in `app/template.html` for the
+full current list and how to add another one. (A WoW/"Guild Charter" theme existed here
+briefly and was removed outright in #116 after three failed attempts across #90 — see that
+issue's history if this ever comes up again.)
 
 Each theme also carries its own flavor text (org line, terminal name, title, designation
 wording) via the `THEME_FLAVOR` table in `app/public/app.js`. Adding another theme means adding

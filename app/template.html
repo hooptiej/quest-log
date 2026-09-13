@@ -77,55 +77,6 @@
   }
   [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
 
-  /* ---------- theme: Guild Charter / WoW (#9) ---------- */
-  [data-theme="wow"] {
-    --bg: #241407;
-    --surface: #3a2413;
-    --surface-2: #4a2f18;
-    --border: #8a6423;
-    --text: #f1dfb6;
-    --muted: #b99b6b;
-    --accent: #ffd100;
-    --accent-dim: #a3790f;
-    --accent2: #a6231f;
-    --alarm: #ff4d2e;
-    --idea: #4fa8d8;
-
-    /* Same display face as MU/TH/UR (that Cinzel Q) -- carried over on purpose. */
-    --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
-    --font-head: 'MedievalSharp', 'Cinzel', Georgia, serif;
-    --font-mono: 'MedievalSharp', 'Share Tech Mono', ui-monospace, Consolas, monospace;
-    --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
-
-    --body-bg-image:
-      radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 8%, transparent), transparent 55%),
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.045' numOctaves='4' seed='7' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0.4 0 0 0 0.15  0.28 0 0 0 0.08  0.08 0 0 0 0  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>"),
-      radial-gradient(ellipse 90% 70% at 50% 40%, transparent 45%, rgba(0,0,0,0.45) 100%);
-  }
-  [data-theme="wow"] h1 {
-    letter-spacing: 0.02em;
-    background: linear-gradient(180deg, #fff3c4, var(--accent) 55%, var(--accent-dim));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.6));
-  }
-  [data-theme="wow"] .boot,
-  [data-theme="wow"] .status-panel,
-  [data-theme="wow"] .panel {
-    border-width: 2px;
-    border-image: linear-gradient(135deg, var(--accent-dim), var(--accent) 45%, var(--accent-dim)) 1;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 14px rgba(0,0,0,0.55);
-  }
-  [data-theme="wow"] .panel::before,
-  [data-theme="wow"] .panel::after,
-  [data-theme="wow"] .panel .corner-bl,
-  [data-theme="wow"] .panel .corner-br {
-    background: radial-gradient(circle at 35% 30%, #fff3c4, transparent 55%), var(--panel-accent, var(--accent));
-    box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent), 0 1px 1px rgba(0,0,0,0.6);
-  }
-  [data-theme="wow"] .add-btn { color: #241407; }
-
   /* ---------- theme: Raccoon Manor (shabby gothic horror) ---------- */
   [data-theme="raccoonmanor"] {
     --bg: #0b0d09;
@@ -1148,7 +1099,7 @@
   [data-theme="testpattern"] .log-mini-date { color: var(--tp-chan, var(--accent2)); }
 
   /* Ticket scoreboard: the one panel-like readout this theme never gave
-     its own flourish (wow/raccoonmanor/hadleyshope all have a
+     its own flourish (raccoonmanor/hadleyshope both have a
      [data-theme="X"] .status-panel rule, this theme never did) -- so it
      was rendering with correct colors (inherited from the base palette)
      but none of the calibration-card treatment everything else here has.
@@ -1570,7 +1521,7 @@
   }
   /* ComputerCatSimple's own UI carries no retro terminal flair (no glow, no
      scanlines, no all-caps shouting) -- this theme drops those per-theme
-     rather than in the shared rules so muthur/terminal/wow keep them. */
+     rather than in the shared rules so muthur/terminal keep them. */
   [data-theme="computercatsimple"] h1 { text-shadow: none; letter-spacing: 0; }
   [data-theme="computercatsimple"] .subtitle,
   [data-theme="computercatsimple"] .eyebrow { text-transform: none; }
@@ -2579,7 +2530,6 @@
         <select id="theme-select" class="theme-select" aria-label="Display theme">
           <option value="muthur">MU/TH/UR-6000</option>
           <option value="terminal">FIELD TERMINAL</option>
-          <option value="wow">GUILD CHARTER</option>
           <option value="raccoonmanor">RACCOON MANOR</option>
           <option value="testpattern">TEST PATTERN</option>
           <option value="hadleyshope">HADLEY'S HOPE</option>
