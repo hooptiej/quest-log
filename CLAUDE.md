@@ -239,6 +239,13 @@ sudo docker logs quest-log-dev
 # The dev server runs on http://10.0.1.78:4243
 ```
 
+**Browser tab must read `DEV-Questlog`, not just "Questlog"** — standing convention across all of
+hooptiej's projects (see `~/.claude/CLAUDE.md`'s dev-env-tab-label rule): a dev/test instance's
+`<title>` gets a **`DEV-` prefix**, not a suffix, so it survives a squeezed-down tab. `render.js`'s
+`renderIndexHtml()` drives this off `QUEST_LOG_ENV`. If you're touching that function or `server.js`'s
+env wiring, verify the title actually reads `DEV-Questlog` on `quest-log-dev` before considering it
+done — this was shipped backwards once already (suffix instead of prefix, hooptiej/quest-log#125).
+
 Scripts like `scripts/test-adversarial-notes.mjs` can be run locally against this dev server
 or in your local checkout (they read the template and run tests in-process, no server needed).
 
