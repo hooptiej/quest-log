@@ -314,7 +314,7 @@ function createServer(options = {}) {
 
   server.tool(
     "confirm_completion",
-    "Close out a mission/quest that's readyToClose (all its children are done), or a plain leaf item with no children. This is the only way to mark a parent 'done' -- call it only once both Claude and the user agree there's nothing left to add.",
+    "Close out a mission/quest that's readyToClose (all its children are done), or a plain leaf item with no children. This is the only way to mark a parent 'done' -- call it only once both Claude and the user agree there's nothing left to add. Before calling this, read the item's own notes in full and don't rely on readyToClose alone -- it only reflects child status, not the item's own narrative. Prefer real evidence (a closed linked GitHub issue, explicit owner sign-off) over the flag; see the quest-tracker skill's 'Before confirm_completion' section for the full procedure (hooptiej/quest-log#120).",
     { idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title") },
     async ({ idOrTitle }) => {
       const { result } = await mutateState(async (state) => {

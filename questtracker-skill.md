@@ -160,6 +160,35 @@ wrap up a project: the last checkbox doesn't auto-close it, someone still looks 
 call `confirm_completion` on your own judgment alone, and don't nag the user about it if they'd
 rather leave something open.
 
+### Before confirm_completion: read the notes, don't just trust the flag
+
+`readyToClose: true` means "every *child* of this item is done" — it says nothing about the
+item's own `notes`. A Mission's notes can describe a distinct, not-yet-started follow-on that got
+added to that same node later, after its children were already done; the flag still flips true
+purely from child status, while the parent's own narrative still describes open work sitting
+right there in its notes. (This actually happened and cost real back-and-forth undoing a bad
+auto-close — see hooptiej/quest-log#120.) So before calling `confirm_completion` on anything —
+parent or plain leaf, flag true or not:
+
+1. **Read that item's own `notes` in full first.** Don't act on `readyToClose` (or on "it looks
+   done" from the title/status alone) without reading the notes text — that's the one place a
+   distinct, still-open thread would show up that child/leaf status can't reflect.
+2. **Prefer real evidence over the heuristic.** `readyToClose` is quest-log's own computed guess,
+   not proof of anything. A linked GitHub issue that's actually closed, or the owner explicitly
+   signing off in the current conversation, is real evidence; `readyToClose: true` by itself is
+   not — treat it as a prompt to go check, not a green light to act on.
+3. **A closed linked GitHub issue is the good case — look for it.** When the item has `repo` +
+   `issueNumber` (or the notes mention one), check whether that issue is actually closed on
+   GitHub. That's a strong, independently checkable signal the work is genuinely done, and a
+   better basis for calling `confirm_completion` than `readyToClose` alone.
+4. **Some items require sign-off no matter what the flag says.** If the notes say something like
+   "owner should review and decide whether to formally close this," that's a hard stop on
+   closing from inference alone — don't call `confirm_completion` until the owner has actually
+   said so, even with every child done and `readyToClose: true`.
+
+This is in addition to, not instead of, the "surface it and get an explicit yes" step above —
+reading the notes first is what makes that surfacing accurate instead of a rubber stamp on a flag.
+
 The web UI's quest tree is deliberately read-only — no buttons to change status there — since
 this confirmation is meant to happen through the conversation, not a click. The UI does let
 someone act directly in two ways: a "+ note" button to capture a quick note as a new child item
