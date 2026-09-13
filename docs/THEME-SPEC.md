@@ -127,6 +127,40 @@ function initHadleysHopeEffects() {
    - Verify any optional hook classes render as intended.
    - If effects were added, verify animations/interactions work and stop when switching away.
 
+## Don't Bury the Header Controls (#95)
+
+The Display Mode / Designation / Pro Mode / Scale block (`.theme-switcher`) is
+`position: absolute` in the top-right of `header.masthead`, and it sits *earlier*
+in the DOM than `<h1>`. Two ways a theme has historically ended up covering it,
+both of which produced the same symptom -- the Scale stepper silently stops
+responding to clicks past some zoom level, because it's the bottom row and so the
+first thing a growing header reaches:
+
+1. **Promoting `<h1>` into the positioned paint layer.** A `filter:
+   drop-shadow(...)`, a `transform`, or an explicit `position: relative;
+   z-index: N` on the title is enough. The title's block box spans the full
+   `.wrap` width, so once promoted it paints over the controls and eats their
+   clicks. `.theme-switcher` now carries `z-index: 5` to win these ties
+   (nothing else inside `.wrap` goes above `z-index: 2`), so a new theme is
+   covered by default -- but don't give a masthead decoration a `z-index`
+   above that.
+
+2. **Parking a `position: fixed` rig on top of it.** Body-level decoration
+   (`.rm-ekg-hud`, `.hh-tracker`, and friends, all `z-index: 50`) lives
+   *outside* `.wrap`'s `z-index: 2` stacking context, so no `z-index` on
+   `.theme-switcher` can climb out from under it -- only geometry can.
+   **Offset such a rig in `rem`, never `vh`/`vw`:** the block it has to clear
+   is sized entirely in `rem` and grows with the Scale stepper's root
+   font-size, so a viewport-relative offset clears it at one window size and
+   lands squarely on it at another. Its bottom edge measures 7.7-8.2rem
+   across the full 90-150% scale range; `top: 9rem` clears it. The other
+   option, which Hadley's Hope takes, is to pull the switcher itself left
+   (`[data-theme="hadleyshope"] .theme-switcher { right: 70px; }`).
+
+Check both when adding a theme: walk the Scale stepper 90% -> 150% and back
+with real clicks, at a couple of window sizes (this failed only above a
+scale/viewport threshold, so a single spot check at 100% proves nothing).
+
 ## Validation
 
 - **CSS properties**: Use browser DevTools to inspect elements and confirm all custom properties are defined (no `unset`/undefined values).

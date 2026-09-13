@@ -630,9 +630,17 @@
   @keyframes rm-goo-fall { from { transform: translateY(0); opacity: 0.9; } to { transform: translateY(80vh); opacity: 0; } }
 
   [data-theme="raccoonmanor"] .rm-ekg-hud {
-    /* 12.5vh, not a small top offset -- at the top corner it sat right on
-       top of the Display Mode/Scale controls in the header. */
-    position: fixed; top: 12.5vh; right: 1.1rem; z-index: 50; width: 150px; background: #050705; border: 2px solid var(--accent-dim);
+    /* Parked below the Display Mode/Designation/Scale controls, which it
+       used to sit on top of. #95: this offset must be in rem, not the
+       12.5vh it was before -- .theme-switcher's own height is entirely
+       rem-driven (it grows with the Scale stepper's root font-size), so a
+       vh offset dodges it at one viewport height and lands right on it at
+       another. Measured switcher bottom is 7.7-8.2rem across 90-150%
+       scale at every viewport size, hence 9rem. This rig is a body-level
+       position:fixed element at z-index 50, outside .wrap's z-index:2
+       stacking context, so raising .theme-switcher's z-index cannot get
+       out from under it -- geometry is the only lever here. */
+    position: fixed; top: 9rem; right: 1.1rem; z-index: 50; width: 150px; background: #050705; border: 2px solid var(--accent-dim);
     border-radius: 6px; box-shadow: 0 0 0 3px #0a0f0a, 0 0 16px color-mix(in srgb, var(--accent) 25%, transparent); padding: 0.4rem 0.5rem 0.3rem;
   }
   [data-theme="raccoonmanor"] .rm-ekg-label { font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; }
@@ -642,9 +650,11 @@
   @keyframes rm-ekg-sweep { to { stroke-dashoffset: 0; } }
 
   [data-theme="raccoonmanor"] .rm-ribbon-hud {
-    /* 12.5vh, not a small top offset -- same reason as the EKG HUD's
-       matching change: it obscured header controls up in the corner. */
-    position: fixed; top: 12.5vh; left: 1.1rem; z-index: 50; background: #0a0a08; border: 2px solid #2a2a20; border-radius: 6px;
+    /* Same rem offset as the EKG HUD above -- these two read as a matched
+       pair of wall-mounted readouts, so they stay level. (This one is on
+       the left, away from the header controls, so it isn't part of the #95
+       collision itself; it just tracks its twin.) */
+    position: fixed; top: 9rem; left: 1.1rem; z-index: 50; background: #0a0a08; border: 2px solid #2a2a20; border-radius: 6px;
     padding: 0.4rem 0.6rem; box-shadow: 0 0 0 3px #000, 0 4px 10px rgba(0,0,0,0.6);
   }
   [data-theme="raccoonmanor"] .rm-ribbon-label { font-family: var(--font-head); font-size: 0.55rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
@@ -1710,10 +1720,24 @@
     padding: 0 0 0.1rem;
   }
 
+  /* #95: z-index is load-bearing, not decoration. This block is
+     position:absolute inside header.masthead and sits earlier in the DOM
+     than <h1>, so with z-index:auto it loses every paint-order tie against
+     the title -- and a theme only has to promote the title into the
+     positioned layer (a `filter: drop-shadow(...)`, a `transform`, an
+     explicit `position:relative; z-index:1`) for the title's full-width
+     block box to paint over these controls and swallow their clicks. The
+     Scale stepper is the bottom row, so it's the first thing the title's
+     box reaches as the root font-size grows -- which is exactly the
+     reported symptom: the stepper works up to some scale, then goes dead.
+     MU/TH/UR and Field Terminal were only ever fine by accident (plain
+     unfiltered h1, so it stayed in the non-positioned layer, below).
+     Keep this above anything inside .wrap (max z-index there is 2). */
   .theme-switcher {
     position: absolute;
     top: 0.5rem;
     right: 0;
+    z-index: 5;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
