@@ -78,11 +78,21 @@ effort with no existing parent still gets added normally (see above).
 
 The `quest-log` MCP server exposes:
 
-- `list_quests(status?, level?, tree?)` — read the current list, optionally filtered to one
-  status and/or level (`quest`/`mission`/`task`), or as a nested tree instead of flat
-- `add_idea(title, notes?, status?, level?, parentIdOrTitle?)` — add something new (defaults to
-  `idea` status, `mission` level, no parent). Pass `level` + `parentIdOrTitle` to add a Mission
-  under a Quest, or a Task under a Mission
+- `list_quests(status?, level?, tree?, archived?, attention?, blocked?, openOnly?, orphaned?, summary?, sortByCreatedAtDesc?)`
+  — read the current list. `status`/`level` filter to one value; `tree` nests
+  quest→mission→task instead of a flat list. `archived` defaults to excluding archived items
+  (pass `true`/`false` to see only one side). `attention`/`blocked` filter to just flagged/
+  unflagged items. `openOnly` is a shortcut for "not done" (idea/progress). `orphaned` finds
+  parentless Missions/Tasks (Quests are always excluded from this filter — top-level is normal
+  for them). `summary` drops each item's notes text to keep the payload small. For a full-log
+  review prefer these filters over pulling everything unfiltered — the unfiltered response grows
+  with the log and can exceed tool-result size limits
+- `add_idea(title, notes?, status?, level?, parentIdOrTitle?, repo?, issueNumber?)` — add
+  something new (defaults to `idea` status, `mission` level, no parent). Pass `level` +
+  `parentIdOrTitle` to add a Mission under a Quest, or a Task under a Mission. `repo` +
+  `issueNumber` optionally link the item to the GitHub issue it tracks (e.g.
+  `{ repo: "hooptiej/Constructicon", issueNumber: 103 }`) — used for serialized batch runs, see
+  the "Starting a serialized batch" bullet above
 - `set_quest_status(idOrTitle, status)` — move an existing item between idea/progress/done.
   Rejects a direct move to `done` for anything with children — see `confirm_completion` below.
   `blocked`, `archived`, and `attention` are separate flags, not status values — use the three
@@ -124,6 +134,8 @@ The `quest-log` MCP server exposes:
   any level change. `promote`/`recruit`/`move` all keep the title verbatim, so use this to fix a
   title that no longer reads as a good name after a restructure (e.g. before promoting a Mission
   into an umbrella Quest whose current title doesn't work as one)
+- `update_quest_notes(idOrTitle, notes)` — replace an item's notes text outright. Use this to fix
+  stale/incorrect notes in place, e.g. after a status change that left old notes behind
 - `delete_quest(idOrTitle, cascade?)` — permanently remove an item. Refuses if it has children
   unless `cascade: true`, which removes the whole subtree in one call and reports every id
   removed. There's no undo — confirm with the user before deleting anything with real history
@@ -139,6 +151,17 @@ The `quest-log` MCP server exposes:
 - `set_designation(name)` — set the header Designation/name shown in the web UI. The browser
   field only allows a one-time initial entry and then hides itself, so use this tool for any
   change after that first save
+- `set_auto_log(enabled)` — toggle the machine-agnostic flag the checked-in `UserPromptSubmit`
+  hook reads before reminding an active session to log a new ask. Flipping it from any machine
+  takes effect everywhere, since it's stored in quest-log's own shared state
+- `set_settings_mode(enabled)` — show/hide per-theme dev/tuning controls in the UI (currently
+  Raccoon Manor's darkness/glow/HUD-boost sliders). No in-page toggle by design — this MCP call
+  is the only way to flip it
+
+The MCP server also exposes `set_pro_mode`, `add_halo_ticket`, `log_ticket_touch`, and
+`log_ticket_view` (Halo ticket tracking, gated behind Pro Mode, off by default). Not documented
+here in detail — Halo/Pro Mode aren't part of the home workflow this skill supports; see
+`questhelper/questhelper.js` directly if that ever changes.
 
 `idOrTitle` (and `parentIdOrTitle`) match by exact id, exact title, or a substring of the
 title — so `"scrypted-mcp"` or `"HomeKit pairing"` both work without needing the literal id.
@@ -261,81 +284,22 @@ right now, and continue the actual task. Don't repeatedly retry or nag about it.
 
 ## Automated checkpoint reminders (Claude Code hooks)
 
-The instructions above rely on Claude noticing the right moments on its own. As a backstop —
-not a replacement — this project now ships a set of real, committed Claude Code hooks
-(`.claude/hooks/quest-log-checkin.sh`, `quest-log-write-checkin.sh`, `quest-log-session-start.sh`,
-`quest-log-agent-checkin.sh`, `quest-log-halo-checkin.sh`, registered in `.claude/settings.json` —
-see README.md's "Backstop hooks: quest-log check-in" section and CLAUDE.md) that inject a reminder
-at the moments most likely to mean quest-log needs an update. Because they're committed files, not
-machine-local config, they travel with the repo to any machine that checks it out — no manual
+The instructions above rely on Claude noticing the right moments on its own. As a backstop — not
+a replacement — this project ships real, committed Claude Code hooks under `.claude/hooks/`
+(registered in `.claude/settings.json`) that inject a reminder at the moments most likely to mean
+quest-log needs an update: on `git commit`/`push`, PR/issue create-close-comment, and docker
+build/restart/compose (`quest-log-checkin.sh`); on `CLAUDE.md`/memory-file writes
+(`quest-log-write-checkin.sh`); on session start, to resurface stale `idea`-status items and
+attention-flagged items (`quest-log-session-start.sh`); on background-agent dispatch, escalating
+from the 2nd one in a session (`quest-log-agent-checkin.sh`); on a `add_idea` call that leaves a
+new Mission/Task parentless (`quest-log-hierarchy-checkin.sh`); on every user message, reminding
+to capture a new concrete ask before scoping it (`.claude/hooks/quest-log-reminder.mjs`, gated on
+`set_auto_log`); and on Halo MCP tool calls (`quest-log-halo-checkin.sh`, only relevant if Pro
+Mode/Halo is ever turned on). **CLAUDE.md's "Backstop check-in hooks" section is the canonical,
+current list of these** — read it there rather than trusting a re-enumeration here, since it's
+the one place this gets updated when a hook is added or changed. Because they're committed files,
+not machine-local config, they travel with the repo to any machine that checks it out — no manual
 per-machine setup needed.
-
-The JSON block below is kept for reference (e.g. reproducing this same backstop in a *different*
-project that doesn't have these files) and reflects the same trigger patterns and rationale as the
-real scripts, but if you're working in this repo, use the actual files above rather than
-hand-merging this into `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          { "type": "command", "if": "Bash(git commit *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Git commit completed. Consider checking quest-log to log this checkpoint or milestone.\"}}'" },
-          { "type": "command", "if": "Bash(git push *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Git push completed. Consider checking quest-log if this merge or push should be logged as a milestone.\"}}'" },
-          { "type": "command", "if": "Bash(gh pr create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Pull request created. New PRs often represent completed features — consider updating quest-log with this work.\"}}'" },
-          { "type": "command", "if": "Bash(gh issue close *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue closed. This likely represents completed work — check quest-log to ensure this closure is logged.\"}}'" },
-          { "type": "command", "if": "Bash(gh issue create *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue created. New issues often signal scope changes or discovered blockers — consider updating quest-log status or dependencies.\"}}'" },
-          { "type": "command", "if": "Bash(gh issue comment *)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Issue comment posted. Design decisions and scope discussions often happen in comments — check if quest-log should reflect this.\"}}'" },
-          { "type": "command", "if": "Bash(*docker restart*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Deploy/restart completed. If this closes out a tracked GitHub issue AND an existing quest-log idea/mission represents the same work, update that item status now (set_quest_status/confirm_completion) — a log entry alone does not close it out.\"}}'" },
-          { "type": "command", "if": "Bash(*docker compose*up -d*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Deploy/restart completed. If this closes out a tracked GitHub issue AND an existing quest-log idea/mission represents the same work, update that item status now (set_quest_status/confirm_completion) — a log entry alone does not close it out.\"}}'" }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          { "type": "command", "if": "Write(*CLAUDE.md)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"CLAUDE.md file written. This often documents critical context — consider updating quest-log if scope, blockers, or decisions changed.\"}}'" },
-          { "type": "command", "if": "Edit(*CLAUDE.md)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"CLAUDE.md file edited. This often reflects context updates — consider syncing changes to quest-log.\"}}'" },
-          { "type": "command", "if": "Write(*memory*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Memory file written (auto-memory capture). Consider whether this learned context should be synced to quest-log.\"}}'" },
-          { "type": "command", "if": "Edit(*memory*)", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Memory file edited. Consider syncing important context updates to quest-log for future reference.\"}}'" }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: early check — review quest-log for items with status: idea that haven't been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).\"}}'" },
-          { "type": "command", "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Session started: if calling any quest-log tool, check for attention-flagged items with mcp__quest-log__list_quests(attention: true) — these are items the owner explicitly marked for active follow-up in this session, distinct from passive markers. Surface them early for discussion.\"}}'" }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Why these specific triggers** (worth keeping if this ever gets redesigned): an earlier, narrower
-version of this idea (only `git commit`/`git push`/`gh pr create`/`gh issue close`) was tested
-against a real session's actual tool-call history before being built, and would have missed most
-of that session's real quest-log-relevant moments — new issues being filed (`gh issue create`) and
-design/scope decisions happening in comments (`gh issue comment`) were the biggest gaps, plus
-anything non-git entirely (CLAUDE.md writes, memory writes) was invisible to a Bash-only hook.
-The `SessionStart` idea-board nudge exists for a different reason: a standing idea can sit unread
-for an entire session even with the write-triggered hooks firing correctly, because nothing about
-*writing* new state re-surfaces *old* unread state — that's a periodic-read gap, not a
-write-trigger gap.
-
-**`docker restart` / `docker compose ... up -d` added 2026-09-03/04** after a real gap: every
-existing hook's wording says "log this" / "consider updating quest-log" — none of them say
-*close out the tracked item itself*. During a long batch session, a pre-existing idea-status
-entry ("Add a UI scale/zoom slider to quest-log") sat unclosed for hours after the matching work
-shipped and deployed live, because every hook nudge got answered with a fresh `add_log_entry`
-(prose) rather than a status flip on the *existing* record that idea had already created. The
-hooks fired correctly the whole time — the gap was in how the nudge got acted on, not a missing
-trigger. Deploy completion is the natural moment to catch this (it is the actual "this is now
-live" signal, later than commit/push/PR-create/issue-close), so this hook explicitly calls out
-*update that item's status*, not just "log it" — the other hooks' softer wording was consistently
-read as satisfied by a log entry alone.
 
 A hook can only inject a reminder via `additionalContext` — it's a shell command, it cannot call
 quest-log's MCP tools directly. The actual sync/check still has to come from Claude reacting to
