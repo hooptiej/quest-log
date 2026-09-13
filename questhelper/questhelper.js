@@ -496,30 +496,155 @@ function createServer(options = {}) {
     },
   );
 
-  server.tool("get_full_state", "Get the quest log's complete raw state (all quests and the full mission log).", {}, async () => {
-    const state = await readState();
+  server.tool(
+    "get_full_state",
+    "Get the quest log's raw state (all quests plus the mission log). By default returns everything unfiltered, same as this tool has always done, for backward compatibility -- but on a live log that can be a lot of data (every quest's notes text plus every mission-log entry ever written), so it also accepts the same openOnly/archived/summary filters list_quests has to request a trimmed quest list (unlike list_quests, get_full_state's own default for archived is unfiltered -- pass it explicitly to narrow, matching list_quests' true/false semantics when you do). The mission log is often not needed alongside the quest tree and can itself be large -- pass includeLog:false to omit it entirely, or logLimit/logOffset to page through just the most-recent N entries (newest first, across all days) instead of getting the whole thing. Regardless of filters, if the response would still exceed a reasonable size it is trimmed further (notes dropped, then the log dropped, then the quest list itself cut to what fits) with a note explaining what got cut and pointing at list_quests + narrower queries (or this tool's own filters) for the rest, rather than either silently truncating or failing outright.",
+    {
+      openOnly: z.boolean().optional().describe("Same as list_quests: exclude done items (keep only status idea/progress). Default (falsy/omitted): done items are included, matching this tool's original unfiltered behavior."),
+      archived: z.boolean().optional().describe("Same as list_quests: true = only archived, false = only non-archived. Default (undefined) includes BOTH archived and non-archived, matching this tool's original raw-dump behavior -- unlike list_quests, whose own default excludes archived. Pass true or false explicitly to narrow."),
+      summary: z.boolean().optional().describe("Same as list_quests: omit each quest's notes text to shrink the payload."),
+      includeLog: z.boolean().optional().describe("Whether to include the mission log at all. Defaults to true (matching original behavior); pass false to omit the log entirely when you only need the quest tree."),
+      logLimit: z.number().optional().describe("Cap on how many of the most-recent mission-log entries to include (newest first, across all days, ignoring the day grouping). Omit for no cap."),
+      logOffset: z.number().optional().describe("Skip this many of the most-recent mission-log entries before applying logLimit, to page back through older history. Defaults to 0."),
+    },
+    async ({ openOnly, archived, summary, includeLog, logLimit, logOffset }) => {
+      const state = await readState();
 
-    // Compute the most-neglected (longest-untouched) top-level Quest
-    const topLevelQuests = state.quests.filter((q) => q.level === "quest" && !q.parentId);
-    let mostNeglectedQuest = null;
-    if (topLevelQuests.length > 0) {
-      // Sort by lastTouchedAt, treating missing as earliest (time 0)
-      const sorted = [...topLevelQuests].sort((a, b) => {
-        const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
-        const bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
-        return aTime - bTime;
-      });
-      const oldest = sorted[0];
-      mostNeglectedQuest = {
-        id: oldest.id,
-        title: oldest.title,
-        lastTouchedAt: oldest.lastTouchedAt || null,
-      };
-    }
+      // Compute the most-neglected (longest-untouched) top-level Quest.
+      // Always computed from the full, unfiltered state.quests -- this is a
+      // derived summary field, not part of the (possibly filtered) quest
+      // list itself, so it shouldn't change meaning based on the caller's
+      // openOnly/archived/summary filters.
+      const topLevelQuests = state.quests.filter((q) => q.level === "quest" && !q.parentId);
+      let mostNeglectedQuest = null;
+      if (topLevelQuests.length > 0) {
+        const sorted = [...topLevelQuests].sort((a, b) => {
+          const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
+          const bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
+          return aTime - bTime;
+        });
+        const oldest = sorted[0];
+        mostNeglectedQuest = {
+          id: oldest.id,
+          title: oldest.title,
+          lastTouchedAt: oldest.lastTouchedAt || null,
+        };
+      }
 
-    const stateWithMostNeglected = { ...state, mostNeglectedQuest };
-    return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(stateWithMostNeglected, null, 2) }])) };
-  });
+      // Filters mirror list_quests (#119) -- openOnly/summary behave
+      // identically (only truthy values have any effect); archived's
+      // undefined-default deliberately differs (see tool description) so a
+      // plain zero-arg call keeps returning everything, same as before.
+      let quests = state.quests;
+      if (openOnly) quests = quests.filter((q) => q.status !== "done");
+      if (archived !== undefined) {
+        quests = archived ? quests.filter((q) => !!q.archived) : quests.filter((q) => !q.archived);
+      }
+      if (summary) quests = quests.map(({ notes, ...rest }) => rest);
+
+      // Mission log: flatten to newest-first across all days (mirrors
+      // app.js's sidebar-widget traversal -- state.log's days are already
+      // newest-first via unshift, and entries within a day are oldest-first
+      // via push, so walking each day's entries back-to-front gives a true
+      // newest-first order overall) so logOffset/logLimit page through
+      // "most recent N" the same way a human skimming the log would expect.
+      const flatLogNewestFirst = [];
+      for (const day of state.log) {
+        for (let i = day.entries.length - 1; i >= 0; i--) {
+          flatLogNewestFirst.push({ date: day.date, entry: day.entries[i] });
+        }
+      }
+      const totalLogEntries = flatLogNewestFirst.length;
+
+      let log;
+      let logInfo;
+      if (includeLog !== false) {
+        const offset = logOffset ?? 0;
+        const windowed = logLimit !== undefined
+          ? flatLogNewestFirst.slice(offset, offset + logLimit)
+          : flatLogNewestFirst.slice(offset);
+        // Regroup back into the original { date, entries: [] } day-bucket
+        // shape (day order is already newest-first in `windowed`; a day's
+        // entries are always contiguous in flatLogNewestFirst so the first
+        // time a date is seen is its correct position). Reverse each day's
+        // collected entries back to oldest-first, matching how they're
+        // actually stored/rendered elsewhere.
+        const dayOrder = [];
+        const byDate = new Map();
+        for (const { date, entry } of windowed) {
+          if (!byDate.has(date)) {
+            byDate.set(date, []);
+            dayOrder.push(date);
+          }
+          byDate.get(date).push(entry);
+        }
+        log = dayOrder.map((date) => ({ date, entries: [...byDate.get(date)].reverse() }));
+        logInfo = {
+          totalEntries: totalLogEntries,
+          includedEntries: windowed.length,
+          offset,
+          hasMore: offset + windowed.length < totalLogEntries,
+        };
+      }
+
+      const baseResult = { ...state, quests, mostNeglectedQuest };
+      delete baseResult.log;
+      if (includeLog !== false) {
+        baseResult.log = log;
+        baseResult.logInfo = logInfo;
+      }
+
+      // Hard cap safety net (#119): even with the filters above, a caller
+      // can still ask for more than reasonably fits in one tool result (the
+      // bug that prompted this -- a plain zero-arg call against a real
+      // production-scale log returned 505,772 characters and got rejected
+      // outright by the calling tool's own size limit). 100,000 characters
+      // is comfortably under that observed failure and leaves real headroom
+      // under typical MCP tool-result limits, while still fitting a
+      // realistically-sized quest log in full. If the (possibly
+      // caller-filtered) result is still over that, trim it further in
+      // stages -- notes, then the log, then the quest list itself -- rather
+      // than either silently truncating mid-JSON or failing outright.
+      const MAX_CHARS = 100_000;
+      const sizeOf = (obj) => JSON.stringify(obj, null, 2).length;
+
+      let result = baseResult;
+      const trimNotes = [];
+      if (sizeOf(result) > MAX_CHARS && !summary) {
+        result = { ...result, quests: result.quests.map(({ notes, ...rest }) => rest) };
+        trimNotes.push("quest notes text omitted");
+      }
+      if (sizeOf(result) > MAX_CHARS && includeLog !== false) {
+        const { log: _droppedLog, logInfo: _droppedLogInfo, ...withoutLog } = result;
+        result = withoutLog;
+        trimNotes.push(`mission log omitted entirely (${totalLogEntries} entries)`);
+      }
+      if (sizeOf(result) > MAX_CHARS) {
+        const { quests: fullQuests, ...withoutQuests } = result;
+        let lo = 0;
+        let hi = fullQuests.length;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          const candidate = { ...withoutQuests, quests: fullQuests.slice(0, mid) };
+          if (sizeOf(candidate) <= MAX_CHARS) lo = mid; else hi = mid - 1;
+        }
+        result = { ...withoutQuests, quests: fullQuests.slice(0, lo) };
+        trimNotes.push(`quest list cut to ${lo} of ${fullQuests.length} items`);
+      }
+
+      let content = [{ type: "text", text: JSON.stringify(result, null, 2) }];
+      if (trimNotes.length > 0) {
+        content = [
+          {
+            type: "text",
+            text: `⚠️ get_full_state response truncated to stay under ~${MAX_CHARS.toLocaleString()} characters (${trimNotes.join("; ")}). Use list_quests with openOnly/archived/summary/level filters, or narrower get_full_state parameters (openOnly/archived/summary/includeLog/logLimit/logOffset), to get the rest.`,
+          },
+          ...content,
+        ];
+      }
+      return { content: withMaintenanceBanner(state, withAttentionInfo(state, content)) };
+    },
+  );
 
   server.tool(
     "get_batch_status",
