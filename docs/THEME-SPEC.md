@@ -74,7 +74,7 @@ These CSS classes are provided as optional styling hooks. A theme can add style 
 | `.corner-bl`, `.corner-br` | Panel decoration corners | Corner ornaments on panels (via pseudo-elements `::before` and `::after`) |
 | `.tree-completed` | Completed quests section | Styling for the nested completed-items container (e.g., left border color) |
 
-Example: raccoonmanor adds parchment textures and card-edge hiding; hadleyshope adds striped corner rivets; testpattern adds color-bar edges. Muthur/terminal/wow define none, and render plain.
+Example: raccoonmanor adds parchment textures and card-edge hiding; hadleyshope adds striped corner rivets; testpattern adds color-bar edges. Muthur/terminal define none, and render plain.
 
 ## Per-Theme JavaScript Effects
 
@@ -98,7 +98,7 @@ function initHadleysHopeEffects() {
 
 **When to use effects:** Only if the theme needs periodic animations (loops), polling timers, event listeners, or DOM updates that can't be expressed in pure CSS. Decorative CSS (gradients, shadows, fonts) belongs in the `[data-theme="..."]` block, not in JS effects.
 
-**Themes without effects:** Muthur, terminal, wow, and computercatsimple intentionally have no effects functions. They are intentionally plain and do not need to opt into anything.
+**Themes without effects:** Muthur, terminal, and computercatsimple intentionally have no effects functions. They are intentionally plain and do not need to opt into anything.
 
 ## Adding a New Theme
 

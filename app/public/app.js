@@ -12,9 +12,9 @@
   // Per-theme flavor text (#21): muthur is just one theme now, so its Alien
   // wording shouldn't be hardcoded as the only wording. Each theme supplies
   // an org line, a subtitle lead-in, and a designation template -- the
-  // designation is a function (not a fixed prefix string) since a future
-  // WoW entry (#9) needs the name and title in the other order ("{name},
-  // the Explorer" rather than "TITLE {name}").
+  // designation is a function (not a fixed prefix string) since some themes
+  // (e.g. hadleyshope below) need the name and title in the other order
+  // ("{name}, the Colonial Marine" rather than "TITLE {name}").
   var THEME_FLAVOR = {
     muthur: {
       orgLine: "WEYTANI-YULAND CORP // HOMELAB DIVISION",
@@ -35,16 +35,6 @@
       subtitleSuffix: "Track All Missions",
       logLabel: "Terminal Log",
       designation: function (name) { return name ? "WASTELANDER " + name.toUpperCase() : "Unknown Wanderer"; }
-    },
-    wow: {
-      orgLine: "ADVENTURERS' GUILD // QUEST BOARD DIVISION",
-      terminalName: "GUILD QUEST BOARD",
-      titlePrefix: "Azeroth",
-      titleSuffix: "Quest Log",
-      subtitlePrefix: "Bound By Oath",
-      subtitleSuffix: "Track All Missions",
-      logLabel: "Guild News",
-      designation: function (name) { return name ? name.toUpperCase() + ", THE ADVENTURER" : "Unknown Adventurer"; }
     },
     raccoonmanor: {
       orgLine: "RACCOON MANOR CARETAKER OFFICE // NIGHT WATCH DIVISION",
