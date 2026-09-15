@@ -594,39 +594,48 @@ function createServer(options = {}) {
         baseResult.logInfo = logInfo;
       }
 
-      // Hard cap safety net (#119): even with the filters above, a caller
-      // can still ask for more than reasonably fits in one tool result (the
-      // bug that prompted this -- a plain zero-arg call against a real
-      // production-scale log returned 505,772 characters and got rejected
-      // outright by the calling tool's own size limit). 100,000 characters
-      // is comfortably under that observed failure and leaves real headroom
-      // under typical MCP tool-result limits, while still fitting a
-      // realistically-sized quest log in full. If the (possibly
-      // caller-filtered) result is still over that, trim it further in
-      // stages -- notes, then the log, then the quest list itself -- rather
-      // than either silently truncating mid-JSON or failing outright.
-      const MAX_CHARS = 100_000;
-      const sizeOf = (obj) => JSON.stringify(obj, null, 2).length;
+      // Hard cap safety net (#119, retuned by #127): even with the filters
+      // above, a caller can still ask for more than reasonably fits in one
+      // tool result (the bug that prompted #119 -- a plain zero-arg call
+      // against a real production-scale log returned 505,772 characters and
+      // got rejected outright by the calling tool's own size limit). #119's
+      // original gate compared JSON.stringify(...).length against a
+      // 100,000-character cap -- but the actual limit enforced by the
+      // calling MCP client (the Claude Code harness) is TOKEN-based and
+      // stricter: a real get_full_state(summary:true, logLimit:15) response
+      // of 85,175 characters -- comfortably under the 100k-char cap -- was
+      // still rejected with "result (85,175 characters) exceeds maximum
+      // allowed tokens". Pretty-printed JSON packs more tokens per character
+      // than prose (lots of punctuation/short tokens), so a character
+      // ceiling structurally can't prevent a token-based rejection. Gate on
+      // an estimated token count instead, using the same staged trim order
+      // -- notes, then the log, then the quest list itself -- rather than
+      // either silently truncating mid-JSON or failing outright.
+      const MAX_TOKENS = Number(process.env.QUEST_LOG_MAX_RESULT_TOKENS) || 22_000;
+      // Pretty-printed JSON runs roughly 3-4 characters per token; dividing
+      // by 3.2 slightly OVER-estimates the token count, which is the safe
+      // direction for a size gate meant to stay under a caller's real limit.
+      const estTokens = (obj) => Math.ceil(JSON.stringify(obj, null, 2).length / 3.2);
 
       let result = baseResult;
       const trimNotes = [];
-      if (sizeOf(result) > MAX_CHARS && !summary) {
+      if (estTokens(result) > MAX_TOKENS && !summary) {
         result = { ...result, quests: result.quests.map(({ notes, ...rest }) => rest) };
         trimNotes.push("quest notes text omitted");
       }
-      if (sizeOf(result) > MAX_CHARS && includeLog !== false) {
+      if (estTokens(result) > MAX_TOKENS && includeLog !== false) {
         const { log: _droppedLog, logInfo: _droppedLogInfo, ...withoutLog } = result;
         result = withoutLog;
         trimNotes.push(`mission log omitted entirely (${totalLogEntries} entries)`);
       }
-      if (sizeOf(result) > MAX_CHARS) {
+      if (estTokens(result) > MAX_TOKENS) {
         const { quests: fullQuests, ...withoutQuests } = result;
         let lo = 0;
         let hi = fullQuests.length;
         while (lo < hi) {
           const mid = Math.ceil((lo + hi) / 2);
           const candidate = { ...withoutQuests, quests: fullQuests.slice(0, mid) };
-          if (sizeOf(candidate) <= MAX_CHARS) lo = mid; else hi = mid - 1;
+          if (estTokens(candidate) <= MAX_TOKENS) lo = mid; else hi = mid - 1;
         }
         result = { ...withoutQuests, quests: fullQuests.slice(0, lo) };
         trimNotes.push(`quest list cut to ${lo} of ${fullQuests.length} items`);
@@ -637,7 +646,7 @@ function createServer(options = {}) {
         content = [
           {
             type: "text",
-            text: `⚠️ get_full_state response truncated to stay under ~${MAX_CHARS.toLocaleString()} characters (${trimNotes.join("; ")}). Use list_quests with openOnly/archived/summary/level filters, or narrower get_full_state parameters (openOnly/archived/summary/includeLog/logLimit/logOffset), to get the rest.`,
+            text: `⚠️ get_full_state response truncated to stay under ~${MAX_TOKENS.toLocaleString()} estimated tokens (${trimNotes.join("; ")}). Use list_quests with openOnly/archived/summary/level filters, or narrower get_full_state parameters (openOnly/archived/summary/includeLog/logLimit/logOffset), to get the rest. Adjust the cap with the QUEST_LOG_MAX_RESULT_TOKENS env var if needed.`,
           },
           ...content,
         ];
