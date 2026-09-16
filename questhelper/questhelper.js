@@ -111,6 +111,13 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
 
+// Shared token-cap helpers for read tools that can return unbounded responses (#130).
+// Pretty-printed JSON runs roughly 3-4 characters per token; dividing by 3.2
+// slightly OVER-estimates the token count, which is the safe direction for a
+// size gate meant to stay under a caller's real limit.
+const MAX_RESULT_TOKENS = Number(process.env.QUEST_LOG_MAX_RESULT_TOKENS) || 22_000;
+const estTokens = (obj) => Math.ceil(JSON.stringify(obj, null, 2).length / 3.2);
+
 function createServer(options = {}) {
   const env = options.env ?? "prod";
   const serverName = env === "dev" ? "questhelper-dev" : "questhelper";
@@ -118,7 +125,7 @@ function createServer(options = {}) {
 
   server.tool(
     "list_quests",
-    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created. By default, archived items are excluded; pass archived:true to see only archived items or archived:false to see only non-archived items. For a full-log review, prefer openOnly/orphaned/summary over pulling everything unfiltered -- the unfiltered response grows with the log and can exceed tool-result size limits.",
+    "List quests from the quest log, optionally filtered by status and/or level (quest/mission/task). Each quest includes a createdAt timestamp for tracking when it was created. By default, archived items are excluded; pass archived:true to see only archived items or archived:false to see only non-archived items. For a full-log review, prefer openOnly/orphaned/summary over pulling everything unfiltered -- the unfiltered response grows with the log and can exceed tool-result size limits. For non-tree (flat) mode, limit and offset enable pagination through results (newest-first by creation/update when sortByCreatedAtDesc is true). Responses automatically cap at estimated token limits; if trimmed, a warning is prepended. Adjust the cap with QUEST_LOG_MAX_RESULT_TOKENS env var if needed.",
     {
       status: z.enum(["idea", "progress", "done"]).optional().describe("Filter to just this status"),
       level: z.enum(LEVELS).optional().describe("Filter to just this level"),
@@ -135,8 +142,10 @@ function createServer(options = {}) {
       summary: z.boolean().optional().describe("Omit each item's notes text from the response -- use when you just need titles/status/hierarchy and want to avoid a large payload from long notes fields (#109)."),
       tree: z.boolean().optional().describe("Return nested (quest -> missions -> tasks) instead of a flat list"),
       sortByCreatedAtDesc: z.boolean().optional().describe("Sort by createdAt descending (newest first). Only applies to flat list (tree: false)"),
+      limit: z.number().optional().describe("Max items to return (flat mode only; ignored if tree:true). Useful for pagination."),
+      offset: z.number().optional().describe("Skip this many items before returning (flat mode only; ignored if tree:true). Useful for pagination."),
     },
-    async ({ status, level, blocked, archived, attention, orphaned, openOnly, summary, tree, sortByCreatedAtDesc }) => {
+    async ({ status, level, blocked, archived, attention, orphaned, openOnly, summary, tree, sortByCreatedAtDesc, limit, offset }) => {
       const state = await readState();
       let quests = state.quests;
       if (status) quests = quests.filter((q) => q.status === status);
@@ -159,8 +168,48 @@ function createServer(options = {}) {
         });
       }
       if (summary) quests = quests.map(({ notes, ...rest }) => rest);
-      if (!tree) return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(quests, null, 2) }])) };
 
+      if (!tree) {
+        // Flat mode: apply pagination, then size cap
+        const offsetVal = offset ?? 0;
+        const paginatedQuests = limit !== undefined ? quests.slice(offsetVal, offsetVal + limit) : quests.slice(offsetVal);
+
+        let result = paginatedQuests;
+        const trimNotes = [];
+
+        // Stage 1: Drop notes if not already summary
+        if (estTokens({ quests: result }) > MAX_RESULT_TOKENS && !summary) {
+          result = result.map(({ notes, ...rest }) => rest);
+          trimNotes.push("quest notes text omitted");
+        }
+
+        // Stage 2: Binary-search cut the array
+        if (estTokens({ quests: result }) > MAX_RESULT_TOKENS) {
+          let lo = 0;
+          let hi = result.length;
+          while (lo < hi) {
+            const mid = Math.ceil((lo + hi) / 2);
+            const candidate = { quests: result.slice(0, mid) };
+            if (estTokens(candidate) <= MAX_RESULT_TOKENS) lo = mid; else hi = mid - 1;
+          }
+          result = result.slice(0, lo);
+          trimNotes.push(`quest list cut to ${lo} of ${paginatedQuests.length} items`);
+        }
+
+        let content = [{ type: "text", text: JSON.stringify(result, null, 2) }];
+        if (trimNotes.length > 0) {
+          content = [
+            {
+              type: "text",
+              text: `⚠️ list_quests response truncated to stay under ~${MAX_RESULT_TOKENS.toLocaleString()} estimated tokens (${trimNotes.join("; ")}). Use narrower filters (status/level/openOnly/archived/summary), pagination (limit/offset), or this tool's other filtering params to get more results. Adjust the cap with the QUEST_LOG_MAX_RESULT_TOKENS env var if needed.`,
+            },
+            ...content,
+          ];
+        }
+        return { content: withMaintenanceBanner(state, withAttentionInfo(state, content)) };
+      }
+
+      // Tree mode: build nested structure, then size cap on top-level roots
       const byParent = new Map();
       for (const q of quests) {
         const key = q.parentId ?? null;
@@ -168,8 +217,45 @@ function createServer(options = {}) {
         byParent.get(key).push(q);
       }
       const attachChildren = (q) => ({ ...q, children: (byParent.get(q.id) ?? []).map(attachChildren) });
-      const roots = (byParent.get(null) ?? []).map(attachChildren);
-      return { content: withMaintenanceBanner(state, withAttentionInfo(state, [{ type: "text", text: JSON.stringify(roots, null, 2) }])) };
+      let roots = (byParent.get(null) ?? []).map(attachChildren);
+
+      // Size cap for tree mode: drop notes first if not summary, then binary-search cut top-level roots
+      const trimNotes = [];
+
+      // Stage 1: Drop notes recursively if not already summary
+      if (estTokens({ roots }) > MAX_RESULT_TOKENS && !summary) {
+        const stripNotes = (q) => {
+          const { notes, ...rest } = q;
+          return { ...rest, children: (q.children ?? []).map(stripNotes) };
+        };
+        roots = roots.map(stripNotes);
+        trimNotes.push("quest notes text omitted");
+      }
+
+      // Stage 2: Binary-search cut top-level roots array (never mid-subtree)
+      if (estTokens({ roots }) > MAX_RESULT_TOKENS) {
+        let lo = 0;
+        let hi = roots.length;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          const candidate = { roots: roots.slice(0, mid) };
+          if (estTokens(candidate) <= MAX_RESULT_TOKENS) lo = mid; else hi = mid - 1;
+        }
+        roots = roots.slice(0, lo);
+        trimNotes.push(`quest tree cut to ${lo} top-level items`);
+      }
+
+      let content = [{ type: "text", text: JSON.stringify(roots, null, 2) }];
+      if (trimNotes.length > 0) {
+        content = [
+          {
+            type: "text",
+            text: `⚠️ list_quests response truncated to stay under ~${MAX_RESULT_TOKENS.toLocaleString()} estimated tokens (${trimNotes.join("; ")}). Use narrower filters (status/level/openOnly/archived/summary), or switch to flat mode with limit/offset for pagination. Adjust the cap with the QUEST_LOG_MAX_RESULT_TOKENS env var if needed.`,
+          },
+          ...content,
+        ];
+      }
+      return { content: withMaintenanceBanner(state, withAttentionInfo(state, content)) };
     },
   );
 
@@ -594,48 +680,44 @@ function createServer(options = {}) {
         baseResult.logInfo = logInfo;
       }
 
-      // Hard cap safety net (#119, retuned by #127): even with the filters
-      // above, a caller can still ask for more than reasonably fits in one
-      // tool result (the bug that prompted #119 -- a plain zero-arg call
-      // against a real production-scale log returned 505,772 characters and
-      // got rejected outright by the calling tool's own size limit). #119's
-      // original gate compared JSON.stringify(...).length against a
-      // 100,000-character cap -- but the actual limit enforced by the
-      // calling MCP client (the Claude Code harness) is TOKEN-based and
-      // stricter: a real get_full_state(summary:true, logLimit:15) response
-      // of 85,175 characters -- comfortably under the 100k-char cap -- was
-      // still rejected with "result (85,175 characters) exceeds maximum
-      // allowed tokens". Pretty-printed JSON packs more tokens per character
-      // than prose (lots of punctuation/short tokens), so a character
-      // ceiling structurally can't prevent a token-based rejection. Gate on
-      // an estimated token count instead, using the same staged trim order
-      // -- notes, then the log, then the quest list itself -- rather than
-      // either silently truncating mid-JSON or failing outright.
-      const MAX_TOKENS = Number(process.env.QUEST_LOG_MAX_RESULT_TOKENS) || 22_000;
-      // Pretty-printed JSON runs roughly 3-4 characters per token; dividing
-      // by 3.2 slightly OVER-estimates the token count, which is the safe
-      // direction for a size gate meant to stay under a caller's real limit.
-      const estTokens = (obj) => Math.ceil(JSON.stringify(obj, null, 2).length / 3.2);
+      // Hard cap safety net (#119, retuned by #127, shared with list_quests by #130):
+      // even with the filters above, a caller can still ask for more than
+      // reasonably fits in one tool result (the bug that prompted #119 -- a
+      // plain zero-arg call against a real production-scale log returned
+      // 505,772 characters and got rejected outright by the calling tool's
+      // own size limit). #119's original gate compared JSON.stringify(...)
+      // .length against a 100,000-character cap -- but the actual limit
+      // enforced by the calling MCP client (the Claude Code harness) is
+      // TOKEN-based and stricter: a real get_full_state(summary:true,
+      // logLimit:15) response of 85,175 characters -- comfortably under the
+      // 100k-char cap -- was still rejected with "result (85,175 characters)
+      // exceeds maximum allowed tokens". Pretty-printed JSON packs more tokens
+      // per character than prose (lots of punctuation/short tokens), so a
+      // character ceiling structurally can't prevent a token-based rejection.
+      // Gate on an estimated token count instead, using the same staged trim
+      // order -- notes, then the log, then the quest list itself -- rather
+      // than either silently truncating mid-JSON or failing outright. Uses
+      // shared MAX_RESULT_TOKENS and estTokens defined above.
 
       let result = baseResult;
       const trimNotes = [];
-      if (estTokens(result) > MAX_TOKENS && !summary) {
+      if (estTokens(result) > MAX_RESULT_TOKENS && !summary) {
         result = { ...result, quests: result.quests.map(({ notes, ...rest }) => rest) };
         trimNotes.push("quest notes text omitted");
       }
-      if (estTokens(result) > MAX_TOKENS && includeLog !== false) {
+      if (estTokens(result) > MAX_RESULT_TOKENS && includeLog !== false) {
         const { log: _droppedLog, logInfo: _droppedLogInfo, ...withoutLog } = result;
         result = withoutLog;
         trimNotes.push(`mission log omitted entirely (${totalLogEntries} entries)`);
       }
-      if (estTokens(result) > MAX_TOKENS) {
+      if (estTokens(result) > MAX_RESULT_TOKENS) {
         const { quests: fullQuests, ...withoutQuests } = result;
         let lo = 0;
         let hi = fullQuests.length;
         while (lo < hi) {
           const mid = Math.ceil((lo + hi) / 2);
           const candidate = { ...withoutQuests, quests: fullQuests.slice(0, mid) };
-          if (estTokens(candidate) <= MAX_TOKENS) lo = mid; else hi = mid - 1;
+          if (estTokens(candidate) <= MAX_RESULT_TOKENS) lo = mid; else hi = mid - 1;
         }
         result = { ...withoutQuests, quests: fullQuests.slice(0, lo) };
         trimNotes.push(`quest list cut to ${lo} of ${fullQuests.length} items`);
@@ -646,7 +728,7 @@ function createServer(options = {}) {
         content = [
           {
             type: "text",
-            text: `⚠️ get_full_state response truncated to stay under ~${MAX_TOKENS.toLocaleString()} estimated tokens (${trimNotes.join("; ")}). Use list_quests with openOnly/archived/summary/level filters, or narrower get_full_state parameters (openOnly/archived/summary/includeLog/logLimit/logOffset), to get the rest. Adjust the cap with the QUEST_LOG_MAX_RESULT_TOKENS env var if needed.`,
+            text: `⚠️ get_full_state response truncated to stay under ~${MAX_RESULT_TOKENS.toLocaleString()} estimated tokens (${trimNotes.join("; ")}). Use list_quests with openOnly/archived/summary/level filters, or narrower get_full_state parameters (openOnly/archived/summary/includeLog/logLimit/logOffset), to get the rest. Adjust the cap with the QUEST_LOG_MAX_RESULT_TOKENS env var if needed.`,
           },
           ...content,
         ];
