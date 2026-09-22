@@ -980,8 +980,16 @@
     // Sidebar widget (#21): a handful of the most recent entries only, each
     // truncated -- plus an unroll control (#30) to see the untruncated full
     // history on demand, since that used to be its own always-visible panel.
+    // #132: same guard as #3's status check -- skip (and warn about) any log
+    // day render can't read, instead of throwing and blanking every panel
+    // drawn after this one (e.g. Pro Mode's ticket stats).
+    var readableLog = state.log.filter(function (day) {
+      if (day && Array.isArray(day.entries)) return true;
+      console.warn("log day with no entries array, skipping:", day && day.date, day);
+      return false;
+    });
     var flatLog = [];
-    state.log.forEach(function (day) {
+    readableLog.forEach(function (day) {
       for (var i = day.entries.length - 1; i >= 0; i--) flatLog.push({ date: day.date, text: entryText(day.entries[i]), time: entryTime(day.entries[i]) });
     });
     var logMini = document.getElementById("log-body-mini");
@@ -997,7 +1005,7 @@
     }
     var logFull = document.getElementById("log-body-full");
     if (logFull) {
-      logFull.innerHTML = state.log.map(function (day) {
+      logFull.innerHTML = readableLog.map(function (day) {
         return '<div class="log-full-date">' + escapeHtml(day.date) + '</div>' +
           '<ul class="log-full-list">' + day.entries.map(function (e) { return "<li" + entryTimeTitle(e) + ">" + escapeHtml(entryText(e)) + "</li>"; }).join("") + '</ul>';
       }).join("");
@@ -1123,6 +1131,8 @@
     // #92: matches add_log_entry's server-side {text, time} shape now,
     // rather than the two write paths drifting into different shapes for
     // the same field.
+    // #132: a malformed day (no entries array) would otherwise throw here.
+    if (!Array.isArray(logDay.entries)) logDay.entries = [];
     logDay.entries.push({ text: text, time: new Date().toISOString() });
   }
 
