@@ -570,14 +570,27 @@ function createServer(options = {}) {
       // gives real sub-day resolution. Old bare-string entries stay exactly
       // as they are — see app.js's renderer for the mixed-shape handling
       // this requires, no migration of existing data.
+      // #132: refuse (with the bad day named) rather than throw a bare
+      // TypeError if the existing day for this date is malformed.
+      let malformedKeys = null;
       await mutateState(async (state) => {
         let logDay = state.log.find((d) => d.date === day);
         if (!logDay) {
           logDay = { date: day, entries: [] };
           state.log.unshift(logDay);
         }
+        if (!Array.isArray(logDay.entries)) {
+          malformedKeys = Object.keys(logDay).join(", ");
+          return;
+        }
         logDay.entries.push({ text: entry, time: nowISO() });
       });
+      if (malformedKeys !== null) {
+        return {
+          content: [{ type: "text", text: `Not logged: the existing log day ${day} has no entries array (got keys: ${malformedKeys}), so it can't be appended to. Fix that day in data/state.json first (see #132).` }],
+          isError: true,
+        };
+      }
       return { content: [{ type: "text", text: `Logged under ${day}: ${entry}` }] };
     },
   );
@@ -636,6 +649,11 @@ function createServer(options = {}) {
       // "most recent N" the same way a human skimming the log would expect.
       const flatLogNewestFirst = [];
       for (const day of state.log) {
+        // #132: skip a malformed day instead of failing the whole call.
+        if (!day || !Array.isArray(day.entries)) {
+          console.warn("get_full_state: log day with no entries array, skipping:", day && day.date);
+          continue;
+        }
         for (let i = day.entries.length - 1; i >= 0; i--) {
           flatLogNewestFirst.push({ date: day.date, entry: day.entries[i] });
         }

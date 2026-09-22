@@ -125,9 +125,35 @@ function isValidHaloTicketArray(arr) {
   );
 }
 
+// A mission-log day (#132): { date: "YYYY-MM-DD", entries: [...] }, where each
+// entry is either a bare string (pre-#92) or { text, time? } (#92). Returns
+// null when valid, otherwise a message naming the bad day -- render() walks
+// day.entries for every day, so one malformed day used to blank the page.
+const LOG_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function logDayError(day) {
+  if (!day || typeof day !== "object") return `invalid log day: ${JSON.stringify(day)}`;
+  if (typeof day.date !== "string" || !LOG_DATE_RE.test(day.date)) {
+    return `log day has a missing or non-YYYY-MM-DD date: ${JSON.stringify(day).slice(0, 200)}`;
+  }
+  if (!Array.isArray(day.entries)) {
+    return `log day ${day.date} has no entries array (got keys: ${Object.keys(day).join(", ")})`;
+  }
+  for (const e of day.entries) {
+    const ok = typeof e === "string" ||
+      (e && typeof e === "object" && typeof e.text === "string" &&
+        (e.time === undefined || typeof e.time === "string"));
+    if (!ok) return `log day ${day.date} has an invalid entry: ${JSON.stringify(e).slice(0, 200)}`;
+  }
+  return null;
+}
+
 export function validateState(state) {
   if (!state || !Array.isArray(state.quests) || !Array.isArray(state.log)) {
     return "expected { quests: [], log: [] }";
+  }
+  for (const day of state.log) {
+    const dayError = logDayError(day);
+    if (dayError) return dayError;
   }
   for (const q of state.quests) {
     if (!isValidQuest(q)) {
