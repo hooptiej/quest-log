@@ -34,6 +34,10 @@ import {
   appendTicketTouch,
   appendTicketView,
   attachHaloTicket,
+  detachHaloTicket,
+  ensureTicketTouchIds,
+  updateTicketTouch,
+  deleteTicketTouch,
   getTicketStats,
 } from "../state.js";
 
@@ -892,7 +896,7 @@ function createServer(options = {}) {
 
   server.tool(
     "add_halo_ticket",
-    "Attach a Halo ticket reference to an existing quest/mission/task, without logging it as work done (see log_ticket_touch for that).",
+    "Attach a Halo ticket reference to an existing quest/mission/task, without logging it as work done (see log_ticket_touch for that). If the ticket is already attached, its client/url are updated in place -- use this to correct a wrong link.",
     {
       idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
       ticketId: z.string().describe("Halo ticket number/id"),
@@ -905,6 +909,96 @@ function createServer(options = {}) {
         const resolved = resolveOne(state, idOrTitle);
         if (resolved.error) return resolved;
         attachHaloTicket(state, resolved.quest.id, { ticketId, client, url });
+        return { quest: state.quests.find((q) => q.id === resolved.quest.id) };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.quest, null, 2) }] };
+    },
+  );
+
+  // #134: ticket-touch records were append-only -- a wrong URL or a
+  // duplicate could only be "fixed" by logging another touch. These let a
+  // caller find a record's id and then correct or remove it.
+  const touchTarget = {
+    id: z.string().optional().describe("The record's id (from list_ticket_touches or the log_ticket_touch result)"),
+    ticketId: z.string().optional().describe("Instead of id: target the NEWEST record for this Halo ticket number"),
+  };
+
+  server.tool(
+    "list_ticket_touches",
+    "List logged ticket-touch records (newest first) with their ids, optionally filtered to one Halo ticket. Use this to find the id to pass to update_ticket_touch / delete_ticket_touch.",
+    {
+      ticketId: z.string().optional().describe("Only show records for this Halo ticket number"),
+      limit: z.number().optional().describe("Max records to return (default 25)"),
+    },
+    async ({ ticketId, limit }) => {
+      // Goes through mutateState (not a plain read) so any pre-#134 records
+      // get their ids persisted here -- an id handed back by this call has
+      // to still be valid on the next call.
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        ensureTicketTouchIds(state);
+        let touches = (state.ticketTouches ?? []).slice().reverse();
+        if (ticketId) touches = touches.filter((t) => t.ticketId === ticketId);
+        return { touches: touches.slice(0, limit ?? 25) };
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.touches, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "update_ticket_touch",
+    "Correct a logged ticket-touch record in place (wrong url, note, client, or closedWithHelp). Target it by id, or by ticketId to edit the newest record for that ticket. Only the fields you pass change. If url/client change and the record is linked to a quest, that quest's ticket reference is updated too.",
+    {
+      ...touchTarget,
+      url: z.string().optional().describe("Corrected direct link to the ticket in Halo"),
+      note: z.string().optional().describe("Replacement note text"),
+      client: z.string().optional().describe("Corrected client name"),
+      closedWithHelp: z.boolean().optional().describe("Corrected closed-with-Claude's-help flag"),
+    },
+    async ({ id, ticketId, url, note, client, closedWithHelp }) => {
+      if (url === undefined && note === undefined && client === undefined && closedWithHelp === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update -- pass at least one of url, note, client, closedWithHelp." }], isError: true };
+      }
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        return updateTicketTouch(state, { id, ticketId }, { url, note, client, closedWithHelp });
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify(result.record, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "delete_ticket_touch",
+    "Delete one logged ticket-touch record (a duplicate or a mistake). Target it by id, or by ticketId to delete the newest record for that ticket. Does not detach the ticket from any quest -- use remove_halo_ticket for that.",
+    touchTarget,
+    async ({ id, ticketId }) => {
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        return deleteTicketTouch(state, { id, ticketId });
+      });
+      if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
+      return { content: [{ type: "text", text: `Deleted ticket-touch record:\n${JSON.stringify(result.record, null, 2)}` }] };
+    },
+  );
+
+  server.tool(
+    "remove_halo_ticket",
+    "Detach a Halo ticket reference from a quest/mission/task (the reverse of add_halo_ticket). Leaves the ticket-touch log alone.",
+    {
+      idOrTitle: z.string().describe("Quest id, exact title, or a substring of the title"),
+      ticketId: z.string().describe("Halo ticket number/id to detach"),
+    },
+    async ({ idOrTitle, ticketId }) => {
+      const { result } = await mutateState(async (state) => {
+        if (!getProMode(state)) return { error: "Pro mode is not enabled." };
+        const resolved = resolveOne(state, idOrTitle);
+        if (resolved.error) return resolved;
+        if (!detachHaloTicket(state, resolved.quest.id, ticketId)) {
+          return { error: `Ticket ${ticketId} isn't attached to ${describeQuest(resolved.quest)}.` };
+        }
         return { quest: state.quests.find((q) => q.id === resolved.quest.id) };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };

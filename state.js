@@ -1,5 +1,6 @@
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
 // #100: manual `.pathname.replace(...)` munging percent-encodes special
 // characters (a space becomes %20), which readFile/writeFile then can't
@@ -457,7 +458,9 @@ function pruneOld(entries) {
 // any tracked quest item, so this is best-effort, not required.
 export function appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId }) {
   state.ticketTouches ??= [];
+  ensureTicketTouchIds(state);
   const record = {
+    id: randomUUID(),
     ticketId,
     client,
     url,
@@ -481,17 +484,96 @@ export function appendTicketView(state) {
 }
 
 // Adds a ticket reference to an existing quest item's haloTickets,
-// deduped on ticketId (re-attaching the same ticket is a no-op, not a
-// duplicate entry). No-op (not an error) if questId doesn't resolve --
-// callers that already have a resolved quest should prefer calling this
-// directly over add_idea-style resolution errors.
+// deduped on ticketId. Re-attaching a ticket that's already there updates
+// its client/url in place (#134) rather than no-op'ing -- otherwise a
+// reference attached with a wrong URL could never be corrected. No-op (not
+// an error) if questId doesn't resolve -- callers that already have a
+// resolved quest should prefer calling this directly over add_idea-style
+// resolution errors.
 export function attachHaloTicket(state, questId, { ticketId, client, url }) {
   const q = state.quests.find((x) => x.id === questId);
   if (!q) return;
   q.haloTickets ??= [];
-  if (!q.haloTickets.some((t) => t.ticketId === ticketId)) {
+  const existing = q.haloTickets.find((t) => t.ticketId === ticketId);
+  if (existing) {
+    existing.client = client;
+    existing.url = url;
+  } else {
     q.haloTickets.push({ ticketId, client, url });
   }
+}
+
+// Removes a ticket reference from a quest item's haloTickets (#134). Returns
+// whether anything was removed. Drops the array entirely once empty, same
+// "absence means none" convention isValidHaloTicketArray documents.
+export function detachHaloTicket(state, questId, ticketId) {
+  const q = state.quests.find((x) => x.id === questId);
+  if (!q || !q.haloTickets) return false;
+  const before = q.haloTickets.length;
+  q.haloTickets = q.haloTickets.filter((t) => t.ticketId !== ticketId);
+  if (q.haloTickets.length === 0) delete q.haloTickets;
+  return before !== (q.haloTickets?.length ?? 0);
+}
+
+// #134: touch records written before ids existed get one lazily, the first
+// time any ticket-touch function runs inside a mutation -- so they're stable
+// from then on (persisted with that save), with no separate migration step.
+export function ensureTicketTouchIds(state) {
+  for (const t of state.ticketTouches ?? []) {
+    if (!t.id) t.id = randomUUID();
+  }
+}
+
+// Finds the touch record an edit/delete targets: by `id` if given, otherwise
+// the newest record for `ticketId` (the usual "fix the one I just logged"
+// case). Returns { record, index } or { error } with a message that says
+// exactly what didn't match, so a caller can correct the call.
+export function findTicketTouch(state, { id, ticketId }) {
+  ensureTicketTouchIds(state);
+  const touches = state.ticketTouches ?? [];
+  if (id) {
+    const index = touches.findIndex((t) => t.id === id);
+    if (index === -1) return { error: `No ticket-touch record with id "${id}".` };
+    return { record: touches[index], index };
+  }
+  if (ticketId) {
+    for (let i = touches.length - 1; i >= 0; i--) {
+      if (touches[i].ticketId === ticketId) return { record: touches[i], index: i };
+    }
+    return { error: `No ticket-touch records for ticket ${ticketId}.` };
+  }
+  return { error: "Pass either id or ticketId to pick which ticket-touch record to change." };
+}
+
+// Edits a touch record's url/note/client/closedWithHelp in place (#134).
+// Only fields actually passed are changed. If url/client change and the
+// record is linked to a quest, that quest's matching haloTickets reference
+// is refreshed too, so the two can't disagree.
+export function updateTicketTouch(state, target, { url, note, client, closedWithHelp }) {
+  const found = findTicketTouch(state, target);
+  if (found.error) return found;
+  const r = found.record;
+  if (url !== undefined) r.url = url;
+  if (note !== undefined) r.note = note;
+  if (client !== undefined) r.client = client;
+  if (closedWithHelp !== undefined) r.closedWithHelp = closedWithHelp === true;
+  if ((url !== undefined || client !== undefined) && r.questId) {
+    const q = state.quests.find((x) => x.id === r.questId);
+    if (q?.haloTickets?.some((t) => t.ticketId === r.ticketId)) {
+      attachHaloTicket(state, r.questId, { ticketId: r.ticketId, client: r.client, url: r.url });
+    }
+  }
+  return { record: r };
+}
+
+// Deletes one touch record (#134). Leaves any quest's haloTickets reference
+// alone -- "this log entry was a mistake" and "this ticket isn't related to
+// that quest" are different corrections; the latter is detachHaloTicket.
+export function deleteTicketTouch(state, target) {
+  const found = findTicketTouch(state, target);
+  if (found.error) return found;
+  state.ticketTouches.splice(found.index, 1);
+  return { record: found.record };
 }
 
 function countSince(entries, sinceMs) {
