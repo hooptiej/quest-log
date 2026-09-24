@@ -134,12 +134,14 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**25 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+**29 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
 included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
 `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
 `delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
 `get_full_state`, `get_batch_status`, `set_maintenance`, `set_auto_log`, `set_settings_mode`,
-`set_pro_mode`, `log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`.
+`set_pro_mode`, `log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`, `list_ticket_touches`,
+`update_ticket_touch`, `delete_ticket_touch`, `remove_halo_ticket` (#134: ticket-touch records carry an `id`,
+backfilled lazily onto older records the first time any ticket-touch tool runs).
 
 No claude.ai Artifact mirror mechanism anymore -- `app/mirror.js` and the
 `get_artifact_status`/`record_artifact_update`/`get_mirror_html` tools were removed 2026-09-06
