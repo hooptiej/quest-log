@@ -802,6 +802,12 @@
   // permanent fixture at the bottom of the list, not something that pops
   // in and out of existence.
   var COMPLETED_ROOT_ID = "completed-quests-root";
+
+  // #136: the full-log panel shows only the most recent days, with a button for older ones, so the
+  // page doesn't grow without bound as the log does. Kept across re-renders so a click isn't undone.
+  var LOG_DAYS_INITIAL = 7;
+  var LOG_DAYS_STEP = 14;
+  var logDaysShown = LOG_DAYS_INITIAL;
   function completedRootCard(doneRoots, byParent, allQuests, expandedIds) {
     // #112: this wrapper has a real, stable data-id (unlike
     // completedGroupHtml's per-level toggle), so it's just as subject to
@@ -1005,10 +1011,24 @@
     }
     var logFull = document.getElementById("log-body-full");
     if (logFull) {
-      logFull.innerHTML = readableLog.map(function (day) {
+      var totalLogDays = readableLog.length;
+      var shownLogDays = Math.min(logDaysShown, totalLogDays);
+      var logHtml = "";
+      if (totalLogDays > shownLogDays) {
+        var totalLogEntries = readableLog.reduce(function (n, d) { return n + d.entries.length; }, 0);
+        logHtml += '<div class="log-full-summary">Showing the last ' + shownLogDays + " of " + totalLogDays +
+          " days (" + totalLogEntries + " entries)</div>";
+      }
+      logHtml += readableLog.slice(0, shownLogDays).map(function (day) {
         return '<div class="log-full-date">' + escapeHtml(day.date) + '</div>' +
           '<ul class="log-full-list">' + day.entries.map(function (e) { return "<li" + entryTimeTitle(e) + ">" + escapeHtml(entryText(e)) + "</li>"; }).join("") + '</ul>';
       }).join("");
+      if (totalLogDays > shownLogDays) {
+        var olderCount = Math.min(LOG_DAYS_STEP, totalLogDays - shownLogDays);
+        logHtml += '<button type="button" class="unroll-btn" data-action="more-log-days">Show ' + olderCount +
+          " older day" + (olderCount === 1 ? "" : "s") + " &#9662;</button>";
+      }
+      logFull.innerHTML = logHtml;
     }
 
     var bootTime = document.getElementById("boot-time");
@@ -1355,6 +1375,12 @@
       if (aq.attention) delete aq.attention;
       else aq.attention = true;
       persist();
+      return;
+    }
+    var moreLogDaysBtn = ev.target.closest('[data-action="more-log-days"]');
+    if (moreLogDaysBtn) {
+      logDaysShown += LOG_DAYS_STEP;
+      render(STATE);
       return;
     }
     var logUnrollBtn = ev.target.closest('[data-action="toggle-log-full"]');
