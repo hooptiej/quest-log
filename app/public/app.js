@@ -623,9 +623,13 @@
     return result;
   }
 
+  // #138: progress arithmetic must not change when something is archived (archiving only hides
+  // clutter), so counters read the full list; the visible tree/panels still use visibleQuests.
+  var fullQuestList = null;
+
   // Computes done/total count for a quest's subtree (itself + all descendants)
   function questProgress(q, allQuests) {
-    var descendants = getDescendants(q.id, allQuests);
+    var descendants = getDescendants(q.id, fullQuestList || allQuests);
     var total = descendants.length + 1; // +1 for the quest itself
     var doneCount = (q.status === "done" ? 1 : 0) + descendants.filter(function (d) { return d.status === "done"; }).length;
     return { done: doneCount, total: total, pct: total ? Math.round((doneCount / total) * 100) : 0 };
@@ -767,6 +771,7 @@
   // ("4 missions", "3 tasks, 2 done") instead of giving no hint at all.
   function childCountLabel(q, children) {
     var noun = q.level === "quest" ? "mission" : "task";
+    if (fullQuestList) children = fullQuestList.filter(function (c) { return c.parentId === q.id; }); // #138: archived count too
     var doneCount = children.filter(function (c) { return c.status === "done"; }).length;
     return children.length + " " + noun + (children.length === 1 ? "" : "s") + (doneCount > 0 ? ", " + doneCount + " done" : "");
   }
@@ -950,6 +955,7 @@
   }
 
   function render(state) {
+    fullQuestList = state.quests;
     // Archived items (#61/#99) are meant to be genuinely hidden from the
     // default view, distinct from "done" items which merely sort into a
     // collapsed Completed section -- filtered out once, here, so every
