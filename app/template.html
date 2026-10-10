@@ -2326,6 +2326,24 @@
   }
   .unroll-btn:hover { border-color: var(--panel-accent, var(--accent)); color: var(--panel-accent, var(--accent)); }
   .unroll-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* #136: an unrolled log (or ticket history) is a fixed-height window with its own scrollbar,
+     coloured from the active theme's variables, so it never makes the page itself giant. */
+  .log-full {
+    max-height: min(60vh, 30rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-dim, var(--border)) var(--surface, transparent);
+  }
+  .log-full::-webkit-scrollbar { width: 8px; }
+  .log-full::-webkit-scrollbar-track { background: var(--surface, transparent); border-radius: 4px; }
+  .log-full::-webkit-scrollbar-thumb {
+    background: var(--accent-dim, var(--border));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .log-full::-webkit-scrollbar-thumb:hover { background: var(--accent); }
   .log-full.collapsed { display: none; }
   .log-full-date {
     font-family: var(--font-mono);
@@ -2336,6 +2354,14 @@
     margin: 0.9rem 0 0.35rem;
   }
   .log-full-date:first-child { margin-top: 0.85rem; }
+  .log-full-summary {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0.85rem 0 0;
+  }
+  .log-full-summary + .log-full-date { margin-top: 0.6rem; }
   .log-full-list { margin: 0 0 0.2rem; padding-left: 1.1rem; }
   .log-full-list li {
     font-size: 0.86rem;
