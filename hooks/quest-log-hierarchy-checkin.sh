@@ -12,15 +12,17 @@
 # A missing parentIdOrTitle on one of those is usually a skipped placement
 # decision, not a deliberate one, so this nudges rather than blocks.
 
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 input="$(cat)"
-tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)"
+ql_require quest-log-hierarchy-checkin PostToolUse "$input" jq
 
+tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty')"
 printf '%s' "$tool_name" | grep -qE 'mcp__.*__add_idea$' || exit 0
 
 level="$(printf '%s' "$input" | jq -r '.tool_input.level // "mission"')"
 parent="$(printf '%s' "$input" | jq -r '.tool_input.parentIdOrTitle // empty')"
 
 if [ "$level" != "quest" ] && [ -z "$parent" ]; then
-  jq -n --arg ctx 'Quest-log check-in: this new item has no parent. Is there an existing Quest/Mission it actually belongs under? If so, pass parentIdOrTitle next time or move/recruit it now -- if it is genuinely standalone, no action needed.' \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+  ql_emit PostToolUse 'Quest-log check-in: this new item has no parent. Is there an existing Quest/Mission it actually belongs under? If so, pass parentIdOrTitle next time or move/recruit it now -- if it is genuinely standalone, no action needed.'
 fi
+exit 0

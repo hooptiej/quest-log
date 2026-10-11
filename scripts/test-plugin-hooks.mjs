@@ -82,6 +82,40 @@ function stubServer({ hooksVersion, proMode = false }) {
   check("no project-scoped hooks left", !existsSync(join(ROOT, ".claude/settings.json")) && !existsSync(join(ROOT, ".claude/hooks")));
 }
 
+// --- PostToolUse hooks (Task 2) ---
+{
+  const sid = `t2-${Date.now()}`;
+  let r = await runHook("quest-log-checkin.sh", { session_id: sid, tool_input: { command: "git commit -m x" } });
+  check("checkin: fires on git commit", context(r.stdout).startsWith("Quest-log check-in") && r.code === 0, r.stdout + r.stderr);
+  r = await runHook("quest-log-checkin.sh", { session_id: sid, tool_input: { command: "ls -la" } });
+  check("checkin: quiet on ls", r.stdout.trim() === "" && r.code === 0, r.stdout + r.stderr);
+  r = await runHook("quest-log-write-checkin.sh", { session_id: sid, tool_input: { file_path: "C:/x/CLAUDE.md" } });
+  check("write-checkin: fires on CLAUDE.md", context(r.stdout).includes("quest-log") && r.code === 0, r.stdout + r.stderr);
+  r = await runHook("quest-log-write-checkin.sh", { session_id: sid, tool_input: { file_path: "src/app.js" } });
+  check("write-checkin: quiet on app.js", r.stdout.trim() === "" && r.code === 0, r.stdout);
+  r = await runHook("quest-log-hierarchy-checkin.sh", { session_id: sid, tool_name: "mcp__quest-log__add_idea", tool_input: { title: "x" } });
+  check("hierarchy: fires on a parentless mission", context(r.stdout).includes("no parent") && r.code === 0, r.stdout + r.stderr);
+  r = await runHook("quest-log-hierarchy-checkin.sh", { session_id: sid, tool_name: "mcp__quest-log__add_idea", tool_input: { title: "x", parentIdOrTitle: "p" } });
+  check("hierarchy: quiet with a parent", r.stdout.trim() === "" && r.code === 0, r.stdout);
+  r = await runHook("quest-log-agent-checkin.sh", { session_id: sid, tool_name: "Agent" });
+  check("agent: quiet on the first dispatch", r.stdout.trim() === "" && r.code === 0, r.stdout);
+  r = await runHook("quest-log-agent-checkin.sh", { session_id: sid, tool_name: "Agent" });
+  check("agent: nudges on the second dispatch", context(r.stdout).includes("2 background agents") && r.code === 0, r.stdout + r.stderr);
+
+  const halo = await stubServer({ hooksVersion: "1.0.0", proMode: true });
+  const url = `http://127.0.0.1:${halo.address().port}/api/state`;
+  r = await runHook("quest-log-halo-checkin.sh", { session_id: sid, tool_name: "mcp__halo__halopsa_tickets_get" }, { QUEST_LOG_URL: url });
+  check("halo: view nudge when Pro Mode is on", context(r.stdout).includes("log_ticket_view") && r.code === 0, r.stdout + r.stderr);
+  halo.close();
+
+  // A machine without jq: say so once per session, then stay quiet.
+  const sid2 = `t2-nojq-${Date.now()}`;
+  r = await runHook("quest-log-checkin.sh", { session_id: sid2, tool_input: { command: "git push" } }, { QL_HIDE_TOOLS: "jq" });
+  check("missing jq: named once", context(r.stdout).includes("missing jq") && r.code === 0, r.stdout + r.stderr);
+  r = await runHook("quest-log-write-checkin.sh", { session_id: sid2, tool_input: { file_path: "CLAUDE.md" } }, { QL_HIDE_TOOLS: "jq" });
+  check("missing jq: not repeated in the same session", r.stdout.trim() === "" && r.code === 0, r.stdout);
+}
+
 // --- end ---
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);
