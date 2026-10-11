@@ -284,26 +284,20 @@ right now, and continue the actual task. Don't repeatedly retry or nag about it.
 
 ## Automated checkpoint reminders (Claude Code hooks)
 
-The instructions above rely on Claude noticing the right moments on its own. As a backstop — not
-a replacement — this project ships real, committed Claude Code hooks under `.claude/hooks/`
-(registered in `.claude/settings.json`) that inject a reminder at the moments most likely to mean
-quest-log needs an update: on `git commit`/`push`, PR/issue create-close-comment, and docker
-build/restart/compose (`quest-log-checkin.sh`); on `CLAUDE.md`/memory-file writes
-(`quest-log-write-checkin.sh`); on session start, to resurface stale `idea`-status items and
-attention-flagged items (`quest-log-session-start.sh`); on background-agent dispatch, escalating
-from the 2nd one in a session (`quest-log-agent-checkin.sh`); on a `add_idea` call that leaves a
-new Mission/Task parentless (`quest-log-hierarchy-checkin.sh`); on every user message, reminding
-to capture a new concrete ask before scoping it (`.claude/hooks/quest-log-reminder.mjs`, gated on
-`set_auto_log`); and on Halo MCP tool calls (`quest-log-halo-checkin.sh`, only relevant if Pro
-Mode/Halo is ever turned on). **CLAUDE.md's "Backstop check-in hooks" section is the canonical,
-current list of these** — read it there rather than trusting a re-enumeration here, since it's
-the one place this gets updated when a hook is added or changed. Because they're committed files,
-not machine-local config, they travel with the repo to any machine that checks it out — no manual
-per-machine setup needed.
+The instructions above rely on Claude noticing the right moments on its own. As a backstop, the
+same `quest-log` plugin that ships this skill also ships hooks that inject a reminder at the
+moments most likely to mean the quest log needs an update: on `git commit`/`push`, PR/issue
+create-close-comment and docker build/restart/compose; on `CLAUDE.md`/memory writes; on session
+start (attention-flagged items, stale ideas, and a check that this machine's hooks are current);
+on the 2nd+ background-agent dispatch; on an `add_idea` that leaves a Mission/Task parentless; on
+every user message (log a new ask first, gated on `set_auto_log`); and on Halo ticket tools (Pro
+Mode only). quest-log's `CLAUDE.md` ("The quest-log plugin") is the canonical list.
 
-A hook can only inject a reminder via `additionalContext` — it's a shell command, it cannot call
-quest-log's MCP tools directly. The actual sync/check still has to come from Claude reacting to
-that reminder in a live turn.
+The plugin is installed per machine, at user scope, so the hooks fire in every project. If a
+session-start message says the hooks are missing or out of date, follow the command it gives
+(`claude plugin marketplace update quest-log`, then `claude plugin update quest-log@quest-log`,
+then restart) before other work. A hook can only inject text; it cannot call quest-log's MCP
+tools, so the actual sync still has to come from Claude acting on the reminder.
 
 ## Known limitation: stale MCP session after a quest-log redeploy
 

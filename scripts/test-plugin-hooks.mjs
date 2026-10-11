@@ -144,6 +144,22 @@ function stubServer({ hooksVersion, proMode = false }) {
   check("session-start: still gives the standing nudges without jq", ctx.includes("attention: true"), ctx);
 }
 
+// --- docs carry the install/update instructions and no stale claims (Task 5) ---
+{
+  const text = (p) => readFileSync(join(ROOT, p), "utf8");
+  const claude = text("CLAUDE.md");
+  check("CLAUDE.md: deploy step updates the local plugin",
+    claude.includes("claude plugin update quest-log@quest-log") && /Last step of every deploy/.test(claude));
+  check("CLAUDE.md: install command", claude.includes("claude plugin marketplace add hooptiej/quest-log"));
+  for (const p of ["CLAUDE.md", "README.md", "skills/quest-tracker/SKILL.md", "questhelper/questhelper.js", "state.js"]) {
+    const t = text(p);
+    check(`${p}: no stale .claude/hooks paths`, !t.includes(".claude/hooks"));
+    check(`${p}: no "no per-machine setup" claim`, !/no per-machine setup/i.test(t));
+    check(`${p}: no questtracker-skill.md references`, !t.includes("questtracker-skill.md"));
+  }
+  check("diagram: no questtracker-skill.md", !text("docs/questlog-family.svg").includes("questtracker-skill.md"));
+}
+
 // --- end ---
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);

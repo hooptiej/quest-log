@@ -155,69 +155,55 @@ restart/redeploy. `set_maintenance(active: true/false)` lets a session flag an u
 so other open sessions see a warning banner instead of a raw error, but it doesn't prevent the
 session drop itself.
 
-`questtracker-skill.md` is a Claude Code skill (installed elsewhere as
-`~/.claude/skills/quest-tracker/SKILL.md`) that uses these tools to keep this quest log in sync
-with conversations. It also documents a direct REST fallback (`GET/POST /api/state` with the
-write token) for when an MCP session is stale.
+### The quest-log plugin: hooks + the QuestTracker skill (#142)
 
-### Auto-log reminder hook (`.claude/hooks/quest-log-reminder.mjs`)
+quest-log's Claude side ships as a **Claude Code plugin** from this repo (the repo is its own
+marketplace): `.claude-plugin/plugin.json` + `marketplace.json`, the hooks in `hooks/`
+(registered in `hooks/hooks.json`), and the QuestTracker skill in `skills/quest-tracker/SKILL.md`.
+It is installed **per machine, at user scope**, so the hooks fire in every project, not only in
+sessions opened inside this repo. (That was #142: they used to be registered in this repo's
+`.claude/settings.json`, so they never ran where the real work happens.)
 
-A checked-in `UserPromptSubmit` hook (registered in `.claude/settings.json`, both committed so
-they travel with the repo to any machine that checks it out — no per-machine setup) reminds an
-active Claude Code session, on every message, to log a new concrete ask into quest-log via
-`add_idea` before scoping or implementing it. It was built as a hook deliberately, not a
-timer/poll: a periodic "wait and check" reconciliation job was tried first and rejected, since
-this project has direct prior experience (see the git-commit/push/PR `PostToolUse` hooks
-mentioned above) that an event-triggered reminder fires reliably where a timer-based one drifts
-or silently misses.
+- **Install (once per machine):** `claude plugin marketplace add hooptiej/quest-log`, then
+  `claude plugin install quest-log@quest-log`, then restart Claude Code.
+- **Update:** `claude plugin marketplace update quest-log`, then
+  `claude plugin update quest-log@quest-log`, then restart.
+- **The MCP server entry is NOT in the plugin.** Each machine keeps its own `quest-log` entry in
+  `~/.claude.json`, since machines can point at different quest-log servers. Hooks find the
+  server through `QUEST_LOG_URL` (default `http://questlog.local/api/state`).
+- **Hooks version:** `.claude-plugin/plugin.json` `version` (repeated in `marketplace.json`; the
+  two must match). Bump it in any PR that changes `hooks/` or `skills/`, because
+  `claude plugin update` only picks up a new version. It is separate from `package.json`'s server
+  version. The server reports it as `hooksVersion` on `/health` (`app/hooks-version.js`; the
+  Dockerfile copies `.claude-plugin/` in for this).
+- **Never silent:** every hook exits 0 (a reminder must not block a tool call), but one that
+  can't run says so once per session through `hooks/lib.sh` (`ql_require`), instead of the old
+  `2>/dev/null || true`.
+- **Checks:** `node scripts/test-plugin-hooks.mjs` (manifests, registrations, every hook against a
+  stub server; needs bash and jq), `node scripts/test-hooks-version.mjs`, and
+  `claude plugin validate .`.
 
-The hook is gated on `state._autoLog.enabled` (`getAutoLog`/`setAutoLog` in `state.js`, toggled
-via the `set_auto_log` MCP tool) rather than a local file specifically so the switch is
-machine-agnostic — quest-log's own state already lives on one shared, always-reachable instance,
-so flipping the flag from any one of your machines takes effect on every machine's hook
-immediately. The hook script does a plain unauthenticated `GET /api/state` (same no-auth read
-access documented above) with a short timeout and fails silently (no output, exit 0) on any
-network hiccup — off-LAN, quest-log down, DNS miss — so a missed reminder never breaks a session.
-Override the target with the `QUEST_LOG_URL` env var (defaults to `http://questlog.local/api/state`).
+The hooks (each injects a reminder as `additionalContext`; none call the MCP server):
+- `quest-log-session-start.sh` (`SessionStart`): one message per session: a preflight naming any
+  missing `jq`/`curl`/`node`; the version check against `/health` (on a mismatch it gives the exact
+  update commands; if the server can't be reached it says so); then the standing nudges to check
+  `list_quests(attention: true)` and to review stale `idea` items.
+- `quest-log-reminder.mjs` (`UserPromptSubmit`): reminds the session to log a new concrete ask via
+  `add_idea` before scoping it. Gated on `state._autoLog.enabled` (`set_auto_log`), read from
+  `GET /api/state`, so the switch is machine-agnostic. A network error stays quiet (the
+  SessionStart check already reports an unreachable server).
+- `quest-log-checkin.sh` (`PostToolUse`/`Bash`): nudges on `git commit`/`push`, `gh pr
+  merge`/`create`, `gh issue create`/`close`/`comment`, `docker build`/`run`/`restart`/`compose`.
+- `quest-log-write-checkin.sh` (`PostToolUse`/`Write|Edit`): nudges on a `CLAUDE.md`/memory write.
+- `quest-log-agent-checkin.sh` (`PostToolUse`/`Agent`): counts agent dispatches per session and
+  nudges from the 2nd onward.
+- `quest-log-hierarchy-checkin.sh` (`PostToolUse`/`mcp__.*__add_idea`, #108): nudges when a new
+  Mission/Task has no parent.
+- `quest-log-halo-checkin.sh` (`PostToolUse`/Halo MCP tools): ticket view/touch nudges, gated on
+  `state._proMode` (`set_pro_mode`), so a no-op unless Pro Mode is on.
 
-### Backstop check-in hooks (`.claude/hooks/quest-log-*.sh`)
-
-Five more checked-in hooks (registered in the same `.claude/settings.json`, same "no per-machine
-setup" reasoning as the auto-log reminder above) backstop the QuestTracker skill's own
-proactive-sync instruction, which is soft/relevance-matched and can lose out to whatever's in
-front of Claude in a long session:
-
-- `quest-log-checkin.sh` (`PostToolUse`/`Bash`) — nudges on a `git commit`/`push`, `gh pr
-  merge`/`create`, `gh issue create`/`close`/`comment`, or `docker build`/`run`/`restart`/`compose`
-  command.
-- `quest-log-write-checkin.sh` (`PostToolUse`/`Write|Edit`) — nudges on a `CLAUDE.md`/memory-file
-  write, which the Bash-only hook above structurally can't see.
-- `quest-log-session-start.sh` (`SessionStart`) — nudges a fresh session to review stale
-  `status: idea` items, since nothing about the write-triggered hooks above re-surfaces old unread
-  state on its own.
-- `quest-log-agent-checkin.sh` (`PostToolUse`/`Agent`) — counts background-agent dispatches per
-  session (a `$TMPDIR`-based counter file keyed by `session_id`) and escalates the nudge from the
-  2nd dispatch onward, catching multi-source investigations that never trip any single
-  tool-family-scoped hook.
-- `quest-log-halo-checkin.sh` (`PostToolUse`/Halo MCP tools) — nudges to log a Halo ticket view
-  (`log_ticket_view`) or touch (`log_ticket_touch`) via the ticket-tracking tools documented above.
-  Gated on `state._proMode` (`getProMode`/`setProMode`, toggled via `set_pro_mode`) using the exact
-  same pattern as the auto-log reminder's `_autoLog.enabled` gate: a plain unauthenticated
-  `GET /api/state`, short timeout, fails silent on any network hiccup — so this is a true no-op on
-  a deployment that never turns Pro Mode on, or has no Halo MCP tools present at all.
-- `quest-log-hierarchy-checkin.sh` (`PostToolUse`/`mcp__.*__add_idea`, #108) — nudges when a newly
-  created Mission/Task has no `parentIdOrTitle`. Quests are legitimately top-level by design (see
-  e.g. the "homeserver-docker" quest's own notes on why umbrella intents stay their own top-level
-  Quest rather than a literal parent), so this only fires for `level: mission`/`task` (`mission` is
-  `add_idea`'s own default) — a missing parent on one of those is usually a skipped placement
-  decision, not a deliberate one. Prompted by a real cleanup where several orphaned items were
-  found only because they'd separately been attention-flagged; nudges rather than blocks, since a
-  standalone Mission/Task is sometimes genuinely correct.
-
-These five supersede the echo-based `PostToolUse`/`SessionStart` one-liners previously documented
-in `questtracker-skill.md`'s "Automated checkpoint reminders" section, which were explicitly
-marked "not portable via this repo" — real committed scripts here close that gap the same way
-`quest-log-reminder.mjs` already did for the `UserPromptSubmit` case.
+The skill also documents a direct REST fallback (`GET/POST /api/state` with the write token) for
+when an MCP session is stale.
 
 ## Build / run / test
 
@@ -293,6 +279,14 @@ Call `set_maintenance(active: true, note: "...")` via an MCP session before taki
 down for a redeploy, if you're doing so from a session that has quest-log tools open — it warns
 other open sessions instead of letting them hit a raw stale-session error. Clear it
 (`active: false`) once the new container is confirmed healthy.
+
+**Last step of every deploy: the local plugin.** Deploys are always run by a Claude session (the
+owner never deploys alone), so this step is part of the deploy, not a follow-up. If the release
+changed `hooks/` or `skills/` (the version in `.claude-plugin/plugin.json` moved): on the machine
+running the deploy, run `claude plugin marketplace update quest-log` and
+`claude plugin update quest-log@quest-log`, restart Claude Code, and confirm the new session's
+quest-log SessionStart message has no "differs from the server's" line. Check `/health` reports
+the new `hooksVersion`. Every other machine is told at its next session start by that same check.
 
 ## Gotchas worth knowing up front
 
