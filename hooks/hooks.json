@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-reminder.mjs\"" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-checkin.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-write-checkin.sh\"" }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__halopsa_tickets_.*",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-halo-checkin.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-agent-checkin.sh\"" }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__add_idea",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-hierarchy-checkin.sh\"" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-session-start.sh\"" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+hooks/* text eol=lf
+.claude-plugin/*.json text eol=lf
+skills/**/*.md text eol=lf
