@@ -293,11 +293,19 @@ on the 2nd+ background-agent dispatch; on an `add_idea` that leaves a Mission/Ta
 every user message (log a new ask first, gated on `set_auto_log`); and on Halo ticket tools (Pro
 Mode only). quest-log's `CLAUDE.md` ("The quest-log plugin") is the canonical list.
 
-The plugin is installed per machine, at user scope, so the hooks fire in every project. If a
-session-start message says the hooks are missing or out of date, follow the command it gives
-(`claude plugin marketplace update quest-log`, then `claude plugin update quest-log@quest-log`,
-then restart) before other work. A hook can only inject text; it cannot call quest-log's MCP
-tools, so the actual sync still has to come from Claude acting on the reminder.
+The plugin is installed per machine, at user scope, so the hooks fire in every project. Act on
+what the session-start message says, before other work:
+- **"quest-log hooks on this machine are vX, which differs from the server's vY"**: run
+  `claude plugin marketplace update quest-log`, then `claude plugin update quest-log@quest-log`,
+  then restart Claude Code.
+- **"quest-log hooks: missing <tools> on this machine"**: install the named tools (`jq`, `curl`,
+  `node`).
+- **No quest-log session-start message at all**: the plugin probably isn't installed here.
+  Install it with `claude plugin marketplace add hooptiej/quest-log`, then
+  `claude plugin install quest-log@quest-log`, then restart.
+
+A hook can only inject text; it cannot call quest-log's MCP tools, so the actual sync still has
+to come from Claude acting on the reminder.
 
 ## Known limitation: stale MCP session after a quest-log redeploy
 

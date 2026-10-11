@@ -207,7 +207,9 @@ when an MCP session is stale.
 
 ## Build / run / test
 
-No test suite in this repo. A persistent dev container (`quest-log-dev`) runs on the TrueNAS box
+No test framework: the tests are plain Node scripts in `scripts/test-*.mjs` (run each with
+`node scripts/<name>.mjs`), plus `claude plugin validate .` for the plugin manifests. A persistent
+dev container (`quest-log-dev`) runs on the TrueNAS box
 at `/mnt/Storage Pool/home/hoop/hoop/quest-log-dev` for live verification of feature branches.
 
 **Development container workflow:**
