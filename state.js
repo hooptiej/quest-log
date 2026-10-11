@@ -402,10 +402,10 @@ export function setMaintenance(state, { active, note }) {
 }
 
 // Machine-agnostic on/off switch for the checked-in UserPromptSubmit hook
-// (see .claude/hooks/) that reminds an active session to log a new ask into
+// (see hooks/ in the quest-log plugin) that reminds an active session to log a new ask into
 // quest-log before scoping/implementing it. Lives on shared state rather
 // than a local file so flipping it from any one of the owner's machines
-// takes effect everywhere the hook runs, without per-machine setup.
+// takes effect everywhere the hook runs, on every machine with the plugin installed.
 export function getAutoLog(state) {
   return state._autoLog ?? { enabled: false };
 }

@@ -5,10 +5,10 @@
 # Purely additive to the QuestTracker skill's own proactive-sync instructions
 # -- doesn't replace them, backstops them, since a skill's trigger is soft
 # (relevance-matched) and this is deterministic. Supersedes the echo-based
-# one-liner version of this same idea documented in questtracker-skill.md's
+# one-liner version of this same idea documented in skills/quest-tracker/SKILL.md's
 # "Automated checkpoint reminders" section (that version was explicitly
 # marked "not portable via this repo" -- a real committed script here, wired
-# up through .claude/settings.json the same way quest-log-reminder.mjs
+# up through hooks/hooks.json the same way quest-log-reminder.mjs
 # already is, fixes that).
 #
 # To add/remove trigger patterns, edit the regex below -- one alternative
@@ -25,8 +25,13 @@ TRIGGER_PATTERN="$TRIGGER_PATTERN|docker (build|run|restart|compose)"
 
 REMINDER='Quest-log check-in: does this completion belong in the quest log (mcp__quest-log__* tools)? Add, update, or close a quest now if so.'
 
-cmd="$(jq -r '.tool_input.command // empty' 2>/dev/null)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+input="$(cat)"
+ql_require quest-log-checkin PostToolUse "$input" jq
+
+cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty')"
 
 if printf '%s' "$cmd" | grep -qE "$TRIGGER_PATTERN"; then
-  jq -n --arg ctx "$REMINDER" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+  ql_emit PostToolUse "$REMINDER"
 fi
+exit 0

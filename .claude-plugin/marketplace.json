@@ -1,0 +1,14 @@
+{
+  "name": "quest-log",
+  "description": "The quest-log Claude Code plugin, served straight from the quest-log repo",
+  "owner": { "name": "hooptiej" },
+  "plugins": [
+    {
+      "name": "quest-log",
+      "description": "QuestTracker skill + check-in hooks that keep hooptiej's quest log in sync with real work, in every project",
+      "version": "1.0.0",
+      "source": "./",
+      "author": { "name": "hooptiej" }
+    }
+  ]
+}

@@ -13,7 +13,10 @@
 # here, same tradeoff the other hooks in this set accept for their own
 # state.
 
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 input="$(cat)"
+ql_require quest-log-agent-checkin PostToolUse "$input" jq
+
 session_id="$(printf '%s' "$input" | jq -r '.session_id // empty')"
 tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty')"
 
@@ -31,6 +34,6 @@ count=$((count + 1))
 printf '%s' "$count" > "$count_file" 2>/dev/null
 
 if [ "$count" -ge 2 ]; then
-  jq -n --arg ctx "Quest-log check-in: this session has dispatched $count background agents now -- that usually means a real multi-source investigation, not a quick lookup. Is this tracked in quest-log yet (add_idea/set_quest_status), or just sitting in conversation?" \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+  ql_emit PostToolUse "Quest-log check-in: this session has dispatched $count background agents now -- that usually means a real multi-source investigation, not a quick lookup. Is this tracked in quest-log yet (add_idea/set_quest_status), or just sitting in conversation?"
 fi
+exit 0

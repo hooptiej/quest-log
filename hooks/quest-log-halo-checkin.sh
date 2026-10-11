@@ -19,15 +19,20 @@
 
 QUEST_LOG_URL="${QUEST_LOG_URL:-http://questlog.local/api/state}"
 
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+input="$(cat)"
+ql_require quest-log-halo-checkin PostToolUse "$input" jq curl
+
+# A network failure here is expected off-LAN and stays quiet; the
+# SessionStart hook reports an unreachable server once per session.
 pro_mode="$(curl -s -m 1.5 "$QUEST_LOG_URL" 2>/dev/null | jq -r '._proMode // false' 2>/dev/null)"
 [ "$pro_mode" = "true" ] || exit 0
 
-tool_name="$(jq -r '.tool_name // empty' 2>/dev/null)"
+tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty')"
 
 if printf '%s' "$tool_name" | grep -qE 'halopsa_tickets_(get|list|search)'; then
-  jq -n --arg ctx 'Quest-log check-in: you just looked at a Halo ticket. Call mcp__quest-log__log_ticket_view (lightweight, no details needed) to record it.' \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+  ql_emit PostToolUse 'Quest-log check-in: you just looked at a Halo ticket. Call mcp__quest-log__log_ticket_view (lightweight, no details needed) to record it.'
 elif printf '%s' "$tool_name" | grep -qE 'halopsa_tickets_(add_action|update|create)'; then
-  jq -n --arg ctx 'Quest-log check-in: you just changed a Halo ticket. Call mcp__quest-log__log_ticket_touch with the ticket id, client, url, a short note on what you did, and closedWithHelp if this closed it.' \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+  ql_emit PostToolUse 'Quest-log check-in: you just changed a Halo ticket. Call mcp__quest-log__log_ticket_touch with the ticket id, client, url, a short note on what you did, and closedWithHelp if this closed it.'
 fi
+exit 0

@@ -1,0 +1,10 @@
+{
+  "name": "quest-log",
+  "description": "QuestTracker skill + check-in hooks that keep hooptiej's quest log in sync with real work, in every project",
+  "version": "1.0.0",
+  "author": { "name": "hooptiej" },
+  "homepage": "https://github.com/hooptiej/quest-log",
+  "repository": "https://github.com/hooptiej/quest-log",
+  "license": "MIT",
+  "keywords": ["quest-log", "tracker", "hooks", "skills"]
+}

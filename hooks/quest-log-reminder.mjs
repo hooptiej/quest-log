@@ -10,8 +10,8 @@
 // Gated on a flag stored in quest-log's own shared state (see
 // getAutoLog/setAutoLog in state.js, toggled via the set_auto_log MCP tool)
 // rather than a local file, so flipping it from any one of your machines
-// takes effect for this hook everywhere it's checked out -- no per-machine
-// setup beyond having the repo. Fails silent on any network hiccup (offline,
+// takes effect for this hook on every machine with the quest-log plugin
+// installed. Fails silent on any network hiccup (offline,
 // off-LAN, quest-log down) so a missed reminder never breaks a session.
 
 const QUEST_LOG_URL = process.env.QUEST_LOG_URL || "http://questlog.local/api/state";
