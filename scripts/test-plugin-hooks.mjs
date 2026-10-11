@@ -22,8 +22,17 @@ function check(name, ok, detail = "") {
 }
 
 function runHook(script, input, env = {}) {
+  return runBash([join(HOOKS, script).replace(/\\/g, "/")], input, env);
+}
+
+// Run a hooks.json command string the way Claude Code does: bash -c "<command>".
+function runCommand(command, input, env = {}) {
+  return runBash(["-c", command], input, env);
+}
+
+function runBash(args, input, env) {
   return new Promise((resolve) => {
-    const child = spawn(BASH, [join(HOOKS, script).replace(/\\/g, "/")], {
+    const child = spawn(BASH, args, {
       env: { ...process.env, TMPDIR: TMP, ...env },
     });
     let stdout = "";
@@ -142,6 +151,32 @@ function stubServer({ hooksVersion, proMode = false }) {
   ctx = context(r.stdout);
   check("session-start: preflight names missing tools", ctx.includes("missing jq node") && r.code === 0, r.stdout + r.stderr);
   check("session-start: still gives the standing nudges without jq", ctx.includes("attention: true"), ctx);
+
+  // An old server whose /health has no hooksVersion: say nothing about versions.
+  const old = await stubServer({});
+  r = await run({ QUEST_LOG_URL: `http://127.0.0.1:${old.address().port}/api/state` });
+  ctx = context(r.stdout);
+  check("session-start: quiet about versions on a server without hooksVersion",
+    ctx.includes("attention: true") && !ctx.includes("Update now") && !ctx.includes("couldn't reach") && r.code === 0, r.stdout + r.stderr);
+  old.close();
+}
+
+// --- every registered command runs as Claude Code runs it (bash -c, Windows-style root) ---
+{
+  const hooksJson = JSON.parse(readFileSync(join(ROOT, "hooks/hooks.json"), "utf8"));
+  const mine = JSON.parse(readFileSync(join(ROOT, ".claude-plugin/plugin.json"), "utf8")).version;
+  const server = await stubServer({ hooksVersion: mine });
+  const env = { CLAUDE_PLUGIN_ROOT: ROOT, QUEST_LOG_URL: `http://127.0.0.1:${server.address().port}/api/state` };
+  const commands = Object.values(hooksJson.hooks).flat().flatMap((g) => g.hooks.map((h) => h.command));
+  for (const c of commands) {
+    const r = await runCommand(c, { session_id: `t-cmd-${Math.random()}`, tool_name: "x", tool_input: {} }, env);
+    let ok = r.code === 0;
+    if (ok && !c.startsWith("node ") && r.stdout.trim()) {
+      try { ok = !!JSON.parse(r.stdout).hookSpecificOutput; } catch { ok = false; }
+    }
+    check(`registered command runs: ${c}`, ok, `code ${r.code}: ${r.stdout}${r.stderr}`);
+  }
+  server.close();
 }
 
 // --- docs carry the install/update instructions and no stale claims (Task 5) ---

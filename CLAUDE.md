@@ -170,7 +170,11 @@ sessions opened inside this repo. (That was #142: they used to be registered in 
   `claude plugin update quest-log@quest-log`, then restart.
 - **The MCP server entry is NOT in the plugin.** Each machine keeps its own `quest-log` entry in
   `~/.claude.json`, since machines can point at different quest-log servers. Hooks find the
-  server through `QUEST_LOG_URL` (default `http://questlog.local/api/state`).
+  server through `QUEST_LOG_URL` (default `http://questlog.local/api/state`). To point a
+  machine's hooks at a different quest-log (e.g. the work install), set it in that machine's
+  `~/.claude/settings.json`: `"env": { "QUEST_LOG_URL": "http://<server>/api/state" }`. Hooks
+  inherit the session environment. Use the same server the machine's `quest-log` MCP entry points
+  at, or the version check and the auto-log/Pro Mode gates will read the wrong state.
 - **Hooks version:** `.claude-plugin/plugin.json` `version` (repeated in `marketplace.json`; the
   two must match). Bump it in any PR that changes `hooks/` or `skills/`, because
   `claude plugin update` only picks up a new version. It is separate from `package.json`'s server
