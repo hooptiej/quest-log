@@ -9,9 +9,11 @@ import { dirname, join } from "node:path";
 import { readState, mutateState, validateState, nowISO, setProMode } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
+import { readHooksVersion } from "./hooks-version.js";
 import pkg from "../package.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const HOOKS_VERSION = readHooksVersion(join(__dirname, ".."));
 const ROOT_DIR = join(__dirname, "..");
 const QUEST_LOG_ENV = process.env.QUEST_LOG_ENV ?? "prod";
 const DEFAULT_PORT = QUEST_LOG_ENV === "dev" ? 4243 : 4242;
@@ -148,7 +150,7 @@ app.post("/api/state", async (req, res, next) => {
 
 attachMcp(app, { env: QUEST_LOG_ENV });
 
-app.get("/health", (_req, res) => res.json({ status: "ok", version: pkg.version }));
+app.get("/health", (_req, res) => res.json({ status: "ok", version: pkg.version, hooksVersion: HOOKS_VERSION }));
 
 app.use((err, _req, res, _next) => {
   console.error(err);

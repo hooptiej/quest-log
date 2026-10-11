@@ -8,6 +8,7 @@ COPY state.js docker-entrypoint.sh ./
 COPY app ./app
 COPY questhelper ./questhelper
 COPY scripts ./scripts
+COPY .claude-plugin ./.claude-plugin
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 4242
