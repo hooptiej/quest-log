@@ -116,6 +116,34 @@ function stubServer({ hooksVersion, proMode = false }) {
   check("missing jq: not repeated in the same session", r.stdout.trim() === "" && r.code === 0, r.stdout);
 }
 
+// --- SessionStart (Task 3) ---
+{
+  const mine = JSON.parse(readFileSync(join(ROOT, ".claude-plugin/plugin.json"), "utf8")).version;
+  const run = (env) => runHook("quest-log-session-start.sh", { session_id: `t3-${Math.random()}` }, env);
+
+  const same = await stubServer({ hooksVersion: mine });
+  let r = await run({ QUEST_LOG_URL: `http://127.0.0.1:${same.address().port}/api/state` });
+  let ctx = context(r.stdout);
+  check("session-start: attention + stale nudges", ctx.includes("attention: true") && ctx.includes("status: idea") && r.code === 0, r.stdout + r.stderr);
+  check("session-start: quiet about versions when they match", !ctx.includes("Update now") && !ctx.includes("couldn't reach"), ctx);
+  same.close();
+
+  const newer = await stubServer({ hooksVersion: "99.0.0" });
+  r = await run({ QUEST_LOG_URL: `http://127.0.0.1:${newer.address().port}/api/state` });
+  ctx = context(r.stdout);
+  check("session-start: tells a stale machine how to update",
+    ctx.includes(`v${mine}`) && ctx.includes("v99.0.0") && ctx.includes("claude plugin update quest-log@quest-log") && r.code === 0, ctx);
+  newer.close();
+
+  r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state" });
+  check("session-start: says when quest-log is unreachable", context(r.stdout).includes("couldn't reach quest-log") && r.code === 0, r.stdout + r.stderr);
+
+  r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state", QL_HIDE_TOOLS: "jq node" });
+  ctx = context(r.stdout);
+  check("session-start: preflight names missing tools", ctx.includes("missing jq node") && r.code === 0, r.stdout + r.stderr);
+  check("session-start: still gives the standing nudges without jq", ctx.includes("attention: true"), ctx);
+}
+
 // --- end ---
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);

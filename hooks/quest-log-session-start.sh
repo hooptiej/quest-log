@@ -1,12 +1,45 @@
 #!/bin/bash
-# SessionStart hook: nudges a fresh session to check quest-log for stale
-# "idea" items before diving into work. This covers a different gap than
-# the write-triggered hooks (quest-log-checkin.sh, quest-log-write-
-# checkin.sh): those only fire when something NEW happens, so a standing
-# idea can sit unread for an entire session even with both firing
-# correctly, since nothing about writing new state re-surfaces old unread
-# state. Supersedes the doc-only echo-based version of this idea in
-# questtracker-skill.md's "Automated checkpoint reminders" section.
+# SessionStart hook (#142): one message per session, in this order:
+#   1. preflight: name any tool the hooks need that this machine lacks;
+#   2. version check: compare this plugin's version with the hooksVersion
+#      the quest-log server reports on /health, and give the exact update
+#      commands on a mismatch (or say the server couldn't be reached);
+#   3. the standing nudges: surface attention-flagged items, then review
+#      stale "idea" items (nothing about the write-triggered hooks
+#      re-surfaces old unread state on its own).
+# Deliberately jq-free (sed + printf), so it still speaks when jq is the
+# missing tool.
 
-jq -n --arg ctx 'Session started: early check -- review quest-log for items with status: idea that have not been touched recently. Surface stale ideas to the user before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).' \
-  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+QL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+input="$(cat)"
+QUEST_LOG_URL="${QUEST_LOG_URL:-http://questlog.local/api/state}"
+UPDATE_CMD='claude plugin marketplace update quest-log, then claude plugin update quest-log@quest-log, then restart Claude Code'
+parts=()
+
+# 1. preflight
+missing=()
+for t in jq curl node; do ql_has "$t" || missing+=("$t"); done
+if [ ${#missing[@]} -gt 0 ]; then
+  ql_mark_reported "$input"
+  parts+=("quest-log hooks: missing ${missing[*]} on this machine, so some quest-log check-ins can't run. Install them.")
+fi
+
+# 2. version check
+mine="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$QL_ROOT/.claude-plugin/plugin.json" | head -n 1)"
+if ql_has curl; then
+  health_url="${QUEST_LOG_URL%%/api/*}/health"
+  health="$(curl -s -m 1.5 "$health_url" 2>/dev/null)"
+  theirs="$(printf '%s' "$health" | sed -n 's/.*"hooksVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  if [ -z "$health" ]; then
+    parts+=("quest-log hooks: couldn't reach quest-log at $health_url to check for hook updates (offline or off the home LAN?).")
+  elif [ -n "$theirs" ] && [ "$theirs" != "$mine" ]; then
+    parts+=("quest-log hooks on this machine are v$mine, which differs from the server's v$theirs. Update now: $UPDATE_CMD.")
+  fi
+fi
+
+# 3. standing nudges
+parts+=("Session started: early check -- call mcp__quest-log__list_quests(attention: true) and surface attention-flagged items to the user first; then review quest-log for items with status: idea that have not been touched recently and surface stale ones before this session progresses, especially if it touches quest-log-adjacent work (issues, PRs, memory, etc.).")
+
+ql_emit SessionStart "$(printf '%s\n' "${parts[@]}")"
+exit 0
