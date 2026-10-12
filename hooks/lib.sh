@@ -61,6 +61,27 @@ ql_require() {
   exit 0
 }
 
+# ql_version_cmp A B (#144): print -1, 0 or 1 as version A is older than,
+# equal to, or newer than B, comparing each N.N.N component as a number (so
+# 1.10.0 > 1.9.0). Prints nothing and returns 1 unless both are plain N.N.N.
+# Bash 3.2 safe.
+ql_version_cmp() {
+  local a b i x y
+  for x in "$1" "$2"; do
+    printf '%s' "$x" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || return 1
+  done
+  a=$1 b=$2
+  for i in 1 2 3; do
+    x=${a%%.*} y=${b%%.*}
+    a=${a#*.} b=${b#*.}
+    # strip leading zeros so bash doesn't read them as octal
+    x=$((10#$x)) y=$((10#$y))
+    if [ "$x" -lt "$y" ]; then printf -- '-1'; return 0; fi
+    if [ "$x" -gt "$y" ]; then printf '1'; return 0; fi
+  done
+  printf '0'
+}
+
 # --- the auto-log / Pro Mode switches, cached per session (#143) ---
 #
 # The server's /health carries "autoLog" and "proMode". Rather than ask on
@@ -117,7 +138,7 @@ ql_flags_write_from_health() {
     return 0
   fi
   url="${QUEST_LOG_URL:-http://questlog.local/api/state}"
-  state="$(curl -s -m 1.5 "$url" 2>/dev/null | tr -d '\r\n')"
+  state="$(curl -fs -m 1.5 "$url" 2>/dev/null | tr -d '\r\n')"
   if [ -z "$state" ]; then
     ql_flags_store 0 0 0 "$input"
     return 0
@@ -152,5 +173,5 @@ ql_flags() {
     fi
   fi
   url="${QUEST_LOG_URL:-http://questlog.local/api/state}"
-  ql_flags_write_from_health "$(curl -s -m 1.5 "${url%%/api/*}/health" 2>/dev/null)" "$input"
+  ql_flags_write_from_health "$(curl -fs -m 1.5 "${url%%/api/*}/health" 2>/dev/null)" "$input"
 }

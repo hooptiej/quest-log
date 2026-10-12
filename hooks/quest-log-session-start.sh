@@ -2,8 +2,9 @@
 # SessionStart hook (#142): one message per session, in this order:
 #   1. preflight: name any tool the hooks need that this machine lacks;
 #   2. version check: compare this plugin's version with the hooksVersion
-#      the quest-log server reports on /health, and give the exact update
-#      commands on a mismatch (or say the server couldn't be reached).
+#      the quest-log server reports on /health: give the exact update
+#      commands when this machine is behind, say prod needs a deploy when
+#      it's ahead (#144), or say the server couldn't be reached.
 #      The same response seeds this session's auto-log / Pro Mode cache
 #      (#143, ql_flags in lib.sh), so the first prompt asks nothing;
 #   3. the standing nudges: surface attention-flagged items, then review
@@ -31,13 +32,19 @@ fi
 mine="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$QL_ROOT/.claude-plugin/plugin.json" | head -n 1)"
 if ql_has curl; then
   health_url="${QUEST_LOG_URL%%/api/*}/health"
-  health="$(curl -s -m 1.5 "$health_url" 2>/dev/null)"
+  # -f: an HTTP error (a proxy's 502 page, say) counts as unreachable (#144).
+  health="$(curl -fs -m 1.5 "$health_url" 2>/dev/null)"
   ql_flags_write_from_health "$health" "$input"
   theirs="$(printf '%s' "$health" | sed -n 's/.*"hooksVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   if [ -z "$health" ]; then
     parts+=("quest-log hooks: couldn't reach quest-log at $health_url to check for hook updates (offline or off the home LAN?).")
   elif [ -n "$theirs" ] && [ "$theirs" != "$mine" ]; then
-    parts+=("quest-log hooks on this machine are v$mine, which differs from the server's v$theirs. Update now: $UPDATE_CMD.")
+    # Which way round (#144): a machine ahead of prod has nothing to update.
+    case "$(ql_version_cmp "$mine" "$theirs")" in
+      -1) parts+=("quest-log hooks on this machine are v$mine, older than the server's v$theirs. Update now: $UPDATE_CMD.") ;;
+      1) parts+=("quest-log hooks on this machine are v$mine, newer than the server's v$theirs: prod hasn't been redeployed yet. Nothing to do on this machine; deploy quest-log to finish.") ;;
+      *) parts+=("quest-log hooks on this machine are v$mine, which differs from the server's v$theirs. Update now: $UPDATE_CMD.") ;;
+    esac
   fi
 fi
 

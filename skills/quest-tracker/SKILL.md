@@ -295,9 +295,13 @@ Mode only). quest-log's `CLAUDE.md` ("The quest-log plugin") is the canonical li
 
 The plugin is installed per machine, at user scope, so the hooks fire in every project. Act on
 what the session-start message says, before other work:
-- **"quest-log hooks on this machine are vX, which differs from the server's vY"**: run
+- **"quest-log hooks on this machine are vX, older than the server's vY"** (or "which differs
+  from the server's vY", when either version isn't plain x.y.z): run
   `claude plugin marketplace update quest-log`, then `claude plugin update quest-log@quest-log`,
   then restart Claude Code.
+- **"quest-log hooks on this machine are vX, newer than the server's vY"**: nothing to do on
+  this machine; prod hasn't been redeployed with the new hooks yet. Mention it to the user; the
+  fix is a quest-log deploy.
 - **"quest-log hooks: missing <tools> on this machine"**: install the named tools (`jq`,
   `curl`).
 - **No quest-log session-start message at all**: the plugin probably isn't installed here.

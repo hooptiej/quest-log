@@ -190,11 +190,15 @@ sessions opened inside this repo. (That was #142: they used to be registered in 
 
 The hooks (most inject a reminder as `additionalContext`; the UserPromptSubmit reminder prints
 plain text; none call the MCP server):
-- `quest-log-session-start.sh` (`SessionStart`): one message per session: a preflight naming any
-  missing `jq`/`curl`; the version check against `/health` (on a mismatch it gives the exact
-  update commands; if the server can't be reached it says so); then the standing nudges to check
-  `list_quests(attention: true)` and to review stale `idea` items. The same `/health` response
-  seeds the session's flags cache (below).
+- `quest-log-session-start.sh` (`SessionStart`, matcher `startup|clear`: runs on a fresh start
+  or `/clear` only, not on resume or compact, #144): one message: a preflight naming any
+  missing `jq`/`curl`; the version check against `/health` (`ql_version_cmp` in `lib.sh`
+  compares x.y.z numerically: if this machine is older it gives the exact update commands; if
+  it's newer it says prod hasn't been redeployed and there's nothing to do on the machine; if
+  either version isn't plain x.y.z it gives the neutral "differs" text plus the update
+  commands; if the server can't be reached, an HTTP error included, it says so); then the
+  standing nudges to check `list_quests(attention: true)` and to review stale `idea` items. The
+  same `/health` response seeds the session's flags cache (below).
 - `quest-log-reminder.sh` (`UserPromptSubmit`): reminds the session to log a new concrete ask via
   `add_idea` before scoping it. Gated on `state._autoLog.enabled` (`set_auto_log`), read through
   the flags cache, so the switch is machine-agnostic. Prints plain text (UserPromptSubmit adds
@@ -215,7 +219,8 @@ plain text; none call the MCP server):
 `/health` itself still answers). `ql_flags` in `hooks/lib.sh` keeps them in one file per session,
 `${TMPDIR:-/tmp}/quest-log-hooks/flags-<session_id>`, as plain `key=value` lines (`fetched_at`,
 `reachable`, `auto_log`, `pro_mode`; parsed with sed, never sourced), and refetches `/health`
-(`curl -m 1.5`) once the file is older than 60 seconds (`QL_FLAGS_TTL` overrides it; the tests use
+(`curl -f -m 1.5`, so an HTTP error response counts as unreachable) once the file is older than
+60 seconds (`QL_FLAGS_TTL` overrides it; the tests use
 0). So a switch flipped elsewhere takes effect within about a minute. An unreachable server is
 cached too (`reachable=0`), so prompts off the home LAN don't each wait for the timeout. A server
 from before #143 (no `autoLog` on `/health`) gets one `GET /api/state` instead. Results land in
@@ -306,7 +311,9 @@ owner never deploys alone), so this step is part of the deploy, not a follow-up.
 changed `hooks/` or `skills/` (the version in `.claude-plugin/plugin.json` moved): on the machine
 running the deploy, run `claude plugin marketplace update quest-log` and
 `claude plugin update quest-log@quest-log`, restart Claude Code, and confirm the new session's
-quest-log SessionStart message has no "differs from the server's" line. Check `/health` reports
+quest-log SessionStart message has no "older than the server's" (or "differs from the server's")
+line. A "newer than the server's" line instead means prod isn't on the new hooks yet: nothing to
+do on the machine, finish the deploy. Check `/health` reports
 the new `hooksVersion`. Every other machine is told at its next session start by that same check.
 
 ## Gotchas worth knowing up front
