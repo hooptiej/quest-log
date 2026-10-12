@@ -294,6 +294,7 @@
     box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
     text-shadow: 0.5px 0.5px 0 rgba(80,55,25,0.35);
   }
+  [data-theme="raccoonmanor"] .score-period-label { color: #2c2013; opacity: 0.8; }
   [data-theme="raccoonmanor"] .score-block:nth-of-type(1) .score-label { transform: rotate(-5deg); }
   [data-theme="raccoonmanor"] .score-block:nth-of-type(2) .score-label { transform: rotate(4deg); }
   /* The rounded, bordered #ticket-stats-panel box (border-color: var(--border),
@@ -1774,6 +1775,32 @@
     text-transform: uppercase;
   }
 
+  /* #148: each counter is three labelled numbers (today / 7 days / 30 days)
+     instead of a bare "8 · 15 · 25" whose meaning only the caption gave.
+     The numbers keep .score-value so every theme's number styling still
+     applies; .score-period-label is deliberately quieter than .score-label
+     so the block's name still reads as the heading. */
+  .score-periods {
+    display: flex;
+    justify-content: center;
+    gap: 1.4rem;
+  }
+
+  .score-period {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .score-period-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
   .status-subcaption {
     margin: 0.1rem 0 0.5rem;
     font-family: var(--font-mono);
@@ -2622,11 +2649,11 @@
   <div class="status-panel" id="ticket-stats-panel">
     <div class="scoreboard">
       <div class="score-block">
-        <span class="score-value" id="stat-touched">— · — · —</span>
+        <div class="score-periods" id="stat-touched"><span class="score-period"><span class="score-value" data-period="today">—</span><span class="score-period-label">Today</span></span><span class="score-period"><span class="score-value" data-period="week">—</span><span class="score-period-label">7 days</span></span><span class="score-period"><span class="score-value" data-period="month">—</span><span class="score-period-label">30 days</span></span></div>
         <span class="score-label">Tickets Worked</span>
       </div>
       <div class="score-block">
-        <span class="score-value" id="stat-closed">— · — · —</span>
+        <div class="score-periods" id="stat-closed"><span class="score-period"><span class="score-value" data-period="today">—</span><span class="score-period-label">Today</span></span><span class="score-period"><span class="score-value" data-period="week">—</span><span class="score-period-label">7 days</span></span><span class="score-period"><span class="score-value" data-period="month">—</span><span class="score-period-label">30 days</span></span></div>
         <span class="score-label">Closed w/ Claude</span>
       </div>
     </div>
@@ -2634,7 +2661,7 @@
       <span class="status-label">Viewed</span>
       <span class="status-value" id="stat-viewed">—</span>
     </div>
-    <p class="status-subcaption">Claude session tracking (today &middot; week &middot; month) — not a live Halo metric. Halo is still the source of truth for ticket status.</p>
+    <p class="status-subcaption">Claude session tracking (7 and 30 days are rolling, counted back from now) — not a live Halo metric. Halo is still the source of truth for ticket status.</p>
     <button type="button" class="unroll-btn" data-action="toggle-tickets-full" aria-expanded="false">Show ticket history &#9662;</button>
     <div class="log-full collapsed" id="tickets-full"></div>
   </div>
