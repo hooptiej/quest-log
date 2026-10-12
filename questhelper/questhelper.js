@@ -813,7 +813,7 @@ function createServer(options = {}) {
 
   server.tool(
     "set_auto_log",
-    "Toggle the machine-agnostic flag the UserPromptSubmit hook shipped in the quest-log plugin reads before reminding an active session to log a new ask into quest-log. Stored on shared state, not a local file, so flipping it from any one machine takes effect on every machine's hook immediately.",
+    "Toggle the machine-agnostic flag the UserPromptSubmit hook shipped in the quest-log plugin reads before reminding an active session to log a new ask into quest-log. Stored on shared state, not a local file, so flipping it from any one machine reaches every machine's hook within about a minute (the hooks cache it per session for a minute).",
     {
       enabled: z.boolean().describe("true to have the hook remind sessions to log new asks, false to silence it"),
     },

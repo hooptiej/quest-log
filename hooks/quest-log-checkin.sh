@@ -8,7 +8,7 @@
 # one-liner version of this same idea documented in skills/quest-tracker/SKILL.md's
 # "Automated checkpoint reminders" section (that version was explicitly
 # marked "not portable via this repo" -- a real committed script here, wired
-# up through hooks/hooks.json the same way quest-log-reminder.mjs
+# up through hooks/hooks.json the same way quest-log-reminder.sh
 # already is, fixes that).
 #
 # To add/remove trigger patterns, edit the regex below -- one alternative

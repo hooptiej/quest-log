@@ -184,18 +184,22 @@ sessions opened inside this repo. (That was #142: they used to be registered in 
   can't run says so once per session through `hooks/lib.sh` (`ql_require`), instead of the old
   `2>/dev/null || true`.
 - **Checks:** `node scripts/test-plugin-hooks.mjs` (manifests, registrations, every hook against a
-  stub server; needs bash and jq), `node scripts/test-hooks-version.mjs`, and
+  stub server; needs bash and jq), `node scripts/test-hooks-version.mjs`,
+  `node scripts/test-health.mjs`, and
   `claude plugin validate .`.
 
-The hooks (each injects a reminder as `additionalContext`; none call the MCP server):
+The hooks (most inject a reminder as `additionalContext`; the UserPromptSubmit reminder prints
+plain text; none call the MCP server):
 - `quest-log-session-start.sh` (`SessionStart`): one message per session: a preflight naming any
-  missing `jq`/`curl`/`node`; the version check against `/health` (on a mismatch it gives the exact
+  missing `jq`/`curl`; the version check against `/health` (on a mismatch it gives the exact
   update commands; if the server can't be reached it says so); then the standing nudges to check
-  `list_quests(attention: true)` and to review stale `idea` items.
-- `quest-log-reminder.mjs` (`UserPromptSubmit`): reminds the session to log a new concrete ask via
-  `add_idea` before scoping it. Gated on `state._autoLog.enabled` (`set_auto_log`), read from
-  `GET /api/state`, so the switch is machine-agnostic. A network error stays quiet (the
-  SessionStart check already reports an unreachable server).
+  `list_quests(attention: true)` and to review stale `idea` items. The same `/health` response
+  seeds the session's flags cache (below).
+- `quest-log-reminder.sh` (`UserPromptSubmit`): reminds the session to log a new concrete ask via
+  `add_idea` before scoping it. Gated on `state._autoLog.enabled` (`set_auto_log`), read through
+  the flags cache, so the switch is machine-agnostic. Prints plain text (UserPromptSubmit adds
+  stdout to the context). A network error stays quiet (the SessionStart check already reports an
+  unreachable server).
 - `quest-log-checkin.sh` (`PostToolUse`/`Bash`): nudges on `git commit`/`push`, `gh pr
   merge`/`create`, `gh issue create`/`close`/`comment`, `docker build`/`run`/`restart`/`compose`.
 - `quest-log-write-checkin.sh` (`PostToolUse`/`Write|Edit`): nudges on a `CLAUDE.md`/memory write.
@@ -204,7 +208,18 @@ The hooks (each injects a reminder as `additionalContext`; none call the MCP ser
 - `quest-log-hierarchy-checkin.sh` (`PostToolUse`/`mcp__.*__add_idea`, #108): nudges when a new
   Mission/Task has no parent.
 - `quest-log-halo-checkin.sh` (`PostToolUse`/Halo MCP tools): ticket view/touch nudges, gated on
-  `state._proMode` (`set_pro_mode`), so a no-op unless Pro Mode is on.
+  `state._proMode` (`set_pro_mode`), read through the flags cache, so a no-op unless Pro Mode is on.
+
+**The flags cache (#143).** The hooks never download the full state. `/health` carries
+`autoLog` and `proMode` (built in `app/health.js`; both `null` if the state can't be read, and
+`/health` itself still answers). `ql_flags` in `hooks/lib.sh` keeps them in one file per session,
+`${TMPDIR:-/tmp}/quest-log-hooks/flags-<session_id>`, as plain `key=value` lines (`fetched_at`,
+`reachable`, `auto_log`, `pro_mode`; parsed with sed, never sourced), and refetches `/health`
+(`curl -m 1.5`) once the file is older than 60 seconds (`QL_FLAGS_TTL` overrides it; the tests use
+0). So a switch flipped elsewhere takes effect within about a minute. An unreachable server is
+cached too (`reachable=0`), so prompts off the home LAN don't each wait for the timeout. A server
+from before #143 (no `autoLog` on `/health`) gets one `GET /api/state` instead. Results land in
+`QL_AUTO_LOG`/`QL_PRO_MODE` (`1`/`0`). The hooks need `bash`, `jq` and `curl`; no `node`.
 
 The skill also documents a direct REST fallback (`GET/POST /api/state` with the write token) for
 when an MCP session is stale.

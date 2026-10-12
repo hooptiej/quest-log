@@ -298,8 +298,8 @@ what the session-start message says, before other work:
 - **"quest-log hooks on this machine are vX, which differs from the server's vY"**: run
   `claude plugin marketplace update quest-log`, then `claude plugin update quest-log@quest-log`,
   then restart Claude Code.
-- **"quest-log hooks: missing <tools> on this machine"**: install the named tools (`jq`, `curl`,
-  `node`).
+- **"quest-log hooks: missing <tools> on this machine"**: install the named tools (`jq`,
+  `curl`).
 - **No quest-log session-start message at all**: the plugin probably isn't installed here.
   Install it with `claude plugin marketplace add hooptiej/quest-log`, then
   `claude plugin install quest-log@quest-log`, then restart.

@@ -3,7 +3,9 @@
 #   1. preflight: name any tool the hooks need that this machine lacks;
 #   2. version check: compare this plugin's version with the hooksVersion
 #      the quest-log server reports on /health, and give the exact update
-#      commands on a mismatch (or say the server couldn't be reached);
+#      commands on a mismatch (or say the server couldn't be reached).
+#      The same response seeds this session's auto-log / Pro Mode cache
+#      (#143, ql_flags in lib.sh), so the first prompt asks nothing;
 #   3. the standing nudges: surface attention-flagged items, then review
 #      stale "idea" items (nothing about the write-triggered hooks
 #      re-surfaces old unread state on its own).
@@ -19,7 +21,7 @@ parts=()
 
 # 1. preflight
 missing=()
-for t in jq curl node; do ql_has "$t" || missing+=("$t"); done
+for t in jq curl; do ql_has "$t" || missing+=("$t"); done
 if [ ${#missing[@]} -gt 0 ]; then
   ql_mark_reported "$input"
   parts+=("quest-log hooks: missing ${missing[*]} on this machine, so some quest-log check-ins can't run. Install them.")
@@ -30,6 +32,7 @@ mine="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$QL_R
 if ql_has curl; then
   health_url="${QUEST_LOG_URL%%/api/*}/health"
   health="$(curl -s -m 1.5 "$health_url" 2>/dev/null)"
+  ql_flags_write_from_health "$health" "$input"
   theirs="$(printf '%s' "$health" | sed -n 's/.*"hooksVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   if [ -z "$health" ]; then
     parts+=("quest-log hooks: couldn't reach quest-log at $health_url to check for hook updates (offline or off the home LAN?).")

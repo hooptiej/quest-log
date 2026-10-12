@@ -10,6 +10,7 @@ import { readState, mutateState, validateState, nowISO, setProMode } from "../st
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import { readHooksVersion } from "./hooks-version.js";
+import { loadHealth } from "./health.js";
 import pkg from "../package.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -150,7 +151,8 @@ app.post("/api/state", async (req, res, next) => {
 
 attachMcp(app, { env: QUEST_LOG_ENV });
 
-app.get("/health", (_req, res) => res.json({ status: "ok", version: pkg.version, hooksVersion: HOOKS_VERSION }));
+// #143: /health also carries the auto-log and Pro Mode switches for the hooks.
+app.get("/health", async (_req, res) => res.json(await loadHealth({ version: pkg.version, hooksVersion: HOOKS_VERSION, readState })));
 
 app.use((err, _req, res, _next) => {
   console.error(err);
