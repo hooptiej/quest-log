@@ -1065,12 +1065,10 @@
     // effect immediately when flipped, no reload required.
     if (state._proMode) {
       var stats = ticketStats(state);
-      var touchedEl = document.getElementById("stat-touched");
-      if (touchedEl) touchedEl.textContent = fmtStat(stats.touched);
-      var closedEl = document.getElementById("stat-closed");
-      if (closedEl) closedEl.textContent = fmtStat(stats.closed);
+      fillStatPeriods("stat-touched", stats.touched);
+      fillStatPeriods("stat-closed", stats.closed);
       var viewedEl = document.getElementById("stat-viewed");
-      if (viewedEl) viewedEl.textContent = String(stats.viewed.today);
+      if (viewedEl) viewedEl.textContent = fmtViewed(stats.viewed);
 
       var touches = (state.ticketTouches || []).slice().reverse();
       var ticketsFullEl = document.getElementById("tickets-full");
@@ -1142,7 +1140,18 @@
     };
   }
 
-  function fmtStat(s) { return s.today + " · " + s.week + " · " + s.month; }
+  // #148: each scoreboard counter has its own labelled today / 7 days / 30 days
+  // cells (data-period), so the numbers no longer depend on the caption to mean anything.
+  function fillStatPeriods(id, s) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    ["today", "week", "month"].forEach(function (p) {
+      var cell = el.querySelector('[data-period="' + p + '"]');
+      if (cell) cell.textContent = String(s[p]);
+    });
+  }
+
+  function fmtViewed(s) { return s.today + " today · " + s.week + " in 7 days · " + s.month + " in 30 days"; }
 
   // Completing a flat item no longer moves it to a Completed panel (#30) --
   // it just drops off the Idea Board, with this taking its place as the
