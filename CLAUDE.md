@@ -188,7 +188,8 @@ sessions opened inside this repo. (That was #142: they used to be registered in 
   `node scripts/test-health.mjs`, and
   `claude plugin validate .`.
 
-The hooks (each injects a reminder as `additionalContext`; none call the MCP server):
+The hooks (most inject a reminder as `additionalContext`; the UserPromptSubmit reminder prints
+plain text; none call the MCP server):
 - `quest-log-session-start.sh` (`SessionStart`): one message per session: a preflight naming any
   missing `jq`/`curl`; the version check against `/health` (on a mismatch it gives the exact
   update commands; if the server can't be reached it says so); then the standing nudges to check

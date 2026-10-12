@@ -5,6 +5,7 @@
 // binary if `bash` resolves to the wrong one (e.g. WSL's).
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { createServer as createNetServer } from "node:net";
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -53,7 +54,8 @@ function context(stdout) {
 // A tiny stand-in quest-log: GET /health and GET /api/state. server.flags
 // can be changed between runs; server.hits counts requests per path.
 // omitFlags mimics a server from before #143 (/health without the switches).
-function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags = false }) {
+// stateBody, if given, is sent verbatim as the /api/state response.
+function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags = false, stateBody = null }) {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       res.setHeader("content-type", "application/json");
@@ -64,7 +66,7 @@ function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags 
         res.end(JSON.stringify({ status: "ok", version: "0.0.0", hooksVersion, ...flags }));
       } else {
         server.hits.state++;
-        res.end(JSON.stringify({ quests: [], _autoLog: { enabled: autoLog }, _proMode: proMode }));
+        res.end(stateBody ?? JSON.stringify({ quests: [], _autoLog: { enabled: autoLog }, _proMode: proMode }));
       }
     });
     server.flags = { autoLog, proMode };
@@ -73,6 +75,26 @@ function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags 
   });
 }
 const totalHits = (server) => server.hits.health + server.hits.state;
+
+// A TCP server that accepts connections, counts them, and never answers.
+// shut() closes it and drops the held sockets so the test can exit.
+function blackHole() {
+  return new Promise((resolve) => {
+    const sockets = new Set();
+    const server = createNetServer((socket) => {
+      server.connections++;
+      sockets.add(socket);
+      socket.on("error", () => {});
+      socket.on("close", () => sockets.delete(socket));
+    });
+    server.connections = 0;
+    server.shut = () => {
+      for (const s of sockets) s.destroy();
+      server.close();
+    };
+    server.listen(0, "127.0.0.1", () => resolve(server));
+  });
+}
 
 // The reminder text quest-log-reminder prints when auto-log is on.
 const REMINDER =
@@ -235,16 +257,27 @@ const REMINDER =
   off.close();
 
   // Unreachable: silent, remembered, and the next prompt doesn't wait again.
+  // A "black hole" accepts connections and never answers, so a run that asks
+  // waits out the 1.5 s curl timeout and bumps the connection count; a run
+  // that trusts the cache does neither.
+  const hole = await blackHole();
+  const holeEnv = { QUEST_LOG_URL: `http://127.0.0.1:${hole.address().port}/api/state` };
   s = sid("down");
-  const down = { QUEST_LOG_URL: "http://127.0.0.1:9/api/state" };
-  r = await reminder(s, down);
+  let t0 = Date.now();
+  r = await reminder(s, holeEnv);
+  let ms = Date.now() - t0;
   const cached = existsSync(cacheFile(s)) ? readFileSync(cacheFile(s), "utf8") : "";
-  check("unreachable: first prompt silent", r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+  check(`unreachable: first prompt waits for the timeout (${ms} ms >= 1200) and is silent`,
+    ms >= 1200 && r.stdout === "" && r.code === 0 && hole.connections >= 1, r.stdout + r.stderr + ` conns=${hole.connections}`);
   check("unreachable: caches reachable=0", /^reachable=0$/m.test(cached) && /^fetched_at=\d+$/m.test(cached), cached);
-  const t0 = Date.now();
-  r = await reminder(s, down);
-  const ms = Date.now() - t0;
-  check(`unreachable: second prompt is fast (${ms} ms < 700) and silent`, ms < 700 && r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+  const conns = hole.connections;
+  t0 = Date.now();
+  r = await reminder(s, holeEnv);
+  ms = Date.now() - t0;
+  check(`unreachable: second prompt is fast (${ms} ms < 700), silent, and doesn't connect`,
+    ms < 700 && r.stdout === "" && r.code === 0 && hole.connections === conns, r.stdout + r.stderr + ` conns ${conns} -> ${hole.connections}`);
+  hole.shut();
+  const down = { QUEST_LOG_URL: "http://127.0.0.1:9/api/state" };
 
   // A server from before #143: fall back to /api/state once, then cache.
   const old = await stubServer({ hooksVersion: "1.0.0", autoLog: true, omitFlags: true });
@@ -256,6 +289,22 @@ const REMINDER =
   r = await reminder(s, { QUEST_LOG_URL: urlOf(old) });
   check("old server: second prompt within the TTL makes 0 requests", r.stdout === REMINDER && r.code === 0 && totalHits(old) === before, JSON.stringify(old.hits));
   old.close();
+
+  // Quest text that quotes the keys (escaped in the JSON) must not count:
+  // neither inside a note value nor at the end of a key, where the closing
+  // quote is a real one and only the opening quote is escaped.
+  const spoofNote = 'pasted: {"_proMode": true, "_autoLog":{"enabled":true}}';
+  const spoofBody = `{"quests":[{"id":"q1","notes":${JSON.stringify(spoofNote)},` +
+    `${JSON.stringify('x"_proMode')}: true,${JSON.stringify('x"_autoLog')}:{"enabled":true}}],` +
+    `"_proMode": false,"_autoLog":{"enabled":false}}`;
+  const spoof = await stubServer({ hooksVersion: "1.0.0", omitFlags: true, stateBody: spoofBody });
+  r = await reminder(sid("spoof"), { QUEST_LOG_URL: urlOf(spoof) });
+  check("old server: an escaped _autoLog in quest text doesn't turn the reminder on",
+    r.stdout === "" && r.code === 0 && spoof.hits.state === 1, r.stdout + r.stderr + JSON.stringify(spoof.hits));
+  r = await runHook("quest-log-halo-checkin.sh", { session_id: sid("spoof-halo"), tool_name: "mcp__halo__halopsa_tickets_get" }, { QUEST_LOG_URL: urlOf(spoof) });
+  check("old server: an escaped _proMode in quest text doesn't trigger the halo nudge",
+    r.stdout.trim() === "" && r.code === 0, r.stdout + r.stderr);
+  spoof.close();
 
   // Halo reads Pro Mode from /health, never the full state.
   const pro = await stubServer({ hooksVersion: "1.0.0", proMode: true });

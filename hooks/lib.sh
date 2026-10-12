@@ -80,9 +80,10 @@ ql_flags_file() {
 }
 
 # ql_json_token KEY TEXT: the bare value after "KEY": (true/false/null/a
-# number), or nothing if KEY isn't there.
+# number), or nothing if KEY isn't there. The key's opening quote must not
+# follow a backslash, so a key quoted inside some string (\"KEY") is skipped.
 ql_json_token() {
-  printf '%s' "$2" | tr -d '\r\n' | grep -o "\"$1\"[[:space:]]*:[[:space:]]*[a-z0-9]*" | head -n 1 \
+  printf '%s' "$2" | tr -d '\r\n' | grep -oE '(^|[^\\])"'"$1"'"[[:space:]]*:[[:space:]]*[a-z0-9]*' | head -n 1 \
     | sed 's/.*:[[:space:]]*//'
 }
 
@@ -121,7 +122,7 @@ ql_flags_write_from_health() {
     ql_flags_store 0 0 0 "$input"
     return 0
   fi
-  auto="$(printf '%s' "$state" | grep -o '"_autoLog"[[:space:]]*:[[:space:]]*{[^}]*}' | head -n 1)"
+  auto="$(printf '%s' "$state" | grep -oE '(^|[^\\])"_autoLog"[[:space:]]*:[[:space:]]*\{[^}]*\}' | head -n 1)"
   auto="$(ql_json_token enabled "$auto")"
   pro="$(ql_json_token _proMode "$state")"
   ql_flags_store 1 "$(ql_bit "$auto")" "$(ql_bit "$pro")" "$input"
