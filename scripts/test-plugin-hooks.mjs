@@ -55,12 +55,19 @@ function context(stdout) {
 // can be changed between runs; server.hits counts requests per path.
 // omitFlags mimics a server from before #143 (/health without the switches).
 // stateBody, if given, is sent verbatim as the /api/state response.
-function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags = false, stateBody = null }) {
+// healthStatus, if given, makes /health answer that HTTP status with an HTML
+// error page (a proxy's 502, say) and makes /api/state answer it too.
+function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags = false, stateBody = null, healthStatus = null }) {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       res.setHeader("content-type", "application/json");
       const { autoLog, proMode } = server.flags;
-      if (req.url === "/health") {
+      if (healthStatus) {
+        server.hits[req.url === "/health" ? "health" : "state"]++;
+        res.statusCode = healthStatus;
+        res.setHeader("content-type", "text/html");
+        res.end(`<html><body><h1>${healthStatus} Bad Gateway</h1></body></html>`);
+      } else if (req.url === "/health") {
         server.hits.health++;
         const flags = omitFlags ? {} : { autoLog, proMode };
         res.end(JSON.stringify({ status: "ok", version: "0.0.0", hooksVersion, ...flags }));
@@ -183,7 +190,7 @@ const REMINDER =
   r = await run({ QUEST_LOG_URL: `http://127.0.0.1:${newer.address().port}/api/state` });
   ctx = context(r.stdout);
   check("session-start: tells a stale machine how to update",
-    ctx.includes(`v${mine}`) && ctx.includes("v99.0.0") && ctx.includes("claude plugin update quest-log@quest-log") && r.code === 0, ctx);
+    ctx.includes(`v${mine}`) && ctx.includes("older than the server's v99.0.0") && ctx.includes("claude plugin update quest-log@quest-log") && r.code === 0, ctx);
   newer.close();
 
   r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state" });
@@ -351,6 +358,57 @@ const REMINDER =
     check(`${p}: no questtracker-skill.md references`, !t.includes("questtracker-skill.md"));
   }
   check("diagram: no questtracker-skill.md", !text("docs/questlog-family.svg").includes("questtracker-skill.md"));
+}
+
+// --- version direction, startup|clear matcher, curl -f (#144) ---
+{
+  const cmp = async (a, b) => {
+    const lib = join(HOOKS, "lib.sh").replace(/\\/g, "/");
+    const r = await runBash(["-c", `. "${lib}"; ql_version_cmp "$1" "$2"; echo " rc=$?"`, "x", a, b], {}, {});
+    return r.stdout.trim();
+  };
+  check("ql_version_cmp: 1.2.0 < 1.10.0", (await cmp("1.2.0", "1.10.0")) === "-1 rc=0", await cmp("1.2.0", "1.10.0"));
+  check("ql_version_cmp: 1.10.0 > 1.9.0", (await cmp("1.10.0", "1.9.0")) === "1 rc=0", await cmp("1.10.0", "1.9.0"));
+  check("ql_version_cmp: equal", (await cmp("1.2.0", "1.2.0")) === "0 rc=0", await cmp("1.2.0", "1.2.0"));
+  check("ql_version_cmp: 2.0.0 > 1.9.9", (await cmp("2.0.0", "1.9.9")) === "1 rc=0", await cmp("2.0.0", "1.9.9"));
+  const bad = await cmp("not-a-version", "1.0.0");
+  check("ql_version_cmp: non-numeric -> empty, nonzero", /^rc=[1-9]/.test(bad), bad);
+  const bad2 = await cmp("1.0.0", "1.0");
+  check("ql_version_cmp: two-part -> empty, nonzero", /^rc=[1-9]/.test(bad2), bad2);
+
+  const run = (env) => runHook("quest-log-session-start.sh", { session_id: `t144-${Math.random()}` }, env);
+  const urlOf = (server) => `http://127.0.0.1:${server.address().port}/api/state`;
+
+  const behind = await stubServer({ hooksVersion: "0.0.1" });
+  let r = await run({ QUEST_LOG_URL: urlOf(behind) });
+  let ctx = context(r.stdout);
+  check("session-start: a machine ahead of prod says prod needs a deploy",
+    ctx.includes("newer than the server's v0.0.1") && ctx.includes("Nothing to do on this machine") && !ctx.includes("Update now") && r.code === 0, ctx + r.stderr);
+  behind.close();
+
+  const weird = await stubServer({ hooksVersion: "not-a-version" });
+  r = await run({ QUEST_LOG_URL: urlOf(weird) });
+  ctx = context(r.stdout);
+  check("session-start: unparseable server version -> neutral differs text",
+    ctx.includes("which differs from the server's vnot-a-version") && ctx.includes("Update now") && r.code === 0, ctx + r.stderr);
+  weird.close();
+
+  const hooksJson = JSON.parse(readFileSync(join(ROOT, "hooks/hooks.json"), "utf8"));
+  const ss = hooksJson.hooks.SessionStart?.[0] ?? {};
+  check("SessionStart only on startup|clear", ss.matcher === "startup|clear", JSON.stringify(ss.matcher));
+
+  // A proxy error page (HTTP 502, HTML body) counts as unreachable.
+  const err = await stubServer({ hooksVersion: "1.0.0", autoLog: true, healthStatus: 502 });
+  r = await run({ QUEST_LOG_URL: urlOf(err) });
+  ctx = context(r.stdout);
+  check("session-start: HTTP 502 on /health -> couldn't reach", ctx.includes("couldn't reach quest-log") && r.code === 0, ctx + r.stderr);
+  const s = `t144-502-${Math.random()}`;
+  r = await runHook("quest-log-reminder.sh", { session_id: s, prompt: "x" }, { QUEST_LOG_URL: urlOf(err) });
+  const cf = join(TMP, "quest-log-hooks", `flags-${s}`);
+  const cached = existsSync(cf) ? readFileSync(cf, "utf8") : "";
+  check("reminder: HTTP 502 on /health -> silent", r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+  check("reminder: HTTP 502 on /health -> caches reachable=0", /^reachable=0$/m.test(cached), cached);
+  err.close();
 }
 
 // --- end ---
