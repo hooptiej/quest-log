@@ -50,17 +50,37 @@ function context(stdout) {
   return JSON.parse(stdout).hookSpecificOutput.additionalContext;
 }
 
-// A tiny stand-in quest-log: GET /health and GET /api/state.
-function stubServer({ hooksVersion, proMode = false }) {
+// A tiny stand-in quest-log: GET /health and GET /api/state. server.flags
+// can be changed between runs; server.hits counts requests per path.
+// omitFlags mimics a server from before #143 (/health without the switches).
+function stubServer({ hooksVersion, proMode = false, autoLog = false, omitFlags = false }) {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       res.setHeader("content-type", "application/json");
-      if (req.url === "/health") res.end(JSON.stringify({ status: "ok", version: "0.0.0", hooksVersion }));
-      else res.end(JSON.stringify({ quests: [], _proMode: proMode }));
+      const { autoLog, proMode } = server.flags;
+      if (req.url === "/health") {
+        server.hits.health++;
+        const flags = omitFlags ? {} : { autoLog, proMode };
+        res.end(JSON.stringify({ status: "ok", version: "0.0.0", hooksVersion, ...flags }));
+      } else {
+        server.hits.state++;
+        res.end(JSON.stringify({ quests: [], _autoLog: { enabled: autoLog }, _proMode: proMode }));
+      }
     });
+    server.flags = { autoLog, proMode };
+    server.hits = { health: 0, state: 0 };
     server.listen(0, "127.0.0.1", () => resolve(server));
   });
 }
+const totalHits = (server) => server.hits.health + server.hits.state;
+
+// The reminder text quest-log-reminder prints when auto-log is on.
+const REMINDER =
+  "If the message just submitted is a new concrete ask (a bug, a feature, a multi-part " +
+  "request), log it into quest-log via add_idea now, with enough detail in the notes to " +
+  "stand alone -- before scoping or starting the implementation. Skip this reminder if the " +
+  "message isn't a new ask (a question, an answer to something already asked, small talk, " +
+  "a reply mid-task, etc.).";
 
 // --- manifests and registrations (Task 1) ---
 {
@@ -147,9 +167,9 @@ function stubServer({ hooksVersion, proMode = false }) {
   r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state" });
   check("session-start: says when quest-log is unreachable", context(r.stdout).includes("couldn't reach quest-log") && r.code === 0, r.stdout + r.stderr);
 
-  r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state", QL_HIDE_TOOLS: "jq node" });
+  r = await run({ QUEST_LOG_URL: "http://127.0.0.1:9/api/state", QL_HIDE_TOOLS: "jq" });
   ctx = context(r.stdout);
-  check("session-start: preflight names missing tools", ctx.includes("missing jq node") && r.code === 0, r.stdout + r.stderr);
+  check("session-start: preflight names missing tools", ctx.includes("missing jq ") && r.code === 0, r.stdout + r.stderr);
   check("session-start: still gives the standing nudges without jq", ctx.includes("attention: true"), ctx);
 
   // An old server whose /health has no hooksVersion: say nothing about versions.
@@ -159,6 +179,94 @@ function stubServer({ hooksVersion, proMode = false }) {
   check("session-start: quiet about versions on a server without hooksVersion",
     ctx.includes("attention: true") && !ctx.includes("Update now") && !ctx.includes("couldn't reach") && r.code === 0, r.stdout + r.stderr);
   old.close();
+}
+
+// --- the auto-log / Pro Mode switches come from a 1-minute per-session cache (#143) ---
+{
+  const sid = (tag) => `t143-${tag}-${Math.random()}`;
+  const urlOf = (server) => `http://127.0.0.1:${server.address().port}/api/state`;
+  const reminder = (session_id, env) => runHook("quest-log-reminder.sh", { session_id, prompt: "x" }, env);
+  const cacheFile = (session_id) => join(TMP, "quest-log-hooks", `flags-${session_id}`);
+
+  check("reminder is a bash script now", existsSync(join(HOOKS, "quest-log-reminder.sh")) && !existsSync(join(HOOKS, "quest-log-reminder.mjs")));
+  const hooksJson = JSON.parse(readFileSync(join(ROOT, "hooks/hooks.json"), "utf8"));
+  const ups = hooksJson.hooks.UserPromptSubmit?.[0]?.hooks?.[0] ?? {};
+  check("UserPromptSubmit runs the bash reminder",
+    ups.command === 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/quest-log-reminder.sh"' && ups.shell === "bash", JSON.stringify(ups));
+
+  // SessionStart seeds the cache; the next prompt in that session asks nothing.
+  const on = await stubServer({ hooksVersion: "1.0.0", autoLog: true });
+  let s = sid("seed");
+  let r = await runHook("quest-log-session-start.sh", { session_id: s }, { QUEST_LOG_URL: urlOf(on) });
+  check("cache: session-start exits 0", r.code === 0, r.stderr);
+  check("cache: session-start fetched /health once", on.hits.health === 1 && on.hits.state === 0, JSON.stringify(on.hits));
+  let before = totalHits(on);
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on) });
+  check("cache: reminder after session-start prints the reminder", r.stdout === REMINDER && r.code === 0, r.stdout + r.stderr);
+  check("cache: reminder after session-start makes 0 requests", totalHits(on) === before, JSON.stringify(on.hits));
+
+  // New session, no cache: one /health request, then none within the TTL.
+  s = sid("fresh");
+  const { health: h0, state: s0 } = on.hits;
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on) });
+  check("cache: first prompt of a new session fetches /health once",
+    r.stdout === REMINDER && r.code === 0 && on.hits.health === h0 + 1 && on.hits.state === s0, JSON.stringify(on.hits));
+  before = totalHits(on);
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on) });
+  check("cache: second prompt within the TTL makes 0 requests", r.stdout === REMINDER && r.code === 0 && totalHits(on) === before, JSON.stringify(on.hits));
+
+  // TTL expiry: refetch, and follow a switch flipped on the server.
+  s = sid("ttl");
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on), QL_FLAGS_TTL: "0" });
+  check("ttl: on -> reminder", r.stdout === REMINDER && r.code === 0, r.stdout + r.stderr);
+  on.flags.autoLog = false;
+  before = on.hits.health;
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on), QL_FLAGS_TTL: "0" });
+  check("ttl: expired cache refetches and follows the flip to off", r.stdout === "" && r.code === 0 && on.hits.health === before + 1, r.stdout + JSON.stringify(on.hits));
+  on.flags.autoLog = true;
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(on), QL_FLAGS_TTL: "0" });
+  check("ttl: and back on", r.stdout === REMINDER && r.code === 0, r.stdout + r.stderr);
+  on.close();
+
+  // autoLog off: silent.
+  const off = await stubServer({ hooksVersion: "1.0.0", autoLog: false });
+  r = await reminder(sid("off"), { QUEST_LOG_URL: urlOf(off) });
+  check("cache: auto-log off -> reminder silent", r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+  off.close();
+
+  // Unreachable: silent, remembered, and the next prompt doesn't wait again.
+  s = sid("down");
+  const down = { QUEST_LOG_URL: "http://127.0.0.1:9/api/state" };
+  r = await reminder(s, down);
+  const cached = existsSync(cacheFile(s)) ? readFileSync(cacheFile(s), "utf8") : "";
+  check("unreachable: first prompt silent", r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+  check("unreachable: caches reachable=0", /^reachable=0$/m.test(cached) && /^fetched_at=\d+$/m.test(cached), cached);
+  const t0 = Date.now();
+  r = await reminder(s, down);
+  const ms = Date.now() - t0;
+  check(`unreachable: second prompt is fast (${ms} ms < 700) and silent`, ms < 700 && r.stdout === "" && r.code === 0, r.stdout + r.stderr);
+
+  // A server from before #143: fall back to /api/state once, then cache.
+  const old = await stubServer({ hooksVersion: "1.0.0", autoLog: true, omitFlags: true });
+  s = sid("old");
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(old) });
+  check("old server: falls back to /api/state and honors _autoLog.enabled",
+    r.stdout === REMINDER && r.code === 0 && old.hits.state === 1, r.stdout + r.stderr + JSON.stringify(old.hits));
+  before = totalHits(old);
+  r = await reminder(s, { QUEST_LOG_URL: urlOf(old) });
+  check("old server: second prompt within the TTL makes 0 requests", r.stdout === REMINDER && r.code === 0 && totalHits(old) === before, JSON.stringify(old.hits));
+  old.close();
+
+  // Halo reads Pro Mode from /health, never the full state.
+  const pro = await stubServer({ hooksVersion: "1.0.0", proMode: true });
+  r = await runHook("quest-log-halo-checkin.sh", { session_id: sid("halo"), tool_name: "mcp__halo__halopsa_tickets_get" }, { QUEST_LOG_URL: urlOf(pro) });
+  check("halo: view nudge from the cached Pro Mode flag", context(r.stdout).includes("log_ticket_view") && r.code === 0, r.stdout + r.stderr);
+  check("halo: 0 /api/state requests", pro.hits.state === 0, JSON.stringify(pro.hits));
+  pro.close();
+
+  // node is no longer a hook requirement.
+  r = await runHook("quest-log-session-start.sh", { session_id: sid("nonode") }, { ...down, QL_HIDE_TOOLS: "node" });
+  check("preflight: node isn't required", !context(r.stdout).includes("missing") && r.code === 0, r.stdout + r.stderr);
 }
 
 // --- every registered command runs as Claude Code runs it (bash -c, Windows-style root) ---
@@ -171,7 +279,8 @@ function stubServer({ hooksVersion, proMode = false }) {
   for (const c of commands) {
     const r = await runCommand(c, { session_id: `t-cmd-${Math.random()}`, tool_name: "x", tool_input: {} }, env);
     let ok = r.code === 0;
-    if (ok && !c.startsWith("node ") && r.stdout.trim()) {
+    // The UserPromptSubmit reminder prints plain text; the rest print JSON.
+    if (ok && !c.includes("quest-log-reminder") && r.stdout.trim()) {
       try { ok = !!JSON.parse(r.stdout).hookSpecificOutput; } catch { ok = false; }
     }
     check(`registered command runs: ${c}`, ok, `code ${r.code}: ${r.stdout}${r.stderr}`);
