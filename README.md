@@ -90,9 +90,11 @@ Update with `claude plugin marketplace update quest-log` then
 separately (point your client at `/mcp`, above); the hooks find the server via `QUEST_LOG_URL`
 (default `http://questlog.local/api/state`). To use a different server on one machine, set it in
 that machine's `~/.claude/settings.json` under `"env"`
-(`"QUEST_LOG_URL": "http://<server>/api/state"`). The hooks need `bash`, plus `jq`, `curl` and
-`node`; the session-start hook names any of `jq`/`curl`/`node` that are missing, and says when this machine's hooks differ from the
-version the server reports on `/health` (`hooksVersion`).
+(`"QUEST_LOG_URL": "http://<server>/api/state"`). The hooks need `bash`, plus `jq` and
+`curl`; the session-start hook names either of `jq`/`curl` if missing, and says when this machine's hooks differ from the
+version the server reports on `/health` (`hooksVersion`). The auto-log and Pro Mode gates read
+`autoLog`/`proMode` from `/health`, cached per session for a minute, so a switch flipped elsewhere
+takes effect within about a minute.
 
 ### Connecting over HTTPS (trusting the self-signed cert)
 
