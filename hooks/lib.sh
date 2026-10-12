@@ -138,7 +138,7 @@ ql_flags_write_from_health() {
     return 0
   fi
   url="${QUEST_LOG_URL:-http://questlog.local/api/state}"
-  state="$(curl -fs -m 1.5 "$url" 2>/dev/null | tr -d '\r\n')"
+  state="$(curl -4 -fs -m 1.5 "$url" 2>/dev/null | tr -d '\r\n')"
   if [ -z "$state" ]; then
     ql_flags_store 0 0 0 "$input"
     return 0
@@ -173,5 +173,5 @@ ql_flags() {
     fi
   fi
   url="${QUEST_LOG_URL:-http://questlog.local/api/state}"
-  ql_flags_write_from_health "$(curl -fs -m 1.5 "${url%%/api/*}/health" 2>/dev/null)" "$input"
+  ql_flags_write_from_health "$(curl -4 -fs -m 1.5 "${url%%/api/*}/health" 2>/dev/null)" "$input"
 }

@@ -33,7 +33,8 @@ mine="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$QL_R
 if ql_has curl; then
   health_url="${QUEST_LOG_URL%%/api/*}/health"
   # -f: an HTTP error (a proxy's 502 page, say) counts as unreachable (#144).
-  health="$(curl -fs -m 1.5 "$health_url" 2>/dev/null)"
+  # -4: macOS waits ~5s for an IPv6 answer avahi-publish never sends for .local (#151).
+  health="$(curl -4 -fs -m 1.5 "$health_url" 2>/dev/null)"
   ql_flags_write_from_health "$health" "$input"
   theirs="$(printf '%s' "$health" | sed -n 's/.*"hooksVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   if [ -z "$health" ]; then

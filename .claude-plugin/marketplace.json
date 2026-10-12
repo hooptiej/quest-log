@@ -6,7 +6,7 @@
     {
       "name": "quest-log",
       "description": "QuestTracker skill + check-in hooks that keep hooptiej's quest log in sync with real work, in every project",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "source": "./",
       "author": { "name": "hooptiej" }
     }
