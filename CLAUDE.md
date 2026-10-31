@@ -159,10 +159,26 @@ session drop itself.
 
 quest-log's Claude side ships as a **Claude Code plugin** from this repo (the repo is its own
 marketplace): `.claude-plugin/plugin.json` + `marketplace.json`, the hooks in `hooks/`
-(registered in `hooks/hooks.json`), and the QuestTracker skill in `skills/quest-tracker/SKILL.md`.
+(registered in `hooks/hooks.json`), the QuestTracker skill in `skills/quest-tracker/SKILL.md`,
+and the MonthlyReview skill in `skills/monthly-review/SKILL.md` (#153, below).
 It is installed **per machine, at user scope**, so the hooks fire in every project, not only in
 sessions opened inside this repo. (That was #142: they used to be registered in this repo's
 `.claude/settings.json`, so they never ran where the real work happens.)
+
+**The monthly review (#153).** `scripts/monthly-sweep.mjs` is the read-only fact-gathering
+half: for every git checkout directly under the workspace root (the folder this repo lives in;
+`--root`/`--repos` override) it `git fetch --prune`s, then reports open PRs, remote branches
+whose PR is merged or closed, remote branches with no PR (commits ahead of trunk, last commit
+date), local checkout state (branch vs trunk, uncommitted, stashes, unpushed), worktrees git
+knows plus stray directories under `.claude/worktrees/`, latest tag, open issue count, CI on
+trunk's head, and the prod version (from a health URL or container the repo's own `CLAUDE.md`
+names; `--prod-url repo=url` otherwise). Markdown with one section per repo and a fixed-column
+snapshot table, or `--json`. It exits non-zero only for a bad invocation (gh not logged in,
+named repo path missing); every failed probe stays in its cell as `not captured: <reason>`.
+`--no-gh`/`--no-ssh`/`--no-fetch` make it offline-safe; `node scripts/test-monthly-sweep.mjs`
+runs it against a throwaway fixture. The skill is the judgment half (compare with last month's
+mission under the review quest, multi-select cleanup picks, stranger-installable assessment,
+file the month's mission); it never deletes, closes or merges without the owner's pick.
 
 - **Install (once per machine):** `claude plugin marketplace add hooptiej/quest-log`, then
   `claude plugin install quest-log@quest-log`, then restart Claude Code.
