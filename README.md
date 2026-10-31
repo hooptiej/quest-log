@@ -8,7 +8,7 @@ This repo is the QuestLog family:
 - **`/app`** — the QuestLog web app (Express server, HTML/JS UI)
 - **`/questhelper`** — QuestHelper, the MCP server mounted on the same Express app
 - **`/state.js`** — shared state module (read/write lock) both of the above talk to
-- **`skills/quest-tracker/` + `hooks/`** — the `quest-log` Claude Code plugin: QuestTracker (the skill that keeps this quest log in sync with conversations) plus its check-in hooks; install once per machine (see "Claude Code plugin" below)
+- **`skills/quest-tracker/`, `skills/monthly-review/` + `hooks/`** — the `quest-log` Claude Code plugin: QuestTracker (the skill that keeps this quest log in sync with conversations), MonthlyReview (the monthly "new normal" sweep across every project, driven by `scripts/monthly-sweep.mjs`) plus its check-in hooks; install once per machine (see "Claude Code plugin" below)
 
 ![The QuestLog Family — process/data-flow diagram, the Quest → Mission → Task hierarchy with its confirm-gated rollup, the QuestHelper tool set, and the checkpoint-hooks system](docs/questlog-family.svg)
 
