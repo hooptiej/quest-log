@@ -366,7 +366,7 @@ function readClaudeMd(dir) {
 // What the repo's own CLAUDE.md says about where prod lives: absolute health
 // URLs; or a health path plus a non-dev .local host to compose one; plus
 // backticked container names it talks about.
-export function prodHintsFromClaudeMd(text) {
+export function prodHintsFromClaudeMd(text, repoName = "") {
   const hints = { urls: [], containers: [], reasons: [] };
   if (text == null) { hints.reasons.push("no CLAUDE.md in the repo"); return hints; }
   if (text.startsWith("__unreadable__")) { hints.reasons.push(`CLAUDE.md ${text.slice(15)}`); return hints; }
@@ -381,12 +381,21 @@ export function prodHintsFromClaudeMd(text) {
     else if (paths.length) hints.reasons.push(`CLAUDE.md names ${paths.join(", ")} but no .local host to put in front of it`);
     else hints.reasons.push("CLAUDE.md names no health endpoint (/health, /healthz, /api/version, /version)");
   }
+  // Container names: backticked words next to the word "container" or after a
+  // docker verb, kept only when they look like this project's (share the repo
+  // name, e.g. constructicon-web for Constructicon), prod ones first. Prose
+  // like "a video's container `creation_time`" must not become a probe.
   const seen = new Set();
+  const stem = repoName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-(work|main|checkout|\d+)$/, "");
   for (const m of text.matchAll(/(?:container[s]?\s+(?:named\s+)?`([a-z0-9][a-z0-9_.-]{2,})`|`([a-z0-9][a-z0-9_.-]{2,})`\s+container|docker (?:inspect|restart|logs|exec)\s+([a-z0-9][a-z0-9_.-]{2,}))/g)) {
     const name = m[1] || m[2] || m[3];
-    if (name && !/^(<|--|-)/.test(name) && !seen.has(name)) { seen.add(name); hints.containers.push(name); }
+    if (!name || seen.has(name)) continue;
+    const looksOurs = stem && (name.toLowerCase().includes(stem) || stem.includes(name.toLowerCase()));
+    if (looksOurs) { seen.add(name); hints.containers.push(name); }
   }
-  if (!hints.containers.length) hints.reasons.push("CLAUDE.md names no container");
+  const rank = (c) => (/-(test|dev|staging)(-|$)/.test(c) ? 2 : /-(mcp|ollama|restarter|worker)(-|$)/.test(c) ? 1 : 0);
+  hints.containers.sort((a, b) => rank(a) - rank(b));
+  if (!hints.containers.length) hints.reasons.push(stem ? `CLAUDE.md names no container that looks like ${stem}'s` : "CLAUDE.md names no container");
   return hints;
 }
 
@@ -415,16 +424,20 @@ function sshDefault(opts) {
 function inspectContainer(ssh, name) {
   const args = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=accept-new"];
   if (ssh.key) args.push("-i", ssh.key);
-  args.push(ssh.target, "sudo", "docker", "inspect", "--format", "{{.State.Status}} {{.Config.Image}} {{index .Config.Labels \"org.opencontainers.image.version\"}}", name);
+  if (!/^[a-z0-9][a-z0-9_.-]*$/.test(name)) return { error: `container name "${name}" has characters this probe will not pass to a remote shell` };
+  // ssh joins its arguments into one remote command line, so the Go template
+  // travels as a single, single-quoted argument or the remote shell splits it.
+  const remote = `sudo docker inspect --format '{{.State.Status}}|{{.Config.Image}}|{{index .Config.Labels "org.opencontainers.image.version"}}' ${name}`;
+  args.push(ssh.target, remote);
   const r = run("ssh", args, { timeout: 20_000 });
   if (!r.ok) return { error: `docker inspect ${name} over ssh ${ssh.target} failed (${(r.err || r.out || "exit " + r.code).split(/\r?\n/)[0].slice(0, 160)})` };
-  const [status, image, ...label] = r.out.split(" ");
-  const ver = label.join(" ").trim() || (image?.includes(":") ? image.split(":").pop() : "");
+  const [status, image, label] = r.out.split("|");
+  const ver = (label || "").trim() || (image?.includes(":") ? image.split(":").pop() : "");
   return { version: ver || `${status}, image ${image}, no version label`, extra: `container ${name} ${status}, image ${image}`, container: name };
 }
 
 async function probeProd(dir, name, opts) {
-  const hints = prodHintsFromClaudeMd(readClaudeMd(dir));
+  const hints = prodHintsFromClaudeMd(readClaudeMd(dir), name);
   const override = opts.prodUrls[name];
   const urls = override ? [override, ...hints.urls] : hints.urls;
   const tried = [];
