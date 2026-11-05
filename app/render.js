@@ -17,11 +17,19 @@
 // The final .replace(/</g, '\\u003c') on the state JSON escapes all <
 // characters, preventing user notes containing "</script>" or "<!--" from
 // breaking out of the inline script block (#56).
-export function renderIndexHtml(template, state, writeToken, appVersion, questLogEnv) {
+// buildLine is the footer's build stamp text (#156, see formatBuildLine in
+// app/build-stamp.js). It is HTML-escaped here and spliced into the footer
+// text, never into the script block, so it is spliced before the state JSON.
+export function renderIndexHtml(template, state, writeToken, appVersion, questLogEnv, buildLine = "build source unknown") {
   return template
     .replace("__PAGE_TITLE_VALUE__", questLogEnv === "dev" ? "DEV-Questlog" : "Questlog")
+    .replace("__BUILD_LINE_TEXT__", escapeHtml(buildLine))
     .replace("__WRITE_TOKEN_VALUE__", JSON.stringify(writeToken))
     .replace("__APP_VERSION_VALUE__", JSON.stringify(appVersion))
     .replace("__QUEST_LOG_ENV_VALUE__", JSON.stringify(questLogEnv))
     .replace("__STATE_JSON__", JSON.stringify(state).replace(/</g, '\\u003c'));
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }

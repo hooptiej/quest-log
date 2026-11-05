@@ -1,6 +1,10 @@
 services:
   quest-log:
-    build: .
+    build:
+      context: .
+      args:
+        BUILD_SHA: "${BUILD_SHA:-}"
+        BUILD_DATE: "${BUILD_DATE:-}"
     container_name: quest-log
     restart: unless-stopped
     networks:
