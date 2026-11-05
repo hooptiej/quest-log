@@ -9,12 +9,12 @@ function check(name, ok, detail = "") {
   if (!ok) failures++;
 }
 
-const base = { version: "1.3.00", hooksVersion: "1.1.0" };
+const base = { version: "1.3.0", hooksVersion: "1.1.0" };
 const show = (x) => JSON.stringify(x);
 
 let h = buildHealth({ ...base, state: { quests: [], _autoLog: { enabled: true }, _proMode: true } });
 check("flags on", h.autoLog === true && h.proMode === true, show(h));
-check("keeps status/version/hooksVersion", h.status === "ok" && h.version === "1.3.00" && h.hooksVersion === "1.1.0", show(h));
+check("keeps status/version/hooksVersion", h.status === "ok" && h.version === "1.3.0" && h.hooksVersion === "1.1.0", show(h));
 
 h = buildHealth({ ...base, state: { quests: [] } });
 check("flags default to false on a state that never set them", h.autoLog === false && h.proMode === false, show(h));
@@ -30,7 +30,7 @@ h = buildHealth({ ...base, state: hostile });
 check("a state that throws -> null flags", h.autoLog === null && h.proMode === null && h.status === "ok", show(h));
 
 h = await loadHealth({ ...base, readState: async () => { throw new Error("ENOENT"); } });
-check("unreadable state -> null flags, still ok", h.autoLog === null && h.proMode === null && h.status === "ok" && h.version === "1.3.00", show(h));
+check("unreadable state -> null flags, still ok", h.autoLog === null && h.proMode === null && h.status === "ok" && h.version === "1.3.0", show(h));
 
 h = await loadHealth({ ...base, readState: async () => ({ _autoLog: { enabled: true }, _proMode: false }) });
 check("loadHealth reads the state", h.autoLog === true && h.proMode === false, show(h));
