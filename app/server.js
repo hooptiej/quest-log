@@ -11,11 +11,15 @@ import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import { readHooksVersion } from "./hooks-version.js";
 import { loadHealth } from "./health.js";
+import { resolveBuildStamp, formatBuildLine } from "./build-stamp.js";
 import pkg from "../package.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOKS_VERSION = readHooksVersion(join(__dirname, ".."));
 const ROOT_DIR = join(__dirname, "..");
+// #156: the build stamp, resolved once at startup (baked image file, else git).
+const BUILD = resolveBuildStamp(ROOT_DIR);
+const BUILD_LINE = formatBuildLine(BUILD);
 const QUEST_LOG_ENV = process.env.QUEST_LOG_ENV ?? "prod";
 const DEFAULT_PORT = QUEST_LOG_ENV === "dev" ? 4243 : 4242;
 const DEFAULT_DATA_PATH = QUEST_LOG_ENV === "dev" ? join(ROOT_DIR, "data", "state.dev.json") : join(ROOT_DIR, "data", "state.json");
@@ -66,7 +70,7 @@ app.use(express.static(join(__dirname, "public")));
 app.get("/", async (_req, res, next) => {
   try {
     const [template, state] = await Promise.all([readFile(TEMPLATE_PATH, "utf8"), readState()]);
-    const html = renderIndexHtml(template, state, WRITE_TOKEN, pkg.version, QUEST_LOG_ENV);
+    const html = renderIndexHtml(template, state, WRITE_TOKEN, pkg.version, QUEST_LOG_ENV, BUILD_LINE);
     res.type("html").send(html);
   } catch (err) {
     next(err);
@@ -152,7 +156,10 @@ app.post("/api/state", async (req, res, next) => {
 attachMcp(app, { env: QUEST_LOG_ENV });
 
 // #143: /health also carries the auto-log and Pro Mode switches for the hooks.
-app.get("/health", async (_req, res) => res.json(await loadHealth({ version: pkg.version, hooksVersion: HOOKS_VERSION, readState })));
+// #156: and the build stamp (build = git sha, built_at = build date).
+app.get("/health", async (_req, res) =>
+  res.json(await loadHealth({ version: pkg.version, hooksVersion: HOOKS_VERSION, readState, build: BUILD.build, builtAt: BUILD.built_at })),
+);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

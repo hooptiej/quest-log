@@ -7,7 +7,9 @@ import { getAutoLog, getProMode } from "../state.js";
 
 // /health must never fail because the state can't be read: the switches
 // are null then, and everything else is still reported.
-export function buildHealth({ version, hooksVersion, state }) {
+// build/builtAt are the build stamp (#156, app/build-stamp.js): the git short
+// sha and the build date, "unknown"/null when neither is available.
+export function buildHealth({ version, hooksVersion, state, build = "unknown", builtAt = null }) {
   let autoLog = null;
   let proMode = null;
   if (state) {
@@ -19,15 +21,15 @@ export function buildHealth({ version, hooksVersion, state }) {
       proMode = null;
     }
   }
-  return { status: "ok", version, hooksVersion, autoLog, proMode };
+  return { status: "ok", version, build, built_at: builtAt, hooksVersion, autoLog, proMode };
 }
 
-export async function loadHealth({ version, hooksVersion, readState }) {
+export async function loadHealth({ version, hooksVersion, readState, build, builtAt }) {
   let state = null;
   try {
     state = await readState();
   } catch {
     state = null;
   }
-  return buildHealth({ version, hooksVersion, state });
+  return buildHealth({ version, hooksVersion, state, build, builtAt });
 }
