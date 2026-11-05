@@ -18,6 +18,8 @@ import {
   deleteTicketTouch,
   attachHaloTicket,
   detachHaloTicket,
+  parseTouchDate,
+  getTicketStats,
   validateState,
 } from "../state.js";
 
@@ -110,6 +112,71 @@ function freshState() {
   detachHaloTicket(s, "q1", "501");
   check("detaching the last ticket drops the empty array", s.quests[0].haloTickets === undefined);
   check("state still validates after detach", validateState(s) === null, validateState(s));
+}
+
+// --- backdating (#149) ---
+// parseTouchDate takes an injectable `now`, so these cases are fixed points in
+// time, not whatever day the suite happens to run on.
+const NOW = new Date("2026-11-05T15:00:00Z");
+const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+{
+  const day = parseTouchDate("2026-11-03", NOW);
+  check("YYYY-MM-DD parses to that day's noon (local)", day.timestamp === new Date(2026, 10, 3, 12).toISOString(), JSON.stringify(day));
+  check("YYYY-MM-DD lands on that calendar day in local and UTC", localDay(new Date(day.timestamp)) === "2026-11-03" && day.timestamp.slice(0, 10) === "2026-11-03", day.timestamp);
+  const iso = parseTouchDate("2026-11-03T09:15:00-07:00", NOW);
+  check("full ISO timestamp with offset parses exactly", iso.timestamp === "2026-11-03T16:15:00.000Z", JSON.stringify(iso));
+  const zed = parseTouchDate("2026-11-03T09:15:00Z", NOW);
+  check("full ISO timestamp with Z parses exactly", zed.timestamp === "2026-11-03T09:15:00.000Z", JSON.stringify(zed));
+  const today = parseTouchDate("2026-11-05", NOW);
+  check("today's date stamps the actual instant, never noon in the future", today.timestamp === NOW.toISOString(), JSON.stringify(today));
+}
+{
+  const fut = parseTouchDate("2026-11-06", NOW);
+  check("future YYYY-MM-DD rejected with a clear error", !!fut.error && fut.error.includes("in the future") && fut.timestamp === undefined, fut.error);
+  const futIso = parseTouchDate("2026-11-05T16:00:00Z", NOW);
+  check("future ISO timestamp rejected with a clear error", !!futIso.error && futIso.error.includes("in the future"), futIso.error);
+  const unparse = parseTouchDate("yesterday", NOW);
+  check("unparseable value rejected, not coerced to now", !!unparse.error && unparse.error.includes("yesterday") && unparse.timestamp === undefined, unparse.error);
+  const sept = parseTouchDate("Sept 21", NOW);
+  check("free-form date rejected", !!sept.error && sept.timestamp === undefined, sept.error);
+  const empty = parseTouchDate("", NOW);
+  check("empty date rejected, not treated as omitted", !!empty.error, empty.error);
+  const feb30 = parseTouchDate("2026-02-30", NOW);
+  check("impossible calendar day rejected (YYYY-MM-DD)", !!feb30.error && feb30.error.includes("real calendar day"), feb30.error);
+  const feb30iso = parseTouchDate("2026-02-30T10:00:00Z", NOW);
+  check("impossible calendar day rejected (ISO; Date.parse would roll it over)", !!feb30iso.error && feb30iso.error.includes("real calendar day"), feb30iso.error);
+  const noTz = parseTouchDate("2026-11-03T09:15:00", NOW);
+  check("ISO without a timezone rejected", !!noTz.error && noTz.error.includes("timezone"), noTz.error);
+  const tooOld = parseTouchDate("2026-08-01", NOW);
+  check("touch older than the 90-day window rejected (would be pruned on save)", !!tooOld.error && tooOld.error.includes("90-day"), tooOld.error);
+}
+{
+  const s = freshState();
+  const backdated = appendTicketTouch(s, { ticketId: "600", client: "ACME", url: "u", note: "day-only", timestamp: parseTouchDate("2026-10-30").timestamp });
+  check("backdated touch stores the given timestamp", backdated.timestamp === parseTouchDate("2026-10-30").timestamp, backdated.timestamp);
+  const stamped = appendTicketTouch(s, { ticketId: "601", client: "ACME", url: "u", note: "now" });
+  check("no timestamp still stamps ~now", Math.abs(Date.parse(stamped.timestamp) - Date.now()) < 5000, stamped.timestamp);
+}
+{
+  // The scoreboard counts "today" by timestamp, so work backdated to an earlier
+  // day must not show up as today's touch. Uses the real clock (the stats
+  // function has no injectable now).
+  const s = freshState();
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const ts = parseTouchDate(localDay(threeDaysAgo)).timestamp;
+  appendTicketTouch(s, { ticketId: "700", client: "ACME", url: "u", note: "backfill", timestamp: ts });
+  const stats = getTicketStats(s);
+  check("backdated touch is not counted as today on the scoreboard", stats.touched.today === 0, JSON.stringify(stats.touched));
+  check("backdated touch within the week still counts for the week", stats.touched.week === 1, JSON.stringify(stats.touched));
+}
+{
+  const s = freshState();
+  const a = appendTicketTouch(s, { ticketId: "800", client: "ACME", url: "u", note: "n" });
+  const fixed = parseTouchDate("2026-11-02T10:00:00-07:00", NOW).timestamp;
+  const res = updateTicketTouch(s, { id: a.id }, { timestamp: fixed });
+  check("update corrects the timestamp", res.record?.timestamp === fixed && a.timestamp === fixed, JSON.stringify(res));
+  updateTicketTouch(s, { id: a.id }, { note: "still here" });
+  check("update without timestamp leaves the timestamp alone", a.timestamp === fixed);
 }
 
 let passed = 0;

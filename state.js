@@ -46,9 +46,12 @@ export function mutateState(mutator) {
   return run;
 }
 
-export function todayISO() {
-  const d = new Date();
+function dayString(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function todayISO() {
+  return dayString(new Date());
 }
 
 export function nowISO() {
@@ -446,17 +449,77 @@ export function setProMode(state, { enabled }) {
 // Halo ticket tracking -- records of tickets Claude helped with during a session
 
 const TICKET_RETENTION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function pruneOld(entries) {
-  const cutoff = Date.now() - TICKET_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - TICKET_RETENTION_DAYS * DAY_MS;
   return entries.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
+}
+
+// #149: a ticket touch can be backdated to when the work actually happened.
+// Accepts a calendar day (YYYY-MM-DD) or a full ISO timestamp with an explicit
+// timezone (Z or +hh:mm). Returns { timestamp } (an ISO string) or { error }
+// saying exactly what was wrong -- a bad value is never coerced to "now".
+// A day stands for that day's noon (local); today stands for right now, so a
+// day-only touch never lands in the future. `now` is injectable for tests.
+export function parseTouchDate(value, now = new Date()) {
+  const raw = String(value ?? "").trim();
+  const tryAgain = 'Use YYYY-MM-DD (e.g. 2026-11-03) or a full ISO timestamp with a timezone (e.g. 2026-11-03T09:15:00-07:00).';
+  const oldest = now.getTime() - TICKET_RETENTION_DAYS * DAY_MS;
+  let ms;
+  let timestamp;
+
+  const dayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (dayMatch) {
+    const [y, m, d] = dayMatch.slice(1).map(Number);
+    const check = new Date(y, m - 1, d);
+    if (check.getFullYear() !== y || check.getMonth() !== m - 1 || check.getDate() !== d) {
+      return { error: `Couldn't backdate this touch: "${raw}" isn't a real calendar day. ${tryAgain}` };
+    }
+    const today = dayString(now);
+    if (raw > today) {
+      return { error: `Couldn't backdate this touch: ${raw} is in the future (today is ${today}). Ticket touches can only be dated today or earlier.` };
+    }
+    timestamp = raw === today ? now.toISOString() : new Date(y, m - 1, d, 12).toISOString();
+    ms = new Date(timestamp).getTime();
+  } else {
+    const isoLike = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?/.exec(raw);
+    if (!isoLike) {
+      return { error: `Couldn't backdate this touch: "${raw}" isn't a date I can read. ${tryAgain}` };
+    }
+    if (!/(Z|[+-]\d{2}:?\d{2})$/.test(raw)) {
+      return { error: `Couldn't backdate this touch: "${raw}" has no timezone, so it's ambiguous. Add Z or an offset such as -07:00 (e.g. 2026-11-03T09:15:00-07:00).` };
+    }
+    // Date.parse rolls impossible days over (2026-02-30 becomes March 2), so
+    // check the calendar day itself before trusting the parsed instant.
+    const [datePart] = raw.split("T");
+    const [y, m, d] = datePart.split("-").map(Number);
+    const calendar = new Date(Date.UTC(y, m - 1, d));
+    if (calendar.getUTCFullYear() !== y || calendar.getUTCMonth() !== m - 1 || calendar.getUTCDate() !== d) {
+      return { error: `Couldn't backdate this touch: "${raw}" isn't a real calendar day. ${tryAgain}` };
+    }
+    ms = Date.parse(raw);
+    if (Number.isNaN(ms)) {
+      return { error: `Couldn't backdate this touch: "${raw}" isn't a valid date and time. ${tryAgain}` };
+    }
+    if (ms > now.getTime()) {
+      return { error: `Couldn't backdate this touch: ${raw} is in the future (it's now ${now.toISOString()}). Ticket touches can only be dated now or earlier.` };
+    }
+    timestamp = new Date(ms).toISOString();
+  }
+
+  if (ms < oldest) {
+    return { error: `Couldn't backdate this touch: "${raw}" is older than the ${TICKET_RETENTION_DAYS}-day ticket history window, so it would be pruned as soon as it was saved. Use a date within the last ${TICKET_RETENTION_DAYS} days.` };
+  }
+  return { timestamp };
 }
 
 // Appends a full ticket-work record. Optionally attaches the same ticket
 // reference onto a real quest item's haloTickets (deduped on ticketId) when
 // questId resolves to one -- a ticket can be logged without being tied to
-// any tracked quest item, so this is best-effort, not required.
-export function appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId }) {
+// any tracked quest item, so this is best-effort, not required. `timestamp`
+// is an already-validated ISO string (see parseTouchDate); omitted = now.
+export function appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId, timestamp }) {
   state.ticketTouches ??= [];
   ensureTicketTouchIds(state);
   const record = {
@@ -465,7 +528,7 @@ export function appendTicketTouch(state, { ticketId, client, url, note, closedWi
     client,
     url,
     note,
-    timestamp: new Date().toISOString(),
+    timestamp: timestamp ?? new Date().toISOString(),
     closedWithHelp: closedWithHelp === true,
     ...(questId ? { questId } : {}),
   };
@@ -545,11 +608,12 @@ export function findTicketTouch(state, { id, ticketId }) {
   return { error: "Pass either id or ticketId to pick which ticket-touch record to change." };
 }
 
-// Edits a touch record's url/note/client/closedWithHelp in place (#134).
-// Only fields actually passed are changed. If url/client change and the
-// record is linked to a quest, that quest's matching haloTickets reference
-// is refreshed too, so the two can't disagree.
-export function updateTicketTouch(state, target, { url, note, client, closedWithHelp }) {
+// Edits a touch record's url/note/client/closedWithHelp/timestamp in place
+// (#134; timestamp added in #149). Only fields actually passed are changed.
+// `timestamp` is an already-validated ISO string (see parseTouchDate). If
+// url/client change and the record is linked to a quest, that quest's
+// matching haloTickets reference is refreshed too, so the two can't disagree.
+export function updateTicketTouch(state, target, { url, note, client, closedWithHelp, timestamp }) {
   const found = findTicketTouch(state, target);
   if (found.error) return found;
   const r = found.record;
@@ -557,6 +621,7 @@ export function updateTicketTouch(state, target, { url, note, client, closedWith
   if (note !== undefined) r.note = note;
   if (client !== undefined) r.client = client;
   if (closedWithHelp !== undefined) r.closedWithHelp = closedWithHelp === true;
+  if (timestamp !== undefined) r.timestamp = timestamp;
   if ((url !== undefined || client !== undefined) && r.questId) {
     const q = state.quests.find((x) => x.id === r.questId);
     if (q?.haloTickets?.some((t) => t.ticketId === r.ticketId)) {
@@ -580,8 +645,6 @@ function countSince(entries, sinceMs) {
   const cutoff = Date.now() - sinceMs;
   return entries.filter((e) => new Date(e.timestamp).getTime() >= cutoff).length;
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Daily/weekly/monthly counts are computed on read by filtering raw
 // timestamps, never maintained as separately-incremented counters -- a
