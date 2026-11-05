@@ -409,8 +409,11 @@ export function setMaintenance(state, { active, note }) {
 // quest-log before scoping/implementing it. Lives on shared state rather
 // than a local file so flipping it from any one of the owner's machines
 // takes effect everywhere the hook runs, on every machine with the plugin installed.
+// Default-on (#126): an unset _autoLog (a fresh deploy from state.example.json)
+// reads as enabled. An explicit set_auto_log(enabled: false) is still stored
+// and still reads as off.
 export function getAutoLog(state) {
-  return state._autoLog ?? { enabled: false };
+  return state._autoLog ?? { enabled: true };
 }
 
 export function setAutoLog(state, { enabled }) {
