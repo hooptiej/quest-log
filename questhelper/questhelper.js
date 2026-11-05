@@ -33,6 +33,7 @@ import {
   touchQuestAncestor,
   appendTicketTouch,
   appendTicketView,
+  parseTouchDate,
   attachHaloTicket,
   detachHaloTicket,
   ensureTicketTouchIds,
@@ -855,7 +856,7 @@ function createServer(options = {}) {
 
   server.tool(
     "log_ticket_touch",
-    "Log a Halo ticket that was worked on, optionally noting whether it was closed with Claude's help. Not a source of truth for ticket status -- Halo is; this is just a record of how Claude helped.",
+    "Log a Halo ticket that was worked on, optionally noting whether it was closed with Claude's help. Not a source of truth for ticket status -- Halo is; this is just a record of how Claude helped. Stamped now unless `date` is given: pass `date` to backdate work done earlier (YYYY-MM-DD, or a full ISO timestamp with a timezone; not in the future, not older than 90 days).",
     {
       ticketId: z.string().describe("Halo ticket number/id"),
       client: z.string().describe("Client name the ticket belongs to"),
@@ -863,8 +864,17 @@ function createServer(options = {}) {
       note: z.string().describe("Short note on what was done"),
       closedWithHelp: z.boolean().optional().describe("Whether Claude helped close this ticket -- defaults to false"),
       questIdOrTitle: z.string().optional().describe("A quest/mission/task this ticket relates to, if any -- also attaches the ticket to it"),
+      date: z.string().optional().describe("When the work happened: YYYY-MM-DD (that day, noon local) or a full ISO timestamp with a timezone. Omit to stamp now."),
     },
-    async ({ ticketId, client, url, note, closedWithHelp, questIdOrTitle }) => {
+    async ({ ticketId, client, url, note, closedWithHelp, questIdOrTitle, date }) => {
+      // #149: a bad or future date is refused here, before anything is written.
+      // It is never silently replaced with "now".
+      let timestamp;
+      if (date !== undefined) {
+        const parsed = parseTouchDate(date);
+        if (parsed.error) return { content: [{ type: "text", text: parsed.error }], isError: true };
+        timestamp = parsed.timestamp;
+      }
       const { result } = await mutateState(async (state) => {
         if (!getProMode(state)) return { error: "Pro mode is not enabled." };
         let questId;
@@ -873,7 +883,7 @@ function createServer(options = {}) {
           if (resolved.error) return resolved;
           questId = resolved.quest.id;
         }
-        const record = appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId });
+        const record = appendTicketTouch(state, { ticketId, client, url, note, closedWithHelp, questId, timestamp });
         return { record };
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
@@ -949,21 +959,28 @@ function createServer(options = {}) {
 
   server.tool(
     "update_ticket_touch",
-    "Correct a logged ticket-touch record in place (wrong url, note, client, or closedWithHelp). Target it by id, or by ticketId to edit the newest record for that ticket. Only the fields you pass change. If url/client change and the record is linked to a quest, that quest's ticket reference is updated too.",
+    "Correct a logged ticket-touch record in place (wrong url, note, client, closedWithHelp, or date). Target it by id, or by ticketId to edit the newest record for that ticket. Only the fields you pass change. If url/client change and the record is linked to a quest, that quest's ticket reference is updated too. `date` backdates the record: YYYY-MM-DD (noon local) or a full ISO timestamp with a timezone; not in the future, not older than 90 days.",
     {
       ...touchTarget,
       url: z.string().optional().describe("Corrected direct link to the ticket in Halo"),
       note: z.string().optional().describe("Replacement note text"),
       client: z.string().optional().describe("Corrected client name"),
       closedWithHelp: z.boolean().optional().describe("Corrected closed-with-Claude's-help flag"),
+      date: z.string().optional().describe("Corrected day the work happened: YYYY-MM-DD or a full ISO timestamp with a timezone"),
     },
-    async ({ id, ticketId, url, note, client, closedWithHelp }) => {
-      if (url === undefined && note === undefined && client === undefined && closedWithHelp === undefined) {
-        return { content: [{ type: "text", text: "Nothing to update -- pass at least one of url, note, client, closedWithHelp." }], isError: true };
+    async ({ id, ticketId, url, note, client, closedWithHelp, date }) => {
+      if (url === undefined && note === undefined && client === undefined && closedWithHelp === undefined && date === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update -- pass at least one of url, note, client, closedWithHelp, date." }], isError: true };
+      }
+      let timestamp;
+      if (date !== undefined) {
+        const parsed = parseTouchDate(date);
+        if (parsed.error) return { content: [{ type: "text", text: parsed.error }], isError: true };
+        timestamp = parsed.timestamp;
       }
       const { result } = await mutateState(async (state) => {
         if (!getProMode(state)) return { error: "Pro mode is not enabled." };
-        return updateTicketTouch(state, { id, ticketId }, { url, note, client, closedWithHelp });
+        return updateTicketTouch(state, { id, ticketId }, { url, note, client, closedWithHelp, timestamp });
       });
       if (result.error) return { content: [{ type: "text", text: result.error }], isError: true };
       return { content: [{ type: "text", text: JSON.stringify(result.record, null, 2) }] };
