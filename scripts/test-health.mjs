@@ -17,7 +17,7 @@ check("flags on", h.autoLog === true && h.proMode === true, show(h));
 check("keeps status/version/hooksVersion", h.status === "ok" && h.version === "1.3.00" && h.hooksVersion === "1.1.0", show(h));
 
 h = buildHealth({ ...base, state: { quests: [] } });
-check("flags default to false on a state that never set them", h.autoLog === false && h.proMode === false, show(h));
+check("auto-log defaults ON on a state that never set it (#126), pro mode defaults off", h.autoLog === true && h.proMode === false, show(h));
 
 h = buildHealth({ ...base, state: { quests: [], _autoLog: { enabled: false }, _proMode: false } });
 check("flags off", h.autoLog === false && h.proMode === false, show(h));
@@ -34,6 +34,18 @@ check("unreadable state -> null flags, still ok", h.autoLog === null && h.proMod
 
 h = await loadHealth({ ...base, readState: async () => ({ _autoLog: { enabled: true }, _proMode: false }) });
 check("loadHealth reads the state", h.autoLog === true && h.proMode === false, show(h));
+
+// Auto-log default (#126): unset -> enabled; explicit off stays off; explicit on stays on.
+const { getAutoLog, setAutoLog } = await import("../state.js");
+check("getAutoLog: unset _autoLog -> enabled", getAutoLog({ quests: [] }).enabled === true, show(getAutoLog({ quests: [] })));
+check("getAutoLog: null _autoLog -> enabled", getAutoLog({ _autoLog: null }).enabled === true, show(getAutoLog({ _autoLog: null })));
+check("getAutoLog: explicit {enabled:false} -> disabled (opt-out kept)", getAutoLog({ _autoLog: { enabled: false } }).enabled === false, show(getAutoLog({ _autoLog: { enabled: false } })));
+check("getAutoLog: explicit {enabled:true} -> enabled", getAutoLog({ _autoLog: { enabled: true } }).enabled === true, show(getAutoLog({ _autoLog: { enabled: true } })));
+const optOut = { quests: [] };
+setAutoLog(optOut, { enabled: false });
+check("set_auto_log(false) then getAutoLog -> disabled, stays off", getAutoLog(optOut).enabled === false, show(optOut._autoLog));
+setAutoLog(optOut, { enabled: true });
+check("set_auto_log(true) then getAutoLog -> enabled", getAutoLog(optOut).enabled === true, show(optOut._autoLog));
 
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);
