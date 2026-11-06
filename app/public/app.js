@@ -1040,13 +1040,15 @@
     var bootTime = document.getElementById("boot-time");
     if (bootTime) bootTime.textContent = visibleQuests.length + " MISSIONS TRACKED";
 
-    // Least-touched top-level Quest (#62) -- mirrors the same computation
-    // get_full_state's mostNeglectedQuest does server-side, done client-side
-    // here since the full state is already embedded in the page.
+    // Least-touched top-level Quest (#62) -- mirrors state.js's
+    // mostNeglectedTopLevelQuest, done client-side here since the full state is
+    // already embedded in the page. Only OPEN top-level Quests count (#162):
+    // visibleQuests already drops archived, and status !== "done" drops the
+    // finished ones, so a completed Quest never shows as "most neglected".
     var neglectedLine = document.getElementById("neglected-quest-line");
     var neglectedValue = document.getElementById("neglected-quest-value");
     if (neglectedLine && neglectedValue) {
-      var topLevelQuests = visibleQuests.filter(function (q) { return q.level === "quest" && !q.parentId; });
+      var topLevelQuests = visibleQuests.filter(function (q) { return q.level === "quest" && !q.parentId && q.status !== "done"; });
       if (topLevelQuests.length > 0) {
         var oldest = topLevelQuests.slice().sort(function (a, b) {
           var aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;

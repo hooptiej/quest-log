@@ -348,6 +348,26 @@ export function touchQuestAncestor(state, questOrId) {
   current.lastTouchedAt = nowISO();
 }
 
+// The most-neglected top-level Quest: the one whose subtree has gone untouched
+// the longest, so it bubbles up for attention on the boot bar and in
+// get_full_state. Only OPEN top-level Quests are eligible (#162) -- a `done`
+// Quest is finished, not neglected, and an archived one is off the board, so
+// neither should ever be surfaced as "most neglected". A `blocked` Quest stays
+// eligible: being blocked is exactly the kind of neglect worth surfacing. A
+// missing lastTouchedAt sorts oldest ("never touched"). Returns the quest
+// object, or null when no open top-level Quest exists. Pure; no mutation.
+export function mostNeglectedTopLevelQuest(quests) {
+  const open = (quests || []).filter(
+    (q) => q.level === "quest" && !q.parentId && !q.archived && q.status !== "done"
+  );
+  if (open.length === 0) return null;
+  return [...open].sort((a, b) => {
+    const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
+    const bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
+    return aTime - bTime;
+  })[0];
+}
+
 export function resolveOne(state, idOrTitle) {
   const matches = findQuestCandidates(state, idOrTitle);
   if (matches.length === 0) return { error: `No quest found matching "${idOrTitle}"` };

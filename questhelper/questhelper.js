@@ -31,6 +31,7 @@ import {
   setArchived,
   setAttention,
   touchQuestAncestor,
+  mostNeglectedTopLevelQuest,
   appendTicketTouch,
   appendTicketView,
   parseTouchDate,
@@ -614,26 +615,16 @@ function createServer(options = {}) {
     async ({ openOnly, archived, summary, includeLog, logLimit, logOffset }) => {
       const state = await readState();
 
-      // Compute the most-neglected (longest-untouched) top-level Quest.
-      // Always computed from the full, unfiltered state.quests -- this is a
-      // derived summary field, not part of the (possibly filtered) quest
-      // list itself, so it shouldn't change meaning based on the caller's
-      // openOnly/archived/summary filters.
-      const topLevelQuests = state.quests.filter((q) => q.level === "quest" && !q.parentId);
-      let mostNeglectedQuest = null;
-      if (topLevelQuests.length > 0) {
-        const sorted = [...topLevelQuests].sort((a, b) => {
-          const aTime = a.lastTouchedAt ? new Date(a.lastTouchedAt).getTime() : 0;
-          const bTime = b.lastTouchedAt ? new Date(b.lastTouchedAt).getTime() : 0;
-          return aTime - bTime;
-        });
-        const oldest = sorted[0];
-        mostNeglectedQuest = {
-          id: oldest.id,
-          title: oldest.title,
-          lastTouchedAt: oldest.lastTouchedAt || null,
-        };
-      }
+      // Compute the most-neglected (longest-untouched) OPEN top-level Quest
+      // (#162: done/archived Quests are excluded -- a finished Quest isn't
+      // neglected). Always computed from the full, unfiltered state.quests --
+      // this is a derived summary field, not part of the (possibly filtered)
+      // quest list itself, so it shouldn't change meaning based on the
+      // caller's openOnly/archived/summary filters.
+      const oldest = mostNeglectedTopLevelQuest(state.quests);
+      const mostNeglectedQuest = oldest
+        ? { id: oldest.id, title: oldest.title, lastTouchedAt: oldest.lastTouchedAt || null }
+        : null;
 
       // Filters mirror list_quests (#119) -- openOnly/summary behave
       // identically (only truthy values have any effect); archived's
