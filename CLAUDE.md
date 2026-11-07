@@ -271,7 +271,7 @@ sudo docker compose up -d --build     # .env's COMPOSE_FILE picks docker-compose
 # Verify startup
 sudo docker logs quest-log-dev
 
-# The dev server runs on http://10.0.1.78:4243
+# The dev server runs on its own LAN address: http://10.0.1.246 (questlog-dev.local), from its .env (#171)
 ```
 
 **Browser tab must read `DEV-Questlog`, not just "Questlog"** — standing convention across all of
