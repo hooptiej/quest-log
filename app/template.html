@@ -1965,6 +1965,22 @@
     background: color-mix(in srgb, var(--alarm) 7%, transparent);
   }
   .blocked-btn:hover { border-color: var(--alarm); color: var(--alarm); }
+  /* #164: "succeeds X" / "succeeded by Y" link on a quest row */
+  .succession-badge {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    white-space: nowrap;
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+  }
 
   /* Real per-row decoration hooks, not CSS pseudo-elements -- every .quest
      and .tree-node row carries these two empty, positioned-nowhere spans

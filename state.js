@@ -26,10 +26,17 @@ async function writeStateRaw(state) {
 // other -- each mutation sees the result of every mutation queued before it.
 let writeLock = Promise.resolve();
 
-export function mutateState(mutator) {
+// Opt-in `skipWriteOnError` (#164): when the mutator returns { error }, nothing
+// is saved and the version doesn't move -- for operations that check
+// everything before changing anything, so a refusal really changes nothing
+// (and doesn't make an open browser tab's next save hit a spurious 409).
+export function mutateState(mutator, { skipWriteOnError = false } = {}) {
   const run = writeLock.then(async () => {
     const state = await readState();
     const result = await mutator(state);
+    if (skipWriteOnError && result && result.error) {
+      return { state, result, version: state._version ?? 0 };
+    }
     // Runs after every mutation (MCP tool call, browser full-state save) so
     // the two write paths can never disagree about readyToClose or a stale
     // "done" left over from a child that got reopened elsewhere.
@@ -105,7 +112,13 @@ export function isValidQuest(q) {
     (q.repo === undefined || typeof q.repo === "string") &&
     (q.issueNumber === undefined || typeof q.issueNumber === "number") &&
     // Halo ticket tracking: optional array of { ticketId, client, url } references
-    (q.haloTickets === undefined || isValidHaloTicketArray(q.haloTickets))
+    (q.haloTickets === undefined || isValidHaloTicketArray(q.haloTickets)) &&
+    // #164: succession links. succeededBy (on the archived predecessor) is the
+    // one item that replaced it; succeeds (on the successor) lists every item
+    // it replaced. _succession is succeedQuest's undo record (see below).
+    (q.succeededBy === undefined || (typeof q.succeededBy === "string" && q.succeededBy.length > 0)) &&
+    (q.succeeds === undefined || (Array.isArray(q.succeeds) && q.succeeds.every((id) => typeof id === "string" && id.length > 0))) &&
+    (q._succession === undefined || (q._succession !== null && typeof q._succession === "object"))
   );
 }
 
@@ -807,6 +820,20 @@ export function deleteQuest(state, idOrTitle, { cascade = false } = {}) {
 
   const removedIds = new Set([quest.id, ...descendants.map((d) => d.id)]);
   state.quests = state.quests.filter((q) => !removedIds.has(q.id));
+  // #164: drop succession links that point at anything just deleted, so no
+  // survivor is left naming an id that no longer exists. A predecessor whose
+  // successor was deleted stays archived; only the link (and its undo record,
+  // which could no longer be applied) goes.
+  for (const q of state.quests) {
+    if (q.succeededBy && removedIds.has(q.succeededBy)) {
+      delete q.succeededBy;
+      delete q._succession;
+    }
+    if (q.succeeds) {
+      q.succeeds = q.succeeds.filter((id) => !removedIds.has(id));
+      if (q.succeeds.length === 0) delete q.succeeds;
+    }
+  }
   return { quest, deleted: [...removedIds] };
 }
 
@@ -876,4 +903,256 @@ export function moveQuest(state, idOrTitle, newParentIdOrTitle) {
   }
 
   return { quest, moved: [quest.id, ...descendants.map((d) => d.id)] };
+}
+
+// ---------------------------------------------------------------------------
+// Succession (#164): "B succeeds A" as one move.
+//
+// B takes A's place in the hierarchy, A is archived, and the link is recorded
+// both ways: A.succeededBy = B's id, and A's id is added to B.succeeds (an
+// array, since one successor can replace several things). B lands at exactly
+// A's level under A's parent -- including a parentless Mission when A is one,
+// which `move` can't express (omitting its parent always makes a Quest) -- and
+// its whole subtree shifts by the same number of tiers, as with move.
+//
+// It's one operation in every sense: one mutateState call (one save, one
+// version bump), one mission-log line, and one undo (undoSuccession) that puts
+// B back where it was, unarchives A if it wasn't archived before, and drops
+// the link. The undo record lives on A as `_succession`.
+
+function descendantsOf(state, id) {
+  const direct = state.quests.filter((c) => c.parentId === id);
+  return direct.flatMap((c) => [c, ...descendantsOf(state, c.id)]);
+}
+
+function placementPhrase(state, level, parentId) {
+  const parent = parentId ? state.quests.find((q) => q.id === parentId) : null;
+  if (parentId && !parent) return `a ${level} under "${parentId}" (no longer exists)`;
+  return parent ? `a ${level} under "${parent.title}"` : `a top-level ${level}`;
+}
+
+// Re-levels `quest` to `level` under `parentId`, shifting its subtree by the
+// same number of tiers. Checks first and changes nothing on refusal: returns
+// { error } when a descendant would land past Task, else { moved: [ids] }.
+function placeSubtree(state, quest, level, parentId) {
+  const descendants = descendantsOf(state, quest.id);
+  const delta = LEVEL_ORDER.indexOf(level) - LEVEL_ORDER.indexOf(quest.level);
+  for (const d of descendants) {
+    const idx = LEVEL_ORDER.indexOf(d.level) + delta;
+    if (idx < 0 || idx > LEVEL_ORDER.length - 1) {
+      return {
+        error: `making ${describeQuest(quest)} ${placementPhrase(state, level, parentId)} would push ${describeQuest(d)} (a ${d.level} in its subtree) past Task -- promote or move that part of the subtree first. Nothing was changed.`,
+      };
+    }
+  }
+  quest.level = level;
+  quest.parentId = parentId;
+  for (const d of descendants) d.level = LEVEL_ORDER[LEVEL_ORDER.indexOf(d.level) + delta];
+  return { moved: [quest.id, ...descendants.map((d) => d.id)] };
+}
+
+// Appends one timestamped line to the mission log, in the { text, time } shape
+// add_log_entry writes (#92). Returns null on success, or a message when that
+// day exists but is malformed (#132) -- the caller reports it, it never throws.
+export function appendLogLine(state, text, day = todayISO()) {
+  let logDay = state.log.find((d) => d && d.date === day);
+  if (!logDay) {
+    logDay = { date: day, entries: [] };
+    state.log.unshift(logDay);
+  }
+  if (!Array.isArray(logDay.entries)) {
+    return `the mission-log day ${day} has no entries array, so this wasn't logged there (see #132): ${text}`;
+  }
+  logDay.entries.push({ text, time: nowISO() });
+  return null;
+}
+
+export function succeedQuest(state, successorIdOrTitle, predecessorIdOrTitle) {
+  if (!successorIdOrTitle) return { error: "succeed needs the successor (idOrTitle): the item that takes over. Nothing was changed." };
+  if (!predecessorIdOrTitle) return { error: "succeed needs the predecessor (predecessorIdOrTitle): the item being replaced. Nothing was changed." };
+  const s = resolveOne(state, successorIdOrTitle);
+  if (s.error) return { error: `Successor: ${s.error}. Nothing was changed.` };
+  const p = resolveOne(state, predecessorIdOrTitle);
+  if (p.error) return { error: `Predecessor: ${p.error}. Nothing was changed.` };
+  const successor = s.quest;
+  const predecessor = p.quest;
+
+  if (successor.id === predecessor.id) {
+    return { error: `${describeQuest(successor)} can't succeed itself -- the successor and the predecessor must be different items. Nothing was changed.` };
+  }
+  if (predecessor.succeededBy) {
+    const prior = state.quests.find((q) => q.id === predecessor.succeededBy);
+    return {
+      error: `${describeQuest(predecessor)} is already succeeded by ${prior ? describeQuest(prior) : `"${predecessor.succeededBy}"`} -- undo that succession first (undo_succession) if this one should replace it. Nothing was changed.`,
+    };
+  }
+  if (successor.archived) {
+    return { error: `${describeQuest(successor)} is archived -- unarchive it first (set_archived with archived:false); an archived item can't take over. Nothing was changed.` };
+  }
+  if (descendantsOf(state, successor.id).some((d) => d.id === predecessor.id)) {
+    return {
+      error: `${describeQuest(successor)} is an ancestor of ${describeQuest(predecessor)} -- a successor can't take the place of something inside its own subtree. Move ${describeQuest(predecessor)} out first, or pick a different successor. Nothing was changed.`,
+    };
+  }
+  // Following succeededBy from the successor must never lead back to the
+  // predecessor, or the chain of "who replaced whom" would loop.
+  const seen = new Set();
+  for (let cur = successor; cur?.succeededBy && !seen.has(cur.id); cur = state.quests.find((q) => q.id === cur.succeededBy)) {
+    seen.add(cur.id);
+    if (cur.succeededBy === predecessor.id) {
+      return { error: `${describeQuest(predecessor)} already (directly or down the chain) succeeds ${describeQuest(successor)}, so this would make the succession chain loop. Nothing was changed.` };
+    }
+  }
+
+  const from = { level: successor.level, parentId: successor.parentId ?? null };
+  const to = { level: predecessor.level, parentId: predecessor.parentId ?? null };
+  const fromPhrase = placementPhrase(state, from.level, from.parentId);
+  const placed = placeSubtree(state, successor, to.level, to.parentId);
+  if (placed.error) return placed;
+
+  const wasArchived = !!predecessor.archived;
+  predecessor.archived = true;
+  predecessor.succeededBy = successor.id;
+  predecessor._succession = { successorId: successor.id, at: nowISO(), wasArchived, from, to };
+  successor.succeeds = [...new Set([...(successor.succeeds ?? []), predecessor.id])];
+  touchQuestAncestor(state, successor);
+  touchQuestAncestor(state, predecessor);
+
+  const changedPlace = from.level !== to.level || from.parentId !== to.parentId;
+  const toPhrase = placementPhrase(state, to.level, to.parentId);
+  const summary =
+    `Succession: "${successor.title}" succeeds "${predecessor.title}". ` +
+    `"${predecessor.title}" is archived${wasArchived ? " (it already was)" : ""}; ` +
+    `"${successor.title}" ${changedPlace ? `moved from ${fromPhrase} to ${toPhrase}` : `stays ${toPhrase}`}.`;
+  const logWarning = appendLogLine(state, summary);
+  return { successor, predecessor, moved: placed.moved, summary, logged: !logWarning, ...(logWarning ? { logWarning } : {}) };
+}
+
+// Reverses succeedQuest, named by the predecessor (the archived item). By
+// default it puts the successor back exactly where it was -- refusing, with
+// nothing changed, if the successor has moved since or its old parent is gone
+// or no longer the right tier, since putting it back then could undo later
+// work. keepPlacement:true skips that and only drops the link and the archive.
+export function undoSuccession(state, predecessorIdOrTitle, { keepPlacement = false } = {}) {
+  if (!predecessorIdOrTitle) return { error: "undo_succession needs the predecessor: the archived item that was replaced. Nothing was changed." };
+  const p = resolveOne(state, predecessorIdOrTitle);
+  if (p.error) return { error: `${p.error}. Nothing was changed.` };
+  const predecessor = p.quest;
+  if (!predecessor.succeededBy) {
+    if (predecessor.succeeds?.length) {
+      const names = predecessor.succeeds.map((id) => state.quests.find((q) => q.id === id)).map((q, i) => (q ? describeQuest(q) : `"${predecessor.succeeds[i]}"`));
+      return { error: `${describeQuest(predecessor)} is the successor here (it succeeds ${names.join(", ")}) -- pass the predecessor, the item it replaced. Nothing was changed.` };
+    }
+    return { error: `${describeQuest(predecessor)} hasn't been succeeded by anything -- nothing to undo. Nothing was changed.` };
+  }
+  const rec = predecessor._succession;
+  const successor = state.quests.find((q) => q.id === predecessor.succeededBy) ?? null;
+  const successorName = successor ? `"${successor.title}"` : `"${predecessor.succeededBy}"`;
+  const keepHint = "pass keepPlacement:true to undo only the link and the archive, then place it yourself";
+
+  let moved = [];
+  let restoredPlacement = false;
+  if (!keepPlacement) {
+    if (!successor) {
+      return { error: `the successor "${predecessor.succeededBy}" no longer exists, so there's nothing to put back -- ${keepHint}. Nothing was changed.` };
+    }
+    if (!rec || rec.successorId !== successor.id || !rec.from || !rec.to) {
+      return { error: `there's no record of where ${describeQuest(successor)} sat before (the link wasn't made by succeed) -- ${keepHint}. Nothing was changed.` };
+    }
+    const nowParentId = successor.parentId ?? null;
+    if (successor.level !== rec.to.level || nowParentId !== rec.to.parentId) {
+      return {
+        error: `${describeQuest(successor)} has moved since the succession (it's now ${placementPhrase(state, successor.level, nowParentId)}, not ${placementPhrase(state, rec.to.level, rec.to.parentId)}), so putting it back could undo later work -- ${keepHint}. Nothing was changed.`,
+      };
+    }
+    if (rec.from.parentId) {
+      const oldParent = state.quests.find((q) => q.id === rec.from.parentId);
+      if (!oldParent) {
+        return { error: `${describeQuest(successor)}'s old parent "${rec.from.parentId}" no longer exists -- ${keepHint}. Nothing was changed.` };
+      }
+      if (oldParent.level !== PARENT_LEVEL[rec.from.level]) {
+        return { error: `${describeQuest(successor)}'s old parent ${describeQuest(oldParent)} is now a ${oldParent.level}, so it can't go back under it as a ${rec.from.level} -- ${keepHint}. Nothing was changed.` };
+      }
+      if (descendantsOf(state, successor.id).some((d) => d.id === oldParent.id)) {
+        return { error: `${describeQuest(successor)}'s old parent ${describeQuest(oldParent)} is now inside its own subtree -- ${keepHint}. Nothing was changed.` };
+      }
+    }
+    const placed = placeSubtree(state, successor, rec.from.level, rec.from.parentId);
+    if (placed.error) return placed;
+    moved = placed.moved;
+    restoredPlacement = true;
+  }
+
+  if (successor?.succeeds) {
+    successor.succeeds = successor.succeeds.filter((id) => id !== predecessor.id);
+    if (successor.succeeds.length === 0) delete successor.succeeds;
+  }
+  const wasArchived = rec?.wasArchived;
+  if (wasArchived === false) delete predecessor.archived;
+  delete predecessor.succeededBy;
+  delete predecessor._succession;
+  if (successor) touchQuestAncestor(state, successor);
+  touchQuestAncestor(state, predecessor);
+
+  const archivePart =
+    wasArchived === false
+      ? `"${predecessor.title}" is unarchived`
+      : wasArchived === true
+        ? `"${predecessor.title}" stays archived (it was archived before the succession)`
+        : `"${predecessor.title}" stays archived (no record of whether it was archived before)`;
+  const placePart = !successor
+    ? "the successor no longer exists"
+    : restoredPlacement
+      ? `${successorName} is back to ${placementPhrase(state, successor.level, successor.parentId ?? null)}`
+      : `${successorName} stays ${placementPhrase(state, successor.level, successor.parentId ?? null)}`;
+  const summary = `Succession undone: ${successorName} no longer succeeds "${predecessor.title}". ${archivePart}; ${placePart}.`;
+  const logWarning = appendLogLine(state, summary);
+  return { predecessor, successor, moved, restoredPlacement, summary, logged: !logWarning, ...(logWarning ? { logWarning } : {}) };
+}
+
+// Runs a mutation against a deep copy of the current state and returns what
+// it would do, writing nothing (for dryRun on succeed/undo_succession).
+// recomputeRollups runs on the copy too, so the preview matches a real save.
+export async function previewMutation(mutator) {
+  const copy = structuredClone(await readState());
+  const result = await mutator(copy);
+  recomputeRollups(copy);
+  return { state: copy, result };
+}
+
+function briefQuest(q) {
+  if (!q) return null;
+  const out = { id: q.id, title: q.title, level: q.level, parentId: q.parentId ?? null, status: q.status };
+  if (q.archived) out.archived = true;
+  if (q.succeededBy) out.succeededBy = q.succeededBy;
+  if (q.succeeds) out.succeeds = q.succeeds;
+  return out;
+}
+
+// The one entry point both write paths use for succeed / undo_succession (the
+// MCP tools and POST /api/succeed, /api/undo-succession), so they can't drift.
+// `op(state)` is succeedQuest/undoSuccession bound to its arguments. A refusal
+// writes nothing ({ error }); dryRun runs on a copy and writes nothing.
+export async function runSuccession(op, { dryRun = false } = {}) {
+  if (dryRun) {
+    const { result } = await previewMutation(op);
+    if (result.error) return { error: result.error };
+    return { dryRun: true, wrote: false, ...successionReport(result) };
+  }
+  const { result, version } = await mutateState(op, { skipWriteOnError: true });
+  if (result.error) return { error: result.error };
+  return { dryRun: false, wrote: true, version, ...successionReport(result) };
+}
+
+function successionReport(result) {
+  const report = {
+    summary: result.summary,
+    successor: briefQuest(result.successor),
+    predecessor: briefQuest(result.predecessor),
+    moved: result.moved,
+    logged: result.logged,
+  };
+  if (result.restoredPlacement !== undefined) report.restoredPlacement = result.restoredPlacement;
+  if (result.logWarning) report.logWarning = result.logWarning;
+  return report;
 }

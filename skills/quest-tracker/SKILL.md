@@ -130,6 +130,15 @@ The `quest-log` MCP server exposes:
   automatically from the new parent's (one tier down) and every descendant shifts with it. Omit
   `newParentIdOrTitle` to move it to top-level as a Quest. Only fails if a descendant would land
   past Task
+- `succeed(idOrTitle, predecessorIdOrTitle, dryRun?)` (#164) — "B succeeds A" in one move:
+  the successor (`idOrTitle`, B) takes the predecessor's (A's) exact place — same level, same
+  parent, subtree shifted with it — A is archived, and the link is recorded both ways
+  (`A.succeededBy`, `B.succeeds`). Works whether B sits under A or anywhere else. Refuses,
+  changing nothing, if B is A or one of A's ancestors, A already has a successor, B is archived,
+  the chain would loop, or B's subtree would go past Task. `dryRun: true` reports without writing.
+  Reverse it with `undo_succession(idOrTitle = A, keepPlacement?)`, which puts B back where it
+  was and unarchives A (unless A was already archived); it refuses if B has moved since —
+  `keepPlacement: true` then drops only the link and the archive
 - `rename_quest(idOrTitle, newTitle)` — retitle a quest/mission/task in place, independent of
   any level change. `promote`/`recruit`/`move` all keep the title verbatim, so use this to fix a
   title that no longer reads as a good name after a restructure (e.g. before promoting a Mission
@@ -217,12 +226,13 @@ this confirmation is meant to happen through the conversation, not a click. The 
 someone act directly in two ways: a "+ note" button to capture a quick note as a new child item
 for you to triage later, and an "↑ promote" button (wherever `promote` would currently succeed —
 it's hidden on a Quest, and hidden on anything with children) that levels the item up in place
-the same way the `promote` tool does. `recruit`, `transfer`, `move`, and `delete_quest`
-have no UI equivalent — they only happen through conversation with Claude.
+the same way the `promote` tool does. `recruit`, `transfer`, `move`, `succeed`, and `delete_quest`
+have no UI button — they only happen through conversation with Claude (the page does show a
+successor's "succeeds …" link).
 
-### Restructuring: promote / recruit / transfer / move / rename_quest
+### Restructuring: promote / recruit / transfer / move / succeed / rename_quest
 
-Five ways to reshape the hierarchy after the fact (until these existed, an item's level, parent,
+Six ways to reshape the hierarchy after the fact (until these existed, an item's level, parent,
 and title were fixed at creation):
 
 - **Promote** an item that's outgrown its tier — a Task that turned into its own multi-step
@@ -244,6 +254,11 @@ and title were fixed at creation):
   Task. Reach for this when something was mis-filed from the start (a Task that should've been
   its own Mission under a completely different Quest, or a whole sub-tree that needs to move as
   a unit), not as a routine substitute for the narrower tools above.
+- **Succeed** when one item has *replaced* another — a new approach supplanted an old one, and
+  the old one should leave the board with a pointer to its heir. `succeed(B, A)` archives A,
+  lifts B into A's slot and records the link, as one logged, undoable move (`undo_succession`).
+  Prefer it over a hand-rolled `move` + `set_archived` + note: the link survives, and the undo
+  puts everything back. Run it with `dryRun: true` first when the tree around it is busy.
 - **Rename** a quest/mission/task in place when its current title stopped fitting — most often
   right before a `promote`, when a title that was fine as a Mission doesn't read as a good
   umbrella Quest name.
