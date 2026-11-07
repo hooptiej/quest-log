@@ -141,7 +141,12 @@ included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `s
 `get_full_state`, `get_batch_status`, `set_maintenance`, `set_auto_log`, `set_settings_mode`,
 `set_pro_mode`, `log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`, `list_ticket_touches`,
 `update_ticket_touch`, `delete_ticket_touch`, `remove_halo_ticket` (#134: ticket-touch records carry an `id`,
-backfilled lazily onto older records the first time any ticket-touch tool runs).
+backfilled lazily onto older records the first time any ticket-touch tool runs). Touch order (#161):
+"newest" always means the latest `timestamp` (when the work happened, backdates included), never
+the order records were logged -- `state.js`'s `touchesNewestFirst` for `list_ticket_touches` and
+`findTicketTouch`'s by-ticketId pick, mirrored by `app/public/app.js`'s `<touch-order>` block for
+the page's history; ties fall back to most-recently-logged first. The stored array stays in
+logging order. `scripts/test-touch-order.mjs` checks all four paths.
 
 No claude.ai Artifact mirror mechanism anymore -- `app/mirror.js` and the
 `get_artifact_status`/`record_artifact_update`/`get_mirror_html` tools were removed 2026-09-06

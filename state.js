@@ -610,10 +610,31 @@ export function ensureTicketTouchIds(state) {
   }
 }
 
+// #161: "newest" means the latest `timestamp` (when the work happened), not
+// the most recently logged -- since #149 a touch can be backdated, so the two
+// differ. This is the one ordering rule for touches: list_ticket_touches,
+// findTicketTouch's "newest for this ticket", and (mirrored in app.js's
+// touchesNewestFirst, which can't import this) the page's ticket history.
+// Equal timestamps fall back to logging order, most recently logged first,
+// which is exactly the old order. An unreadable timestamp sorts oldest.
+function touchTime(t) {
+  const ms = Date.parse(t?.timestamp);
+  return Number.isNaN(ms) ? -Infinity : ms;
+}
+
+// Returns a new array, newest first; never reorders state.ticketTouches itself.
+export function touchesNewestFirst(touches) {
+  return (touches ?? [])
+    .map((t, index) => ({ t, index }))
+    .sort((a, b) => touchTime(b.t) - touchTime(a.t) || b.index - a.index)
+    .map(({ t }) => t);
+}
+
 // Finds the touch record an edit/delete targets: by `id` if given, otherwise
 // the newest record for `ticketId` (the usual "fix the one I just logged"
-// case). Returns { record, index } or { error } with a message that says
-// exactly what didn't match, so a caller can correct the call.
+// case) -- newest by timestamp (#161), see touchesNewestFirst. Returns
+// { record, index } (index into state.ticketTouches) or { error } with a
+// message that says exactly what didn't match, so a caller can correct the call.
 export function findTicketTouch(state, { id, ticketId }) {
   ensureTicketTouchIds(state);
   const touches = state.ticketTouches ?? [];
@@ -623,9 +644,13 @@ export function findTicketTouch(state, { id, ticketId }) {
     return { record: touches[index], index };
   }
   if (ticketId) {
-    for (let i = touches.length - 1; i >= 0; i--) {
-      if (touches[i].ticketId === ticketId) return { record: touches[i], index: i };
+    let best = -1;
+    for (let i = 0; i < touches.length; i++) {
+      if (touches[i].ticketId !== ticketId) continue;
+      // >= so a tie goes to the later-logged record, matching touchesNewestFirst.
+      if (best === -1 || touchTime(touches[i]) >= touchTime(touches[best])) best = i;
     }
+    if (best !== -1) return { record: touches[best], index: best };
     return { error: `No ticket-touch records for ticket ${ticketId}.` };
   }
   return { error: "Pass either id or ticketId to pick which ticket-touch record to change." };

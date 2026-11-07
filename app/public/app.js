@@ -1072,7 +1072,7 @@
       var viewedEl = document.getElementById("stat-viewed");
       if (viewedEl) viewedEl.textContent = fmtViewed(stats.viewed);
 
-      var touches = (state.ticketTouches || []).slice().reverse();
+      var touches = touchesNewestFirst(state.ticketTouches);
       var ticketsFullEl = document.getElementById("tickets-full");
       if (ticketsFullEl) {
         ticketsFullEl.innerHTML = touches.length
@@ -1123,6 +1123,24 @@
     var d = new Date(time);
     return isNaN(d.getTime()) ? "" : ' title="' + escapeHtml(d.toLocaleTimeString()) + '"';
   }
+
+  // <touch-order> (#161; scripts/test-touch-order.mjs extracts this block and runs it)
+  // Ticket history, newest first by timestamp -- when the work happened, so a
+  // backdated touch (#149) sits at its date, not where it was logged. Mirrors
+  // state.js's touchesNewestFirst (which the page can't import): equal
+  // timestamps keep logging order, most recently logged first; an unreadable
+  // timestamp sorts oldest. Returns a new array.
+  function touchesNewestFirst(touches) {
+    function time(t) {
+      var ms = Date.parse(t && t.timestamp);
+      return isNaN(ms) ? -Infinity : ms;
+    }
+    return (touches || [])
+      .map(function (t, index) { return { t: t, index: index }; })
+      .sort(function (a, b) { return (time(b.t) - time(a.t)) || (b.index - a.index); })
+      .map(function (x) { return x.t; });
+  }
+  // </touch-order>
 
   function ticketStats(state) {
     var touches = state.ticketTouches || [];
