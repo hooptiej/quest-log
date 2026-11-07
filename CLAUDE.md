@@ -268,7 +268,9 @@ No test framework: the tests are plain Node scripts in `scripts/test-*.mjs` (run
 dev container (`quest-log-dev`) runs on the TrueNAS box
 at `/mnt/Storage Pool/home/hoop/hoop/quest-log-dev` for live verification of feature branches.
 
-**Development container workflow:**
+**Development container workflow:** `./scripts/deploy.sh` (see Deployment below) deploys
+origin/main there too, once its `.env` says `COMPOSE_FILE=docker-compose.dev.yml`. To live-test an
+unmerged branch, do it by hand, under a tag of its own so main's `<version>-<sha>` tags stay true:
 ```bash
 # On TrueNAS box (SSH first: ssh -i ~/.ssh/id_ed25519_truenas hoop@10.0.1.78)
 cd /mnt/Storage\ Pool/home/hoop/hoop/quest-log-dev
@@ -276,13 +278,16 @@ cd /mnt/Storage\ Pool/home/hoop/hoop/quest-log-dev
 # Check out your branch (after pushing it)
 git fetch origin && git checkout <your-branch>
 
-# Rebuild and redeploy
-sudo docker compose -f docker-compose.dev.yml up -d --build
+# Rebuild and redeploy under a branch tag (deploy.sh rewrites QUESTLOG_TAG on its next run)
+sed -i 's/^QUESTLOG_TAG=.*/QUESTLOG_TAG=branch-test/' .env
+sudo docker compose up -d --build     # .env's COMPOSE_FILE picks docker-compose.dev.yml
+
+# Back to main afterwards (the pushed branch keeps its commits): ./scripts/deploy.sh --force
 
 # Verify startup
 sudo docker logs quest-log-dev
 
-# The dev server runs on http://10.0.1.78:4243
+# The dev server runs on its own LAN address: http://10.0.1.246 (questlog-dev.local), from its .env (#171)
 ```
 
 **Browser tab must read `DEV-Questlog`, not just "Questlog"** — standing convention across all of
@@ -326,15 +331,33 @@ Runs on hooptiej's shared TrueNAS box (host `10.0.1.78`) as a **plain `docker co
 (`10.0.1.250` via the `questlog-lan` ipvlan network in `docker-compose.yml`), separate from the
 TrueNAS host's own IP.
 
-Redeploy is manual: `git pull` then `sudo docker compose up -d --build` in that checkout.
+**Redeploy with `./scripts/deploy.sh` (#165)**, run in the checkout (prod or dev). It fetches and
+moves the checkout to exactly `origin/main` (refusing, with a list, if the checkout holds edits or
+commits that aren't on origin/main; `--force` overrides), backs up the data dir, builds the image
+as `quest-log:<package.json version>-<short sha>` with the build stamp baked in (#156), recreates
+the container, waits for `/health` to report status ok **and the sha it just built**, prunes old
+image tags (newest 5 kept), and pulses the dashboard light if `.env` configures it. `--rollback`
+lists the images on the host; `--rollback <tag>` runs one again (no git, no build). `-h` has the
+rest. Every failure says what step failed, what it had already changed, and how to go back.
+- **Config is the checkout's `.env`** (gitignored; `.env.example` documents it), never the
+  script: `COMPOSE_FILE` (required: `docker-compose.yml` prod, `docker-compose.dev.yml` dev),
+  optional `QUESTLOG_DATA_DIR`, `QUESTLOG_CONTAINER`, and the pulse's `QUESTLOG_DASH_URL` +
+  `QUESTLOG_DASH_TOKEN_FILE` (both, or no pulse; light ids default to `questlog` / `questlog-dev`).
+  The script writes `QUESTLOG_TAG`, `BUILD_SHA`, `BUILD_DATE` there itself, so a plain
+  `docker compose up -d` afterwards keeps the same image.
+- **The backup:** the state is one JSON file (`state.json`, or `state.dev.json` on dev) plus
+  `write-token`, in the data dir mounted at `/app/data` (outside the prod checkout). Every
+  top-level file there is copied to `<data dir>/backups/predeploy-<time>-<sha>/` and each JSON
+  copy must parse, newest 10 kept. A copy taken while the app runs is always whole, because
+  `state.js` writes a temp file and renames it into place. The data dir comes from
+  `QUESTLOG_DATA_DIR` or else the running container's mount; with neither, the deploy stops before
+  changing anything (`--no-backup` to go ahead without one).
+- **First run on an install** that was deployed by hand: the running image (old name
+  `quest-log-quest-log`) gets tagged `quest-log:pre-<image id>` first, so there's a rollback target.
+- The old merge commits from past `git pull`s don't block it (they carry no changes of their own),
+  and the checkout is reset rather than pulled from now on.
 
-**That checkout's git history is not fast-forward-only.** Repeated `git pull` there after past
-redeploys has accumulated merge commits — this is expected and harmless, not something to "clean
-up". If you ever touch that checkout directly, reconcile with `git pull --no-rebase` rather than
-resetting or force-pushing over it.
-
-Call `set_maintenance(active: true, note: "...")` via an MCP session before taking the container
-down for a redeploy, if you're doing so from a session that has quest-log tools open — it warns
+Call `set_maintenance(active: true, note: "...")` via an MCP session before running the deploy, if you're doing so from a session that has quest-log tools open — it warns
 other open sessions instead of letting them hit a raw stale-session error. Clear it
 (`active: false`) once the new container is confirmed healthy.
 

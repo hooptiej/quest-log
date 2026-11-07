@@ -3,3 +3,7 @@ node_modules/
 data/state.json
 certs/
 data/write-token
+# #165: per-install deploy config (copy .env.example), and pre-deploy backups when the data
+# dir is the checkout's own ./data (the dev install)
+.env
+data/backups/

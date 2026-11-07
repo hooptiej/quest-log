@@ -136,11 +136,18 @@ shape to copy from.
 docker compose up -d --build
 ```
 
+For a real install, deploy with **`./scripts/deploy.sh`** instead: copy `.env.example` to `.env`
+(set `COMPOSE_FILE`, and optionally the data dir and a dashboard pulse), then each run moves the
+checkout to `origin/main`, backs up the data dir, builds `quest-log:<version>-<sha>` with the build
+stamp baked in, restarts, and checks `/health` reports that build. `--rollback` lists the earlier
+images kept on the host and `--rollback <tag>` runs one again; `-h` shows the rest. A plain
+`docker compose up -d --build` without the script builds `quest-log:local`.
+
 `docker-compose.yml` mounts persistent data into the container so state survives rebuilds.
-By default the container joins an external `ipvlan` network (`questlog-lan`) and gets its own
-static LAN IP (see the `networks:` block), rather than being port-mapped on the host — so it's
-reachable directly at `http://<its-ip>/mcp`, no port number needed. Set `PORT` (default `80`
-in this mode, `4242` if you fall back to host port-mapping) and `DISABLE_TLS=1` to skip the
+The container joins an existing external `ipvlan`/`macvlan` network (`QUESTLOG_LAN_NETWORK`,
+default `questlog-lan`) and gets its own static LAN IP (`QUESTLOG_IP` in `.env`, required),
+rather than being port-mapped on the host — so it's reachable directly at `http://<its-ip>/mcp`,
+no port number needed. Set `QUESTLOG_PORT` (default `80`) and `DISABLE_TLS=1` to skip the
 cert dance entirely for a LAN-only deployment (see HTTPS section below).
 
 ```bash
@@ -150,8 +157,10 @@ docker network create -d ipvlan --subnet=<lan-subnet> --gateway=<lan-gateway> \
 
 ### Data persistence and migration
 
-Persistent data (`state.json`, write-token, and self-signed certs) is stored at
-`/mnt/Storage Pool/quest-log-data/{data,certs}` on the host, outside the git checkout.
+Persistent data (`state.json`, write-token, and self-signed certs) lives in the host folders that
+`.env` names as `QUESTLOG_DATA_DIR` and `QUESTLOG_CERTS_DIR` (default `./data` and `./certs`); point
+them outside the git checkout. This install's address, network and port come from `.env` too
+(`QUESTLOG_IP` is required; see `.env.example`), so the compose files hold nothing install-specific.
 This separates live data from the code repo, making it safe to re-clone or clean the
 checkout without losing state or accidentally wiping prod data with `git clean`.
 
@@ -195,15 +204,15 @@ docker run -d --name quest-log -p 8080:80 \
 
 Then it's at `http://localhost:8080`. This is the same pattern used to verify PRs on an
 isolated scratch container before merging (separate port, separate data mounts, real
-`docker build` from the checkout) — nothing TrueNAS-specific about the app itself, only the
-checked-in compose file's networking assumes that one deployment.
+`docker build` from the checkout) — nothing TrueNAS-specific about the app itself, and the
+checked-in compose files take every install-specific value from `.env` (#171).
 
 ## HTTPS
 
 Set `DISABLE_TLS=1` to skip certs entirely and serve plain HTTP — reasonable for a LAN-only
 deployment with its own dedicated IP, since there's no shared host/port to spoof. Otherwise,
-`docker-entrypoint.sh` generates a self-signed cert into `/mnt/Storage Pool/quest-log-data/certs`
-(also volume-mounted) on first boot if one isn't already there, then starts the server — no manual
+`docker-entrypoint.sh` generates a self-signed cert into the certs folder (`QUESTLOG_CERTS_DIR`,
+also volume-mounted) on first boot if one isn't already there, then starts the server — no manual
 setup needed for a fresh deployment. `server.js` serves over HTTPS automatically whenever
 `certs/cert.pem` and `certs/key.pem` exist (and `DISABLE_TLS` isn't set), falling back to plain
 HTTP otherwise (e.g. for local dev without a cert). Configure what the cert covers via

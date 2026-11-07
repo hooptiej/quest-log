@@ -3,3 +3,4 @@ data
 certs
 .git
 *.log
+.env

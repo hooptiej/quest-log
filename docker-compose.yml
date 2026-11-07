@@ -1,5 +1,9 @@
 services:
   quest-log:
+    # #165: a named, tagged image so every deploy stays on the host as a rollback target.
+    # scripts/deploy.sh sets QUESTLOG_TAG (<version>-<sha>) in .env; a plain
+    # `docker compose up -d --build` without it builds quest-log:local.
+    image: "${QUESTLOG_IMAGE:-quest-log}:${QUESTLOG_TAG:-local}"
     build:
       context: .
       args:
@@ -7,22 +11,25 @@ services:
         BUILD_DATE: "${BUILD_DATE:-}"
     container_name: quest-log
     restart: unless-stopped
+    # #171: this install's own values (its LAN address, the network, where the data lives) come from
+    # .env, never from this file -- see .env.example. The container gets its own address on an
+    # existing ipvlan/macvlan network, so it can serve plain port 80 there.
     networks:
       questlog-lan:
-        ipv4_address: 10.0.1.250
+        ipv4_address: "${QUESTLOG_IP:?set QUESTLOG_IP in .env to this install's free LAN address (see .env.example)}"
     volumes:
-      - /mnt/Storage Pool/quest-log-data/data:/app/data
-      - /mnt/Storage Pool/quest-log-data/certs:/app/certs
+      - "${QUESTLOG_DATA_DIR:-./data}:/app/data"
+      - "${QUESTLOG_CERTS_DIR:-./certs}:/app/certs"
     environment:
-      - PORT=80
+      - PORT=${QUESTLOG_PORT:-80}
       - DISABLE_TLS=1
       - DATA_PATH=/app/data/state.json
       - CERT_PATH=/app/certs/cert.pem
       - KEY_PATH=/app/certs/key.pem
-      - CERT_SAN_DNS=questlog.local
-      - CERT_SAN_IP=10.0.1.250
+      - CERT_SAN_DNS=${QUESTLOG_HOSTNAME:-questlog.local}
+      - CERT_SAN_IP=${QUESTLOG_IP}
 
 networks:
   questlog-lan:
     external: true
-    name: questlog-lan
+    name: "${QUESTLOG_LAN_NETWORK:-questlog-lan}"
