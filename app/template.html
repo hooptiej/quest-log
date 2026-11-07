@@ -1729,6 +1729,56 @@
      palettes, but it fights ComputerCatSimple's muted sage everywhere else. */
   [data-theme="computercatsimple"] .add-panel { --panel-accent: var(--accent); }
 
+  /* ---------- boot bar: Computer Cats Simple (#140) ----------
+     A flat MSP console toolbar: no box, just a hairline underneath, muted
+     small type with the org name in the body color, the link status as an
+     "online" pill with a dot, and the least-touched Quest as an inline alert
+     row with a left accent bar. Same rows as the generic strip. (The org
+     line, terminal name and labels are stored upper-case, so the type is
+     kept small and light rather than shouting.) Tweak from the variables. */
+  [data-theme="computercatsimple"] .boot {
+    --boot-bg: var(--surface);
+    --boot-hairline: var(--border);
+    --boot-font-size: 0.74rem;
+    --boot-text: var(--text);
+    --boot-muted: var(--muted);
+    --boot-pill-bg: color-mix(in srgb, var(--accent) 16%, transparent);
+    --boot-pill-fg: var(--accent);
+    --boot-dot-size: 7px;
+    --boot-alert-bg: color-mix(in srgb, var(--alarm) 10%, transparent);
+    --boot-alert-bar: var(--alarm);
+    background: var(--boot-bg);
+    border: 0; border-bottom: 1px solid var(--boot-hairline);
+    padding: 0.55rem 1.25rem;
+  }
+  [data-theme="computercatsimple"] .boot-line {
+    flex-wrap: wrap; align-items: center; gap: 0.2rem 1rem;
+    font-family: var(--font-body); font-size: var(--boot-font-size); font-weight: 500;
+    letter-spacing: 0.04em; color: var(--boot-muted);
+  }
+  [data-theme="computercatsimple"] .boot-line + .boot-line { margin-top: 0.3rem; }
+  [data-theme="computercatsimple"] .boot-line:first-child > span:first-child { color: var(--boot-text); font-weight: 600; }
+  /* The two status values: the link status is the pill, the mission count a
+     plain right-aligned figure. */
+  [data-theme="computercatsimple"] .boot-line .ok { color: var(--boot-muted); font-variant-numeric: tabular-nums; }
+  [data-theme="computercatsimple"] .boot-line:first-child .ok {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.1rem 0.65rem; border-radius: 999px;
+    background: var(--boot-pill-bg); color: var(--boot-pill-fg);
+  }
+  [data-theme="computercatsimple"] .boot-line:first-child .ok::before {
+    content: ""; width: var(--boot-dot-size); height: var(--boot-dot-size);
+    border-radius: 50%; background: var(--boot-pill-fg);
+  }
+  [data-theme="computercatsimple"] .boot-line .env-badge {
+    font-family: var(--font-body); font-weight: 600; border-radius: 4px;
+  }
+  [data-theme="computercatsimple"] #neglected-quest-line {
+    padding: 0.3rem 0.65rem; border-radius: 4px;
+    background: var(--boot-alert-bg); border-left: 3px solid var(--boot-alert-bar);
+  }
+  [data-theme="computercatsimple"] #neglected-quest-value { color: var(--boot-text); }
+
   * { box-sizing: border-box; }
 
   body {
