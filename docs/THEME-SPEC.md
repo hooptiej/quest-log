@@ -105,6 +105,7 @@ function initHadleysHopeEffects() {
 1. **CSS block** (in `app/template.html`):
    - Add a `[data-theme="mytheme"] { ... }` block after the last existing theme.
    - Define all 15 custom properties listed above (colors, fonts, `--body-bg-image`).
+   - **Give the theme its own boot bar (#140).** The strip at the top of the page (`.boot`, with its `.boot-line` rows: org line, ENV badge, link status, terminal name, mission count, least-touched Quest) is a leftover generic panel unless the theme restyles it. Add a `[data-theme="mytheme"] .boot` rule (a background, borders, whatever suits the theme) plus `.boot-line` rules, keeping every row's information, and put the knobs in `--boot-*` variables at the top of that section. Or hide `.boot` and relocate its content into the theme, as Raccoon Manor does. `node scripts/test-boot-bars.mjs` fails for a theme that skips this.
    - Optionally add rules for `.log-panel-mini`, `.status-panel`, `.card-edge-*`, `.corner-bl`/`.corner-br`, `.tree-completed`, and any other hook classes.
    - Any additional theme-specific custom properties (e.g., `--resin` in hadleyshope) are fine; just don't skip the base contract.
 
