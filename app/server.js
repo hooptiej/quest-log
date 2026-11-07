@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readState, mutateState, validateState, nowISO, setProMode } from "../state.js";
+import { readState, mutateState, validateState, nowISO, setProMode, succeedQuest, undoSuccession, runSuccession } from "../state.js";
 import { attachMcp } from "../questhelper/questhelper.js";
 import { renderIndexHtml } from "./render.js";
 import { readHooksVersion } from "./hooks-version.js";
@@ -152,6 +152,44 @@ app.post("/api/state", async (req, res, next) => {
     next(err);
   }
 });
+
+// #164: "B succeeds A" over HTTP, for the page and for scripts -- the same
+// state.js operation the MCP succeed / undo_succession tools run. Same write
+// token as POST /api/state. A refusal is a 400 whose `error` says what was
+// wrong and that nothing changed; success returns the report plus the new
+// `version` (the page must reload state after, its own copy is now stale).
+//   POST /api/succeed          { successor, predecessor, dryRun? }
+//   POST /api/undo-succession  { predecessor, keepPlacement?, dryRun? }
+function successionRoute(buildOp) {
+  return async (req, res, next) => {
+    try {
+      if (req.get("x-write-token") !== WRITE_TOKEN) {
+        return res.status(401).json({ error: "unauthorized: missing or wrong X-Write-Token" });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const built = buildOp(body);
+      if (built.error) return res.status(400).json({ error: built.error });
+      const outcome = await runSuccession(built.op, { dryRun: body.dryRun === true });
+      if (outcome.error) return res.status(400).json({ error: outcome.error });
+      res.status(200).json({ ok: true, ...outcome });
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+const isName = (v) => typeof v === "string" && v.trim().length > 0;
+app.post("/api/succeed", successionRoute((body) => {
+  if (!isName(body.successor) || !isName(body.predecessor)) {
+    return { error: 'send JSON { "successor": "<id or title>", "predecessor": "<id or title>" } -- both are required. Nothing was changed.' };
+  }
+  return { op: (state) => succeedQuest(state, body.successor, body.predecessor) };
+}));
+app.post("/api/undo-succession", successionRoute((body) => {
+  if (!isName(body.predecessor)) {
+    return { error: 'send JSON { "predecessor": "<id or title of the archived item>" } (optional keepPlacement: true). Nothing was changed.' };
+  }
+  return { op: (state) => undoSuccession(state, body.predecessor, { keepPlacement: body.keepPlacement === true }) };
+}));
 
 attachMcp(app, { env: QUEST_LOG_ENV });
 

@@ -21,7 +21,8 @@ Three pieces live in this one repo:
 ## Architecture at a glance
 
 **One Express process, one port.** `app/server.js` builds the `express()` app, adds
-`GET /`, `GET/POST /api/state`, and `GET /health`, then calls `attachMcp(app)`
+`GET /`, `GET/POST /api/state`, `POST /api/succeed`, `POST /api/undo-succession` (#164), and
+`GET /health`, then calls `attachMcp(app)`
 (`questhelper/questhelper.js`) which registers `POST/GET/DELETE /mcp` on that *same* `app`
 instance. There is no separate MCP process and no HTTP hop between web app and MCP server — both
 call the same `state.js` functions in-process. `questhelper.js` keeps MCP session transports in
@@ -92,6 +93,16 @@ readyToClose?, blockedByDescendant?, _confirmedDone?, _prevStatus?, date?, repo?
 - `repo`/`issueNumber` (#64) — optional structured link from a quest to the specific GitHub
   issue it tracks, e.g. `{ repo: "hooptiej/Constructicon", issueNumber: 103 }`. Neither field is
   required or paired-enforced; either can be present alone.
+- **Succession (#164)** — `succeededBy` (on the archived predecessor: the one item that replaced
+  it), `succeeds` (on the successor: every item it replaced), and `_succession` (the undo record
+  on the predecessor: where the successor sat before, and whether the predecessor was already
+  archived). Written only by `succeedQuest`/`undoSuccession` in `state.js`, reached through the
+  `succeed`/`undo_succession` MCP tools and `POST /api/succeed` / `POST /api/undo-succession`
+  (write token, same as `/api/state`; both go through `runSuccession`, so the two paths can't
+  drift). One call = one save + one mission-log line; a refusal saves nothing
+  (`mutateState(..., { skipWriteOnError: true })`). `deleteQuest` drops links that point at
+  anything it deletes. Tested by `scripts/test-succession.mjs` (pure cases plus a real server
+  on a temp copy, over HTTP and MCP).
 
 ### Batch runs (#64)
 
@@ -134,10 +145,10 @@ corruption on crash.
 ## MCP (QuestHelper)
 
 Mounted at `POST/GET/DELETE /mcp` on the same server (see above), streamable-HTTP transport.
-**29 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
+**31 tools** (trust `questhelper/questhelper.js` as ground truth over any doc, this file
 included, if they ever drift): `list_quests`, `add_idea`, `set_quest_status`, `set_blocked`,
 `set_archived`, `set_attention`, `confirm_completion`, `promote`, `recruit`, `transfer`,
-`delete_quest`, `move`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
+`delete_quest`, `move`, `succeed`, `undo_succession`, `rename_quest`, `set_designation`, `update_quest_notes`, `add_log_entry`,
 `get_full_state`, `get_batch_status`, `set_maintenance`, `set_auto_log`, `set_settings_mode`,
 `set_pro_mode`, `log_ticket_touch`, `log_ticket_view`, `add_halo_ticket`, `list_ticket_touches`,
 `update_ticket_touch`, `delete_ticket_touch`, `remove_halo_ticket` (#134: ticket-touch records carry an `id`,

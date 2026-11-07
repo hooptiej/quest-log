@@ -18,6 +18,9 @@ import {
   transferQuest,
   deleteQuest,
   moveQuest,
+  succeedQuest,
+  undoSuccession,
+  runSuccession,
   renameQuest,
   setDesignation,
   getMaintenance,
@@ -115,6 +118,15 @@ async function runBatch(op, idOrTitleOrList, newParentIdOrTitle) {
     return { content: [{ type: "text", text: JSON.stringify(rest, null, 2) }] };
   }
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+}
+
+// #164: the MCP response for succeed / undo_succession. The work itself is in
+// state.js (runSuccession), shared with the HTTP API so both write paths do
+// exactly the same thing.
+async function successionResponse(dryRun, op) {
+  const outcome = await runSuccession(op, { dryRun: dryRun === true });
+  if (outcome.error) return { content: [{ type: "text", text: outcome.error }], isError: true };
+  return { content: [{ type: "text", text: JSON.stringify(outcome, null, 2) }] };
 }
 
 // Shared token-cap helpers for read tools that can return unbounded responses (#130).
@@ -493,6 +505,35 @@ function createServer(options = {}) {
         .describe("New parent's id, exact title, or a title substring. Omit to move the item(s) to top-level as a Quest."),
     },
     async ({ idOrTitle, newParentIdOrTitle }) => runBatch(moveQuest, idOrTitle, newParentIdOrTitle),
+  );
+
+  // #164: "B succeeds A" as one move, and its undo.
+  server.tool(
+    "succeed",
+    "Record that one item replaces another (#164), as one move: the successor (idOrTitle) takes the predecessor's exact place in the hierarchy (same level, same parent -- its whole subtree shifts with it, as with move), the predecessor is archived, and the link is recorded both ways (predecessor.succeededBy = successor id; the predecessor's id is added to successor.succeeds). Works whether the successor sits under the predecessor or anywhere else in the tree. One save, one mission-log line; reverse it with undo_succession. Refuses (changing nothing) if the two are the same item, the successor is an ancestor of the predecessor, the predecessor already has a successor, the successor is archived, the chain would loop, or the shift would push part of the successor's subtree past Task. Pass dryRun:true to see exactly what it would do without writing anything.",
+    {
+      idOrTitle: z.string().describe("The SUCCESSOR (the item that takes over): id, exact title, or a title substring"),
+      predecessorIdOrTitle: z.string().describe("The PREDECESSOR (the item being replaced, which gets archived): id, exact title, or a title substring"),
+      dryRun: z.boolean().optional().describe("true = report what would happen and write nothing"),
+    },
+    async ({ idOrTitle, predecessorIdOrTitle, dryRun }) => successionResponse(
+      dryRun,
+      (state) => succeedQuest(state, idOrTitle, predecessorIdOrTitle),
+    ),
+  );
+
+  server.tool(
+    "undo_succession",
+    "Reverse a succeed (#164), named by the PREDECESSOR (the archived item that was replaced): the successor goes back exactly where it was before (level, parent, and its subtree's levels), the predecessor is unarchived unless it was already archived before the succession, and the link is removed from both. Refuses (changing nothing) if the successor has moved since, or its old parent is gone or is no longer the right tier -- pass keepPlacement:true then to undo only the link and the archive and leave the successor where it is now. One save, one mission-log line. dryRun:true reports without writing.",
+    {
+      idOrTitle: z.string().describe("The PREDECESSOR: the archived item that was succeeded (id, exact title, or a title substring)"),
+      keepPlacement: z.boolean().optional().describe("true = leave the successor where it is now; only drop the link and restore the predecessor's archive state"),
+      dryRun: z.boolean().optional().describe("true = report what would happen and write nothing"),
+    },
+    async ({ idOrTitle, keepPlacement, dryRun }) => successionResponse(
+      dryRun,
+      (state) => undoSuccession(state, idOrTitle, { keepPlacement: keepPlacement === true }),
+    ),
   );
 
   server.tool(

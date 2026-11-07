@@ -682,6 +682,28 @@
     return "";
   }
 
+  // #164: the succession link, shown on whichever side is on the page. The
+  // predecessor is archived (hidden) after a succession, so in practice this
+  // is the successor's "succeeds X" line; "succeeded by" shows if the
+  // predecessor is ever unarchived while still linked. Titles come from the
+  // full list, archived included.
+  function successionBadge(q) {
+    var all = fullQuestList || [];
+    function titleOf(id) {
+      var hit = all.find(function (x) { return x.id === id; });
+      return hit ? hit.title : id;
+    }
+    var html = "";
+    if (q.succeeds && q.succeeds.length) {
+      var names = q.succeeds.map(titleOf);
+      html += '<span class="succession-badge" title="Succeeds: ' + escapeHtml(names.join(", ")) + '">&#8618; succeeds ' + escapeHtml(names.join(", ")) + '</span>';
+    }
+    if (q.succeededBy) {
+      html += '<span class="succession-badge" title="Succeeded by: ' + escapeHtml(titleOf(q.succeededBy)) + '">&#8618; succeeded by ' + escapeHtml(titleOf(q.succeededBy)) + '</span>';
+    }
+    return html;
+  }
+
   function attentionToggleButton(q) {
     return '<button type="button" class="note-btn attention-btn" data-action="toggle-attention" data-id="' + escapeHtml(q.id) + '">' + (q.attention ? "unmark" : "🔔 mark") + '</button>';
   }
@@ -743,6 +765,7 @@
           '<span class="quest-title">' + escapeHtml(q.title) + '</span>' +
           blockedBadge(q) +
           attentionBadge(q) +
+          successionBadge(q) +
           blockedToggleButton(q) +
           attentionToggleButton(q) +
           (canPromote ? '<button type="button" class="note-btn" data-action="promote" data-id="' + escapeHtml(q.id) + '" title="Promote to ' + escapeHtml(LEVEL_UP[q.level]) + '">&uarr; promote</button>' : '') +
@@ -892,6 +915,7 @@
               : '<span class="tree-toggle-spacer"></span>') +
             '<span class="tree-title">' + escapeHtml(q.title) + '</span>' +
             blockedBadge(q) +
+            successionBadge(q) +
           '</span>' +
           '<span class="tree-actions">' +
             '<span class="tree-meta">' + escapeHtml(q.level) + '</span>' +
