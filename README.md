@@ -240,9 +240,7 @@ keyed off `data-theme` on `<html>`:
   IBM Plex Mono. h1 reads "ROBCO Survey Report".
 
 See `docs/THEME-SPEC.md` and the `[data-theme="..."]` blocks in `app/template.html` for the
-full current list and how to add another one. (A WoW/"Guild Charter" theme existed here
-briefly and was removed outright in #116 after three failed attempts across #90 — see that
-issue's history if this ever comes up again.)
+full current list and how to add another one.
 
 Each theme also carries its own flavor text (org line, terminal name, title, designation
 wording) via the `THEME_FLAVOR` table in `app/public/app.js`. Adding another theme means adding
