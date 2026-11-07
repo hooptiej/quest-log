@@ -1193,6 +1193,67 @@
     color: var(--alarm);
   }
 
+  /* ---------- boot bar: Test Pattern (#140) ----------
+     A broadcast station-ID slate: a strip of SMPTE color bars across the top,
+     a grey-scale step wedge along the bottom, and the status values as
+     inverse "on-screen display" chips. The org line shares the title's
+     convergence fringe, so the pad in the corner pulls the bar's text apart
+     too. Same rows as the generic strip. Tweak the look from the variables. */
+  [data-theme="testpattern"] .boot {
+    --boot-bars-h: 6px;                          /* color bar strip, top */
+    --boot-steps-h: 5px;                         /* grey step wedge, bottom */
+    --boot-bg: #000;
+    --boot-text: var(--text);
+    --boot-chip-fg: #000;
+    --boot-chip-1: var(--accent);                /* chip on the link-status row */
+    --boot-chip-2: var(--idea);                  /* chip on the missions row */
+    --boot-warn: var(--alarm);
+    --boot-fringe: 3px;                          /* org-line convergence fringe, at full offset */
+    background: var(--boot-bg);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--boot-bars-h) + 0.45rem) 1.1rem calc(var(--boot-steps-h) + 0.4rem);
+  }
+  [data-theme="testpattern"] .boot::before,
+  [data-theme="testpattern"] .boot::after {
+    content: ""; position: absolute; left: 0; right: 0; pointer-events: none;
+  }
+  [data-theme="testpattern"] .boot::before {
+    top: 0; height: var(--boot-bars-h);
+    background: repeating-linear-gradient(90deg,
+      #fff 0 12.5%, #e5e500 12.5% 25%, #00e5e5 25% 37.5%, #00c800 37.5% 50%,
+      #e500e5 50% 62.5%, #e50000 62.5% 75%, #0000e5 75% 87.5%, #000 87.5% 100%);
+  }
+  [data-theme="testpattern"] .boot::after {
+    bottom: 0; height: var(--boot-steps-h);
+    background: linear-gradient(90deg,
+      #000 0 12.5%, #242424 12.5% 25%, #484848 25% 37.5%, #6c6c6c 37.5% 50%,
+      #909090 50% 62.5%, #b4b4b4 62.5% 75%, #d8d8d8 75% 87.5%, #fff 87.5% 100%);
+  }
+  [data-theme="testpattern"] .boot-line {
+    flex-wrap: wrap; align-items: center; gap: 0.15rem 1rem;
+    color: var(--boot-text); letter-spacing: 0.08em;
+  }
+  [data-theme="testpattern"] .boot-line:first-child > span:first-child {
+    text-shadow:
+      calc(var(--tp-conv-x, 0) * var(--boot-fringe)) calc(var(--tp-conv-y, 0) * var(--boot-fringe) * -1) var(--accent),
+      calc(var(--tp-conv-x, 0) * var(--boot-fringe) * -1) calc(var(--tp-conv-y, 0) * var(--boot-fringe)) var(--alarm);
+  }
+  /* The two status values become inverse OSD chips, like the CH/VOL labels
+     a TV draws over the picture. */
+  [data-theme="testpattern"] .boot-line .ok {
+    background: var(--boot-chip-1); color: var(--boot-chip-fg);
+    font-weight: 700; letter-spacing: 0.1em; padding: 0 0.5rem;
+  }
+  [data-theme="testpattern"] .boot-line:nth-child(2) .ok { background: var(--boot-chip-2); }
+  [data-theme="testpattern"] .boot-line .env-badge { border-radius: 0; }
+  /* The least-touched row reads as a signal-loss warning: a red chip for the
+     label, the Quest title in alarm red. */
+  [data-theme="testpattern"] #neglected-quest-line { color: var(--boot-warn); }
+  [data-theme="testpattern"] #neglected-quest-line > span:first-child {
+    background: var(--boot-warn); color: #fff; font-weight: 700; padding: 0 0.5rem;
+  }
+
   /* Tuner floatie (tpTunerRig/tpTunerBtn in app.js): "changing the channel"
      dims the two jitterClass buckets not currently tuned in, like an old
      TV only showing the selected station. tp-tuned-* lands on <html> so
