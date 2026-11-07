@@ -77,6 +77,69 @@
   }
   [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
 
+  /* ---------- boot bar: Field Terminal (#140) ----------
+     A RobCo TERMLINK header: bare phosphor text between double rules, a
+     ">" prompt on every line ("!" on the least-touched warning), and a
+     trailing prompt with a blinking cursor, as if the bar were the top of
+     a terminal session. Same three rows of information as the generic
+     strip. Tweak the look from the variables. */
+  [data-theme="terminal"] .boot {
+    --boot-font-size: 1.1rem;                    /* VT323 runs small, so it is bumped up */
+    --boot-text: var(--accent);
+    --boot-status: var(--accent2);               /* amber for the .ok values */
+    --boot-warn: var(--alarm);
+    --boot-rule: 3px double var(--accent-dim);   /* top and bottom rule */
+    --boot-glow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+    --boot-prompt: ">";
+    --boot-banner: "ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL";
+    --boot-blink: 1.1s;                          /* cursor blink period */
+    background: var(--bg);
+    border: 0;
+    border-top: var(--boot-rule);
+    border-bottom: var(--boot-rule);
+    padding: 0.4rem 1.1rem 0.35rem;
+    box-shadow: inset 0 0 24px color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  [data-theme="terminal"] .boot::before {
+    content: var(--boot-banner);
+    display: block; text-align: center;
+    font-family: var(--font-display); font-size: var(--boot-font-size); letter-spacing: 0.14em;
+    color: var(--boot-text); text-shadow: var(--boot-glow);
+    margin-bottom: 0.15rem;
+  }
+  [data-theme="terminal"] .boot::after {
+    content: var(--boot-prompt) "\00a0\2588";    /* "> " + full block cursor */
+    display: block;
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    color: var(--boot-text); text-shadow: var(--boot-glow);
+    animation: boot-term-blink var(--boot-blink) steps(1) infinite;
+  }
+  @keyframes boot-term-blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+  [data-theme="terminal"] .boot-line {
+    position: relative; padding-left: 1.5ch;     /* room for the prompt */
+    flex-wrap: wrap; gap: 0 1rem; line-height: 1.2;
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    letter-spacing: 0.05em; color: var(--boot-text); text-shadow: var(--boot-glow);
+  }
+  [data-theme="terminal"] .boot-line + .boot-line { margin-top: 0.2rem; }
+  [data-theme="terminal"] .boot-line::before {
+    content: var(--boot-prompt); position: absolute; left: 0; color: var(--boot-status);
+  }
+  [data-theme="terminal"] .boot-line .ok { color: var(--boot-status); }
+  [data-theme="terminal"] .boot-line .env-badge {
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    border-radius: 0; background: transparent; text-shadow: none;
+  }
+  [data-theme="terminal"] #neglected-quest-line { color: var(--boot-warn); text-shadow: none; }
+  [data-theme="terminal"] #neglected-quest-line::before { content: "!"; color: var(--boot-warn); }
+  /* Phone width: the full banner wraps onto two lines, so shorten it. */
+  @media (max-width: 520px) {
+    [data-theme="terminal"] .boot { --boot-banner: "TERMLINK PROTOCOL"; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="terminal"] .boot::after { animation: none; }
+  }
+
   /* ---------- theme: Raccoon Manor (shabby gothic horror) ---------- */
   [data-theme="raccoonmanor"] {
     --bg: #0b0d09;
@@ -1130,6 +1193,67 @@
     color: var(--alarm);
   }
 
+  /* ---------- boot bar: Test Pattern (#140) ----------
+     A broadcast station-ID slate: a strip of SMPTE color bars across the top,
+     a grey-scale step wedge along the bottom, and the status values as
+     inverse "on-screen display" chips. The org line shares the title's
+     convergence fringe, so the pad in the corner pulls the bar's text apart
+     too. Same rows as the generic strip. Tweak the look from the variables. */
+  [data-theme="testpattern"] .boot {
+    --boot-bars-h: 6px;                          /* color bar strip, top */
+    --boot-steps-h: 5px;                         /* grey step wedge, bottom */
+    --boot-bg: #000;
+    --boot-text: var(--text);
+    --boot-chip-fg: #000;
+    --boot-chip-1: var(--accent);                /* chip on the link-status row */
+    --boot-chip-2: var(--idea);                  /* chip on the missions row */
+    --boot-warn: var(--alarm);
+    --boot-fringe: 3px;                          /* org-line convergence fringe, at full offset */
+    background: var(--boot-bg);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--boot-bars-h) + 0.45rem) 1.1rem calc(var(--boot-steps-h) + 0.4rem);
+  }
+  [data-theme="testpattern"] .boot::before,
+  [data-theme="testpattern"] .boot::after {
+    content: ""; position: absolute; left: 0; right: 0; pointer-events: none;
+  }
+  [data-theme="testpattern"] .boot::before {
+    top: 0; height: var(--boot-bars-h);
+    background: repeating-linear-gradient(90deg,
+      #fff 0 12.5%, #e5e500 12.5% 25%, #00e5e5 25% 37.5%, #00c800 37.5% 50%,
+      #e500e5 50% 62.5%, #e50000 62.5% 75%, #0000e5 75% 87.5%, #000 87.5% 100%);
+  }
+  [data-theme="testpattern"] .boot::after {
+    bottom: 0; height: var(--boot-steps-h);
+    background: linear-gradient(90deg,
+      #000 0 12.5%, #242424 12.5% 25%, #484848 25% 37.5%, #6c6c6c 37.5% 50%,
+      #909090 50% 62.5%, #b4b4b4 62.5% 75%, #d8d8d8 75% 87.5%, #fff 87.5% 100%);
+  }
+  [data-theme="testpattern"] .boot-line {
+    flex-wrap: wrap; align-items: center; gap: 0.15rem 1rem;
+    color: var(--boot-text); letter-spacing: 0.08em;
+  }
+  [data-theme="testpattern"] .boot-line:first-child > span:first-child {
+    text-shadow:
+      calc(var(--tp-conv-x, 0) * var(--boot-fringe)) calc(var(--tp-conv-y, 0) * var(--boot-fringe) * -1) var(--accent),
+      calc(var(--tp-conv-x, 0) * var(--boot-fringe) * -1) calc(var(--tp-conv-y, 0) * var(--boot-fringe)) var(--alarm);
+  }
+  /* The two status values become inverse OSD chips, like the CH/VOL labels
+     a TV draws over the picture. */
+  [data-theme="testpattern"] .boot-line .ok {
+    background: var(--boot-chip-1); color: var(--boot-chip-fg);
+    font-weight: 700; letter-spacing: 0.1em; padding: 0 0.5rem;
+  }
+  [data-theme="testpattern"] .boot-line:nth-child(2) .ok { background: var(--boot-chip-2); }
+  [data-theme="testpattern"] .boot-line .env-badge { border-radius: 0; }
+  /* The least-touched row reads as a signal-loss warning: a red chip for the
+     label, the Quest title in alarm red. */
+  [data-theme="testpattern"] #neglected-quest-line { color: var(--boot-warn); }
+  [data-theme="testpattern"] #neglected-quest-line > span:first-child {
+    background: var(--boot-warn); color: #fff; font-weight: 700; padding: 0 0.5rem;
+  }
+
   /* Tuner floatie (tpTunerRig/tpTunerBtn in app.js): "changing the channel"
      dims the two jitterClass buckets not currently tuned in, like an old
      TV only showing the selected station. tp-tuned-* lands on <html> so
@@ -1261,9 +1385,73 @@
     letter-spacing:0.06em; text-transform:uppercase; color:var(--accent2); border:1px solid var(--accent2); border-radius:8px;
     padding:0.15rem 0.6rem;
   }
-  [data-theme="hadleyshope"] .boot,
   [data-theme="hadleyshope"] .status-panel,
   [data-theme="hadleyshope"] .panel { border-radius:12px; }
+
+  /* ---------- boot bar: Hadley's Hope (#140) ----------
+     The APC's status plate: the same riveted crate-lid recipe the quest
+     cards use, stenciled type, and an indicator lamp in front of each
+     status value (green = link, amber = count). The least-touched row is a
+     caution tag with hazard stripes down its left edge, matching the tape
+     just below the plate. Same rows as the generic strip. Tweak the look
+     from the variables. */
+  [data-theme="hadleyshope"] .boot {
+    --boot-plate-top: #262b1c;
+    --boot-plate-bottom: #161a10;
+    --boot-rivet: #cfd8c4;
+    --boot-rivet-inset: 11px;
+    --boot-radius: 12px;
+    --boot-text: var(--text);
+    --boot-lamp-link: var(--accent);
+    --boot-lamp-count: var(--accent2);
+    --boot-lamp-size: 8px;
+    --boot-warn: var(--alarm);
+    --boot-hazard: repeating-linear-gradient(135deg, var(--accent2) 0 6px, #141414 6px 12px);
+    --boot-hazard-w: 8px;
+    width: auto; margin: 0.5rem 0.5rem 0.4rem;
+    padding: 0.55rem 1.6rem;
+    border: 2px solid var(--border); border-radius: var(--boot-radius);
+    background:
+      radial-gradient(circle at var(--boot-rivet-inset) var(--boot-rivet-inset), var(--boot-rivet) 0 1.6px, transparent 1.8px),
+      radial-gradient(circle at calc(100% - var(--boot-rivet-inset)) var(--boot-rivet-inset), var(--boot-rivet) 0 1.6px, transparent 1.8px),
+      radial-gradient(circle at var(--boot-rivet-inset) calc(100% - var(--boot-rivet-inset)), var(--boot-rivet) 0 1.6px, transparent 1.8px),
+      radial-gradient(circle at calc(100% - var(--boot-rivet-inset)) calc(100% - var(--boot-rivet-inset)), var(--boot-rivet) 0 1.6px, transparent 1.8px),
+      linear-gradient(180deg, var(--boot-plate-top), var(--boot-plate-bottom));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 10px rgba(0,0,0,0.5);
+  }
+  [data-theme="hadleyshope"] .boot-line {
+    flex-wrap: wrap; align-items: center; gap: 0.1rem 1rem;
+    font-family: var(--font-head); font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--boot-text);
+  }
+  [data-theme="hadleyshope"] .boot-line:first-child > span:first-child {
+    font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.12em;
+  }
+  /* Indicator lamps, drawn as a dot before the value. */
+  [data-theme="hadleyshope"] .boot-line .ok { color: var(--accent2); }
+  [data-theme="hadleyshope"] .boot-line .ok::before {
+    content: ""; display: inline-block; vertical-align: middle; margin: -0.1em 0.5em 0 0;
+    width: var(--boot-lamp-size); height: var(--boot-lamp-size); border-radius: 50%;
+    background: var(--boot-lamp-count); box-shadow: 0 0 6px 1px var(--boot-lamp-count);
+  }
+  [data-theme="hadleyshope"] .boot-line:first-child .ok { color: var(--accent); }
+  [data-theme="hadleyshope"] .boot-line:first-child .ok::before {
+    background: var(--boot-lamp-link); box-shadow: 0 0 6px 1px var(--boot-lamp-link);
+  }
+  [data-theme="hadleyshope"] .boot-line .env-badge { font-family: var(--font-head); border-radius: 6px; }
+  [data-theme="hadleyshope"] #neglected-quest-line {
+    padding-left: calc(var(--boot-hazard-w) + 0.6rem); margin-top: 0.3rem;
+    background: var(--boot-hazard) left / var(--boot-hazard-w) 100% no-repeat;
+    color: var(--boot-warn);
+  }
+  [data-theme="hadleyshope"] #neglected-quest-value { color: var(--accent2); }
+  /* Phone width: tighter type and plate, so the plate stays short (the
+     theme's fixed tracker and ammo HUDs sit over the top of the page). */
+  @media (max-width: 520px) {
+    [data-theme="hadleyshope"] .boot { margin: 0.4rem 0.4rem 0.3rem; padding: 0.4rem 1.3rem; }
+    [data-theme="hadleyshope"] .boot-line { font-size: 0.72rem; letter-spacing: 0.06em; }
+    [data-theme="hadleyshope"] .boot-line:first-child > span:first-child { font-size: 0.8rem; letter-spacing: 0.08em; }
+  }
   [data-theme="hadleyshope"] .panel-quests,
   [data-theme="hadleyshope"] .panel-idea {
     background:
@@ -1541,6 +1729,56 @@
      palettes, but it fights ComputerCatSimple's muted sage everywhere else. */
   [data-theme="computercatsimple"] .add-panel { --panel-accent: var(--accent); }
 
+  /* ---------- boot bar: Computer Cats Simple (#140) ----------
+     A flat MSP console toolbar: no box, just a hairline underneath, muted
+     small type with the org name in the body color, the link status as an
+     "online" pill with a dot, and the least-touched Quest as an inline alert
+     row with a left accent bar. Same rows as the generic strip. (The org
+     line, terminal name and labels are stored upper-case, so the type is
+     kept small and light rather than shouting.) Tweak from the variables. */
+  [data-theme="computercatsimple"] .boot {
+    --boot-bg: var(--surface);
+    --boot-hairline: var(--border);
+    --boot-font-size: 0.74rem;
+    --boot-text: var(--text);
+    --boot-muted: var(--muted);
+    --boot-pill-bg: color-mix(in srgb, var(--accent) 16%, transparent);
+    --boot-pill-fg: var(--accent);
+    --boot-dot-size: 7px;
+    --boot-alert-bg: color-mix(in srgb, var(--alarm) 10%, transparent);
+    --boot-alert-bar: var(--alarm);
+    background: var(--boot-bg);
+    border: 0; border-bottom: 1px solid var(--boot-hairline);
+    padding: 0.55rem 1.25rem;
+  }
+  [data-theme="computercatsimple"] .boot-line {
+    flex-wrap: wrap; align-items: center; gap: 0.2rem 1rem;
+    font-family: var(--font-body); font-size: var(--boot-font-size); font-weight: 500;
+    letter-spacing: 0.04em; color: var(--boot-muted);
+  }
+  [data-theme="computercatsimple"] .boot-line + .boot-line { margin-top: 0.3rem; }
+  [data-theme="computercatsimple"] .boot-line:first-child > span:first-child { color: var(--boot-text); font-weight: 600; }
+  /* The two status values: the link status is the pill, the mission count a
+     plain right-aligned figure. */
+  [data-theme="computercatsimple"] .boot-line .ok { color: var(--boot-muted); font-variant-numeric: tabular-nums; }
+  [data-theme="computercatsimple"] .boot-line:first-child .ok {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.1rem 0.65rem; border-radius: 999px;
+    background: var(--boot-pill-bg); color: var(--boot-pill-fg);
+  }
+  [data-theme="computercatsimple"] .boot-line:first-child .ok::before {
+    content: ""; width: var(--boot-dot-size); height: var(--boot-dot-size);
+    border-radius: 50%; background: var(--boot-pill-fg);
+  }
+  [data-theme="computercatsimple"] .boot-line .env-badge {
+    font-family: var(--font-body); font-weight: 600; border-radius: 4px;
+  }
+  [data-theme="computercatsimple"] #neglected-quest-line {
+    padding: 0.3rem 0.65rem; border-radius: 4px;
+    background: var(--boot-alert-bg); border-left: 3px solid var(--boot-alert-bar);
+  }
+  [data-theme="computercatsimple"] #neglected-quest-value { color: var(--boot-text); }
+
   * { box-sizing: border-box; }
 
   body {
@@ -1622,6 +1860,10 @@
     gap: 1rem;
   }
   .boot-line + .boot-line { margin-top: 0.15rem; }
+  /* display:flex above beats the UA's [hidden] rule, so the least-touched
+     line (hidden by app.js when no open Quest exists) was still showing its
+     label with an empty value. Every theme's boot bar below relies on this. */
+  .boot-line[hidden] { display: none; }
   .boot-line .ok { color: var(--accent); }
   .boot-line .env-badge {
     font-family: var(--font-mono);
