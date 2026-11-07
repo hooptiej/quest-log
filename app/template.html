@@ -1622,6 +1622,10 @@
     gap: 1rem;
   }
   .boot-line + .boot-line { margin-top: 0.15rem; }
+  /* display:flex above beats the UA's [hidden] rule, so the least-touched
+     line (hidden by app.js when no open Quest exists) was still showing its
+     label with an empty value. Every theme's boot bar below relies on this. */
+  .boot-line[hidden] { display: none; }
   .boot-line .ok { color: var(--accent); }
   .boot-line .env-badge {
     font-family: var(--font-mono);
