@@ -126,6 +126,9 @@
     content: var(--boot-prompt); position: absolute; left: 0; color: var(--boot-status);
   }
   [data-theme="terminal"] .boot-line .ok { color: var(--boot-status); }
+  /* The build is one more prompt line, "> SYSTEM REV v1.3.0 ...", the value in amber and
+     flowing left to right after the label like typed output, not pushed to the right edge. */
+  [data-theme="terminal"] .boot-build { color: var(--boot-status); margin-left: 0; text-align: left; }
   [data-theme="terminal"] .boot-line .env-badge {
     font-family: var(--font-display); font-size: var(--boot-font-size);
     border-radius: 0; background: transparent; text-shadow: none;
@@ -310,6 +313,16 @@
     padding: 0.05rem 0.5rem; transform: rotate(-4deg);
     font-family: var(--font-head); text-transform: uppercase; letter-spacing: 0.1em;
     box-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 8px color-mix(in srgb, var(--alarm) 35%, transparent);
+  }
+  /* The build chip (#175): this theme hides the boot bar, so the version and build ride the
+     clipboard strip as a manila file-ref tag (same cream paper and dark ink as the folder
+     tabs), a small tilt, kept to the strip's width on a phone. */
+  [data-theme="raccoonmanor"] .rm-build-tag {
+    max-width: 100%; overflow-wrap: anywhere;
+    font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.04em; color: #2c2013;
+    background: rgba(233,227,201,0.92); border: 1px solid rgba(44,32,19,0.4);
+    padding: 0.08rem 0.45rem; transform: rotate(0.8deg);
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.3); font-variant-numeric: tabular-nums;
   }
   [data-theme="raccoonmanor"] .rm-witness-line {
     font-style: italic; color: var(--muted); text-transform: none; letter-spacing: 0.02em;
@@ -1207,6 +1220,7 @@
     --boot-chip-fg: #000;
     --boot-chip-1: var(--accent);                /* chip on the link-status row */
     --boot-chip-2: var(--idea);                  /* chip on the missions row */
+    --boot-chip-3: var(--accent2);               /* chip on the build row */
     --boot-warn: var(--alarm);
     --boot-fringe: 3px;                          /* org-line convergence fringe, at full offset */
     background: var(--boot-bg);
@@ -1246,6 +1260,11 @@
     font-weight: 700; letter-spacing: 0.1em; padding: 0 0.5rem;
   }
   [data-theme="testpattern"] .boot-line:nth-child(2) .ok { background: var(--boot-chip-2); }
+  /* The build is a third OSD chip, upper-cased like on-screen display text ("V1.3.0 · BUILD ..."). */
+  [data-theme="testpattern"] .boot-build {
+    background: var(--boot-chip-3); color: var(--boot-chip-fg);
+    font-weight: 700; letter-spacing: 0.1em; padding: 0 0.5rem; text-transform: uppercase;
+  }
   [data-theme="testpattern"] .boot-line .env-badge { border-radius: 0; }
   /* The least-touched row reads as a signal-loss warning: a red chip for the
      label, the Quest title in alarm red. */
@@ -1371,6 +1390,12 @@
      value here double-counted the boot bar's height and pushed it down
      into the subtitle row instead. */
   [data-theme="hadleyshope"] .theme-switcher { top: 2rem; right: 70px; }
+  /* The page footer (build stamp, #175) was invisible on this theme. The footer is a plain
+     static block, and this theme's full-screen grate floor, hive, fog and drip layers are
+     position:fixed at z-index 1, which paint over any static content (the .wrap above it
+     is lifted by its own z-index). Lifting the footer above them, as .wrap is, shows it. The
+     bottom margin keeps it clear of the fixed lever and switch plates in the corners. */
+  [data-theme="hadleyshope"] footer.sig { position: relative; z-index: 2; margin-bottom: 5rem; }
   /* Placard/threat badge: real elements (not CSS content) so JS can fill
      them with an actual open quest title, same as the mockup did. */
   .hh-placard, .hh-threat-badge { display:none; }
@@ -1439,6 +1464,14 @@
     background: var(--boot-lamp-link); box-shadow: 0 0 6px 1px var(--boot-lamp-link);
   }
   [data-theme="hadleyshope"] .boot-line .env-badge { font-family: var(--font-head); border-radius: 6px; }
+  /* The build is stamped on the plate like a serial tag: stenciled caps in a thin recessed
+     frame, no lamp (it is a label, not a status). */
+  [data-theme="hadleyshope"] .boot-build {
+    color: var(--accent2); font-family: var(--font-display); font-size: 0.8rem;
+    letter-spacing: 0.12em; padding: 0.05rem 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--accent2) 55%, transparent); border-radius: 4px;
+    background: rgba(0,0,0,0.28); box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+  }
   [data-theme="hadleyshope"] #neglected-quest-line {
     padding-left: calc(var(--boot-hazard-w) + 0.6rem); margin-top: 0.3rem;
     background: var(--boot-hazard) left / var(--boot-hazard-w) 100% no-repeat;
@@ -1770,6 +1803,13 @@
     content: ""; width: var(--boot-dot-size); height: var(--boot-dot-size);
     border-radius: 50%; background: var(--boot-pill-fg);
   }
+  /* The build is a quiet neutral pill: no dot, no accent color, so it reads as metadata
+     next to the "online" pill rather than another status. */
+  [data-theme="computercatsimple"] .boot-build {
+    padding: 0.1rem 0.65rem; border-radius: 999px;
+    border: 1px solid var(--boot-hairline); color: var(--boot-muted);
+    background: color-mix(in srgb, var(--boot-text) 5%, transparent);
+  }
   [data-theme="computercatsimple"] .boot-line .env-badge {
     font-family: var(--font-body); font-weight: 600; border-radius: 4px;
   }
@@ -1876,6 +1916,18 @@
     color: var(--alarm);
     text-transform: uppercase;
     font-weight: 600;
+  }
+  /* The build chip (#175): "v<version> · build <sha> (<date>)", filled in by the server so it
+     shows without JS. A row of every theme's boot bar; Raccoon Manor hides the bar and carries
+     the same text in its clipboard strip instead (.rm-build-tag). Each theme restyles
+     .boot-build in its own boot-bar section. On a narrow bar the row wraps and the chip drops
+     to its own line, never wider than the bar. This is the MU/TH/UR (default) look: the value
+     in the accent color, like the status values above it. */
+  .boot-build-line { flex-wrap: wrap; align-items: center; }
+  .boot-build {
+    margin-left: auto; min-width: 0; max-width: 100%;
+    overflow-wrap: anywhere; text-align: right;
+    color: var(--accent); font-variant-numeric: tabular-nums;
   }
 
   .theme-select {
@@ -2854,6 +2906,7 @@
 <div class="boot">
   <div class="boot-line"><span id="boot-org-line">WEYTANI-YULAND CORP // HOMELAB DIVISION</span><span class="env-badge-slot"></span><span class="ok">LINK ESTABLISHED</span></div>
   <div class="boot-line"><span>TERMINAL: <span id="terminal-name">MU/TH/UR-6000</span></span><span id="boot-time" class="ok">STANDING BY</span></div>
+  <div class="boot-line boot-build-line" id="boot-build-line"><span>SYSTEM REV</span><span id="boot-build" class="boot-build">__BOOT_BUILD_TEXT__</span></div>
   <div class="boot-line" id="neglected-quest-line" hidden><span>LEAST-TOUCHED QUEST:</span><span id="neglected-quest-value"></span></div>
 </div>
 <div class="wrap">
@@ -2933,6 +2986,7 @@
           <span class="env-badge-slot"></span>
           <span class="rm-case-stamp" id="rmCaseStamp"></span>
           <span class="rm-witness-line" id="rmWitnessLine"></span>
+          <span class="rm-build-tag" id="rmBuild">__BOOT_BUILD_TEXT__</span>
         </div>
         <h2>Quests <span class="count" id="count-quests"></span></h2>
         <div id="quest-tree"></div>
@@ -2973,7 +3027,7 @@
   </div>
 </div>
 
-<footer class="sig">// end transmission — homelab ops · <span id="version-badge"></span> · <span id="build-stamp">__BUILD_LINE_TEXT__</span></footer>
+<footer class="sig">// end transmission — homelab ops · <span id="version-badge">__APP_VERSION_TEXT__</span> · <span id="build-stamp">__BUILD_LINE_TEXT__</span></footer>
 
 <script>window.__QUEST_STATE__ = __STATE_JSON__; window.__WRITE_TOKEN__ = __WRITE_TOKEN_VALUE__; window.__APP_VERSION__ = __APP_VERSION_VALUE__; window.__QUEST_LOG_ENV__ = __QUEST_LOG_ENV_VALUE__;</script>
 <script>
