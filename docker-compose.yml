@@ -1,5 +1,9 @@
 services:
   quest-log:
+    # #165: a named, tagged image so every deploy stays on the host as a rollback target.
+    # scripts/deploy.sh sets QUESTLOG_TAG (<version>-<sha>) in .env; a plain
+    # `docker compose up -d --build` without it builds quest-log:local.
+    image: "${QUESTLOG_IMAGE:-quest-log}:${QUESTLOG_TAG:-local}"
     build:
       context: .
       args:

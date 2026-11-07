@@ -136,6 +136,13 @@ shape to copy from.
 docker compose up -d --build
 ```
 
+For a real install, deploy with **`./scripts/deploy.sh`** instead: copy `.env.example` to `.env`
+(set `COMPOSE_FILE`, and optionally the data dir and a dashboard pulse), then each run moves the
+checkout to `origin/main`, backs up the data dir, builds `quest-log:<version>-<sha>` with the build
+stamp baked in, restarts, and checks `/health` reports that build. `--rollback` lists the earlier
+images kept on the host and `--rollback <tag>` runs one again; `-h` shows the rest. A plain
+`docker compose up -d --build` without the script builds `quest-log:local`.
+
 `docker-compose.yml` mounts persistent data into the container so state survives rebuilds.
 By default the container joins an external `ipvlan` network (`questlog-lan`) and gets its own
 static LAN IP (see the `networks:` block), rather than being port-mapped on the host — so it's

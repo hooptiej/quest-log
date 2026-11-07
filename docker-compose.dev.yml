@@ -1,5 +1,7 @@
 services:
   quest-log-dev:
+    # #165: see docker-compose.yml. Its own image name, so dev builds never touch prod's tags.
+    image: "${QUESTLOG_IMAGE:-quest-log-dev}:${QUESTLOG_TAG:-local}"
     build:
       context: .
       args:
