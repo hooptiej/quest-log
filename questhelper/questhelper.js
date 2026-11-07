@@ -41,6 +41,7 @@ import {
   attachHaloTicket,
   detachHaloTicket,
   ensureTicketTouchIds,
+  touchesNewestFirst,
   updateTicketTouch,
   deleteTicketTouch,
   getTicketStats,
@@ -963,12 +964,12 @@ function createServer(options = {}) {
   // caller find a record's id and then correct or remove it.
   const touchTarget = {
     id: z.string().optional().describe("The record's id (from list_ticket_touches or the log_ticket_touch result)"),
-    ticketId: z.string().optional().describe("Instead of id: target the NEWEST record for this Halo ticket number"),
+    ticketId: z.string().optional().describe("Instead of id: target the NEWEST record for this Halo ticket number -- newest by when the work happened (its date/timestamp, backdates included), not by when it was logged"),
   };
 
   server.tool(
     "list_ticket_touches",
-    "List logged ticket-touch records (newest first) with their ids, optionally filtered to one Halo ticket. Use this to find the id to pass to update_ticket_touch / delete_ticket_touch.",
+    "List logged ticket-touch records, newest first by when the work happened (timestamp -- a backdated touch sits at its date, not where it was logged), with their ids, optionally filtered to one Halo ticket. Use this to find the id to pass to update_ticket_touch / delete_ticket_touch.",
     {
       ticketId: z.string().optional().describe("Only show records for this Halo ticket number"),
       limit: z.number().optional().describe("Max records to return (default 25)"),
@@ -980,7 +981,9 @@ function createServer(options = {}) {
       const { result } = await mutateState(async (state) => {
         if (!getProMode(state)) return { error: "Pro mode is not enabled." };
         ensureTicketTouchIds(state);
-        let touches = (state.ticketTouches ?? []).slice().reverse();
+        // #161: newest by timestamp (when the work happened), so a backdated
+        // touch sits at its date, not where it was logged.
+        let touches = touchesNewestFirst(state.ticketTouches);
         if (ticketId) touches = touches.filter((t) => t.ticketId === ticketId);
         return { touches: touches.slice(0, limit ?? 25) };
       });
