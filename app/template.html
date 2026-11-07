@@ -77,6 +77,69 @@
   }
   [data-theme="terminal"] h1 { letter-spacing: 0.01em; }
 
+  /* ---------- boot bar: Field Terminal (#140) ----------
+     A RobCo TERMLINK header: bare phosphor text between double rules, a
+     ">" prompt on every line ("!" on the least-touched warning), and a
+     trailing prompt with a blinking cursor, as if the bar were the top of
+     a terminal session. Same three rows of information as the generic
+     strip. Tweak the look from the variables. */
+  [data-theme="terminal"] .boot {
+    --boot-font-size: 1.1rem;                    /* VT323 runs small, so it is bumped up */
+    --boot-text: var(--accent);
+    --boot-status: var(--accent2);               /* amber for the .ok values */
+    --boot-warn: var(--alarm);
+    --boot-rule: 3px double var(--accent-dim);   /* top and bottom rule */
+    --boot-glow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+    --boot-prompt: ">";
+    --boot-banner: "ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL";
+    --boot-blink: 1.1s;                          /* cursor blink period */
+    background: var(--bg);
+    border: 0;
+    border-top: var(--boot-rule);
+    border-bottom: var(--boot-rule);
+    padding: 0.4rem 1.1rem 0.35rem;
+    box-shadow: inset 0 0 24px color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  [data-theme="terminal"] .boot::before {
+    content: var(--boot-banner);
+    display: block; text-align: center;
+    font-family: var(--font-display); font-size: var(--boot-font-size); letter-spacing: 0.14em;
+    color: var(--boot-text); text-shadow: var(--boot-glow);
+    margin-bottom: 0.15rem;
+  }
+  [data-theme="terminal"] .boot::after {
+    content: var(--boot-prompt) "\00a0\2588";    /* "> " + full block cursor */
+    display: block;
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    color: var(--boot-text); text-shadow: var(--boot-glow);
+    animation: boot-term-blink var(--boot-blink) steps(1) infinite;
+  }
+  @keyframes boot-term-blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+  [data-theme="terminal"] .boot-line {
+    position: relative; padding-left: 1.5ch;     /* room for the prompt */
+    flex-wrap: wrap; gap: 0 1rem; line-height: 1.2;
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    letter-spacing: 0.05em; color: var(--boot-text); text-shadow: var(--boot-glow);
+  }
+  [data-theme="terminal"] .boot-line + .boot-line { margin-top: 0.2rem; }
+  [data-theme="terminal"] .boot-line::before {
+    content: var(--boot-prompt); position: absolute; left: 0; color: var(--boot-status);
+  }
+  [data-theme="terminal"] .boot-line .ok { color: var(--boot-status); }
+  [data-theme="terminal"] .boot-line .env-badge {
+    font-family: var(--font-display); font-size: var(--boot-font-size);
+    border-radius: 0; background: transparent; text-shadow: none;
+  }
+  [data-theme="terminal"] #neglected-quest-line { color: var(--boot-warn); text-shadow: none; }
+  [data-theme="terminal"] #neglected-quest-line::before { content: "!"; color: var(--boot-warn); }
+  /* Phone width: the full banner wraps onto two lines, so shorten it. */
+  @media (max-width: 520px) {
+    [data-theme="terminal"] .boot { --boot-banner: "TERMLINK PROTOCOL"; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="terminal"] .boot::after { animation: none; }
+  }
+
   /* ---------- theme: Raccoon Manor (shabby gothic horror) ---------- */
   [data-theme="raccoonmanor"] {
     --bg: #0b0d09;
